@@ -131,7 +131,7 @@ export default function HoldingAccounts({ onNavigate }) {
 
   return (
     <div className="flex-1 bg-gray-50 p-6 min-w-0">
-      <h1 className="text-xl font-semibold text-gray-900 mb-1 mt-5">Holding Accounts</h1>
+      <h1 className="text-xl font-semibold text-gray-900 mb-1">Holding Accounts</h1>
       <p className="text-sm text-gray-500 mb-4 max-w-xl">
         Money you hold with PulseFX, by currency and bank.
       </p>
@@ -139,7 +139,7 @@ export default function HoldingAccounts({ onNavigate }) {
       {/* Totals */}
       <div className="grid grid-cols-2 gap-3.5 max-w-lg mb-4">
         {["USD", "CAD"].map((cur) => (
-          <div key={cur} className="bg-white p-3.5 rounded-lg p-4 shadow-sm border border-gray-100">
+          <div key={cur} className="bg-white rounded-xl border border-gray-200/70 p-4">
             <p className="text-xs text-gray-500 mb-1">Total {cur}</p>
             <p className="text-xl font-semibold text-gray-900 tabular-nums">{money(totalFor(cur))}</p>
           </div>
@@ -147,7 +147,7 @@ export default function HoldingAccounts({ onNavigate }) {
       </div>
 
       {/* Accounts table */}
-      <div className="bg-white rounded-lg p-3.5 shadow-sm border border-gray-100">
+      <div className="bg-white rounded-xl border border-gray-200/70 p-4">
         <div className="grid grid-cols-[0.7fr_1fr_1fr_1.2fr_1.2fr_1.6fr] gap-3 text-[11px] text-gray-400 border-b border-gray-100 pb-1.5">
           <span>Currency</span>
           <span>Bank</span>
@@ -182,7 +182,7 @@ export default function HoldingAccounts({ onNavigate }) {
               {acc.change90 >= 0 ? <ArrowUpRight className="w-3 h-3" /> : <ArrowDownRight className="w-3 h-3" />}
               {signed(acc.change90)}
             </span>
-            <span className="flex items-center justify-end gap-5 text-xs font-medium">
+            <span className="flex items-center justify-end gap-3 text-xs font-medium">
               <button type="button" onClick={() => setSelected(acc)} className="text-accent hover:underline">
                 Details
               </button>
@@ -194,16 +194,14 @@ export default function HoldingAccounts({ onNavigate }) {
                 <ArrowLeftRight className="w-3 h-3" />
                 Convert
               </button>
-              <span className="text-right">
-                  <button
-                    type="button"
-                    onClick={() => onNavigate("send-payment")}
-                    className="inline-flex items-center gap-1 text-xs font-semibold px-3 py-1.5 rounded bg-accent-100 text-accent hover:bg-accent hover:text-white transition-all disabled:bg-gray-100 disabled:text-gray-300 disabled:cursor-not-allowed shadow-2xs"
-                  >
-                    <Send className="w-3 h-3" />
-                    Pay
-                  </button>
-                </span>
+              <button
+                type="button"
+                onClick={() => onNavigate("send-payment")}
+                className="inline-flex items-center gap-1 text-accent hover:underline"
+              >
+                <Send className="w-3 h-3" />
+                Pay
+              </button>
             </span>
           </div>
         ))}

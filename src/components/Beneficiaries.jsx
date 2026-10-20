@@ -51,7 +51,7 @@ export default function Beneficiaries({ onNavigate }) {
 
   return (
     <div className="flex-1 bg-gray-50 p-6 min-w-0">
-      <div className="flex items-center justify-between mb-4 mt-5">
+      <div className="flex items-center justify-between mb-4">
         <h1 className="text-xl font-semibold text-gray-900">Beneficiaries</h1>
         <button
           type="button"
@@ -63,7 +63,7 @@ export default function Beneficiaries({ onNavigate }) {
         </button>
       </div>
 
-      <p className="text-sm text-gray-500 mb-4 max-w-auto">
+      <p className="text-sm text-gray-500 mb-4 max-w-xl">
         The people and companies you pay. New beneficiaries are reviewed by our team before you can send to them.
       </p>
 
@@ -75,12 +75,12 @@ export default function Beneficiaries({ onNavigate }) {
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Search by name, bank or currency"
-          className="w-full text-sm border border-gray-200 rounded-md pl-9 pr-3 py-2.5 bg-white shadow-2xs focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent-100 transition-all"
+          className="w-full text-sm border border-gray-200 rounded-md pl-9 pr-3 py-2 bg-white focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent-100"
         />
       </div>
 
       {/* Table */}
-      <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
+      <div className="bg-white rounded-xl border border-gray-200/70 p-4">
         <div className="grid grid-cols-[1.5fr_0.7fr_1.2fr_1fr_1fr_1fr] gap-3 text-[11px] text-gray-400 border-b border-gray-100 pb-1.5">
           <span>Nickname</span>
           <span>Currency</span>
@@ -123,16 +123,16 @@ export default function Beneficiaries({ onNavigate }) {
                 </span>
               </span>
               <span className="text-right">
-                  <button
-                    type="button"
-                    disabled={b.status !== "approved"}
-                    onClick={() => onNavigate("send-payment")}
-                    className="inline-flex items-center gap-1 text-xs font-semibold px-3 py-1.5 rounded bg-accent-100 text-accent hover:bg-accent hover:text-white transition-all disabled:bg-gray-100 disabled:text-gray-300 disabled:cursor-not-allowed shadow-2xs"
-                  >
-                    <Send className="w-3 h-3" />
-                    Pay
-                  </button>
-                </span>
+                <button
+                  type="button"
+                  disabled={b.status !== "approved"}
+                  onClick={() => onNavigate("send-payment")}
+                  className="inline-flex items-center gap-1 text-xs font-medium text-accent hover:underline disabled:text-gray-300 disabled:no-underline disabled:cursor-not-allowed"
+                >
+                  <Send className="w-3 h-3" />
+                  Pay
+                </button>
+              </span>
             </div>
           );
         })}

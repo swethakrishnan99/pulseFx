@@ -6,8 +6,8 @@ import {
   BarChart3,
   HelpCircle,
 } from "lucide-react";
-import BrandLogo from "../assets/logo-pulsefx-horizontal-white.png";
 import ProfileMenu from "./ProfileMenu";
+import PulseMark from "./PulseMark";
 
 const NAV_ITEMS = [
   { key: "dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -21,7 +21,10 @@ export default function Sidebar({ active, onNavigate }) {
   return (
     <aside className="w-[200px] shrink-0 bg-navy flex flex-col p-3.5">
       <div className="flex items-center gap-2 px-1.5 mb-7">
-        <img src={BrandLogo} alt="PulseFX" className="w-auto h-9 mt-5" />
+        <PulseMark className="w-8 h-8" />
+        <span className="text-white text-lg font-medium tracking-tight">
+          PulseFX
+        </span>
       </div>
 
       <nav className="flex flex-col gap-1">
@@ -34,11 +37,11 @@ export default function Sidebar({ active, onNavigate }) {
               onClick={() => onNavigate(key)}
               className={`flex items-center gap-2.5 text-sm px-2.5 py-2 rounded-lg text-left transition-colors ${
                 isActive
-                  ? "bg-white/15 text-white"
+                  ? "bg-white/10 text-white shadow-[inset_3px_0_0_var(--color-brand)]"
                   : "text-white/65 hover:bg-white/10 hover:text-white"
               }`}
             >
-              <Icon className="w-4 h-4" />
+              <Icon className={`w-4 h-4 ${isActive ? "text-brand" : ""}`} />
               {label}
             </button>
           );

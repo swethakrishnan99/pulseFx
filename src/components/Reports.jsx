@@ -130,18 +130,18 @@ export default function Reports() {
 
       {/* Summary */}
       <div className="grid grid-cols-2 gap-3.5 max-w-lg mb-5">
-        <div className="bg-white rounded-lg p-3.5 shadow-sm border border-gray-100">
+        <div className="bg-white rounded-xl border border-gray-200/70 p-4">
           <p className="text-xs text-gray-500 mb-1">In progress</p>
           <p className="text-xl font-semibold text-gray-900">{inProgress.length}</p>
         </div>
-        <div className="bg-white rounded-lg p-3.5 shadow-sm border border-gray-100">
+        <div className="bg-white rounded-xl border border-gray-200/70 p-4">
           <p className="text-xs text-gray-500 mb-1">Completed, last 90 days</p>
           <p className="text-xl font-semibold text-gray-900">{completed90}</p>
         </div>
       </div>
 
       {/* Tabs */}
-      <div role="tablist" className="flex gap-1 border-b border-gray-200 mb-4 ">
+      <div role="tablist" className="flex gap-1 border-b border-gray-200 mb-4">
         {[
           { key: "tracker", label: "Payment tracker" },
           { key: "history", label: "Payment history" },
@@ -165,12 +165,12 @@ export default function Reports() {
       {tab === "tracker" && (
         <div className="flex flex-col gap-3.5">
           {inProgress.length === 0 && (
-            <div className="bg-white rounded-lg p-8 text-center text-sm text-gray-400">
+            <div className="bg-white rounded-xl border border-gray-200/70 p-8 text-center text-sm text-gray-400">
               Nothing in progress right now. Payments you send will show up here.
             </div>
           )}
           {inProgress.map((p) => (
-            <div key={p.ref} className="bg-white rounded-lg p-4 shadow-sm border border-gray-100">
+            <div key={p.ref} className="bg-white rounded-xl border border-gray-200/70 p-4">
               <div className="flex flex-wrap items-start justify-between gap-3 mb-4">
                 <div>
                   <p className="text-sm font-medium text-gray-900">{p.to}</p>
@@ -195,7 +195,7 @@ export default function Reports() {
       {/* HISTORY */}
       {tab === "history" && (
         <>
-          <div className="flex flex-wrap items-center gap-2.5 mb-3.5 ">
+          <div className="flex flex-wrap items-center gap-2.5 mb-3.5">
             <div className="relative">
               <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
               <input
@@ -238,7 +238,7 @@ export default function Reports() {
             </button>
           </div>
 
-          <div className="bg-white rounded-lg p-3.5 shadow-sm border border-gray-100">
+          <div className="bg-white rounded-xl border border-gray-200/70 p-4">
             <div className="grid grid-cols-[1.1fr_0.9fr_1.3fr_1fr_1fr_1fr_0.8fr] gap-3 text-[11px] text-gray-400 border-b border-gray-100 pb-1.5">
               <span>Reference</span>
               <span>Date</span>
