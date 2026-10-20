@@ -6,6 +6,7 @@ import {
   CheckCircle2,
   Copy,
   Wallet,
+  Landmark,
   AlertTriangle,
 } from "lucide-react";
 import Tooltip from "./Tooltip";
@@ -13,8 +14,15 @@ import { readPendingQuote, clearPendingQuote, readPendingBeneficiary, clearPendi
 import { useExchangeRate, getRate, round2, parseAmount, fmt2, fmtRate, niceDate } from "../lib/fx";
 
 import { CURRENCIES, FLAGS } from "../lib/currencies";
+import { getBankAccounts, setPendingTab } from "../lib/bankAccounts";
 const money = (cur, n) => `${cur} ${fmt2(n)}`;
 
+const CONVERT_REASONS = [
+  "Prepare for an upcoming payment",
+  "Lock in an exchange rate",
+  "Rebalance my currencies",
+  "Other",
+];
 const REASONS = [
   "Supplier or invoice payment",
   "Services",
@@ -45,20 +53,21 @@ const BENEFICIARIES = [
 ]; // approved beneficiaries only
 // Holding accounts (mirrors the Holding Accounts page). Only accounts in the currency being paid are offered.
 const HOLDING = [
-  { id: "usd-rbc", currency: "USD", bank: "RBC", last4: "2231", balance: 0 },
-  { id: "cad-rbc", currency: "CAD", bank: "RBC", last4: "4410", balance: 0 },
-  { id: "cad-td", currency: "CAD", bank: "TD", last4: "8827", balance: 4200 },
-  { id: "eur-rbc", currency: "EUR", bank: "RBC", last4: "3305", balance: 0 },
-  { id: "gbp-rbc", currency: "GBP", bank: "RBC", last4: "3306", balance: 0 },
-  { id: "aud-rbc", currency: "AUD", bank: "RBC", last4: "3307", balance: 0 },
-  { id: "mxn-rbc", currency: "MXN", bank: "RBC", last4: "3308", balance: 0 },
+  { id: "usd-rbc", currency: "USD", accountId: "0031201", balance: 0 },
+  { id: "cad-td", currency: "CAD", accountId: "0031202", balance: 4200 },
+  { id: "eur-rbc", currency: "EUR", accountId: "0031203", balance: 0 },
+  { id: "gbp-rbc", currency: "GBP", accountId: "0031204", balance: 0 },
+  { id: "aud-rbc", currency: "AUD", accountId: "0031205", balance: 0 },
+  { id: "mxn-rbc", currency: "MXN", accountId: "0031206", balance: 0 },
 ];
-const acctLabel = (a) => `${a.bank} ••••${a.last4}`;
+// Bank accounts at the client's own bank, linked for direct debit. These are NOT PulseFX holding accounts.
+// Holding accounts are identified by their PulseFX account ID; bank accounts by bank name and last 4 digits.
+const acctLabel = (a) => (a.accountId ? a.accountId : `${a.bank} ••••${a.last4}`);
 
-function StepHeader({ step }) {
+function StepHeader({ step, convert }) {
   const items = [
-    { n: "①", label: "Payment details" },
-    { n: "②", label: "Confirm & fund" },
+    { n: "①", label: convert ? "Conversion details" : "Payment details" },
+    { n: "②", label: convert ? "Confirm" : "Confirm & fund" },
     { n: "③", label: "Done" },
   ];
   return (
@@ -105,6 +114,9 @@ export default function SendPayment({ onNavigate }) {
     return pb ? BENEFICIARIES.find((b) => b.name === pb.name && b.last4 === pb.last4) ?? null : null;
   });
   // Coming from Holding Accounts ("Pay"): that account, and so the currency you pay in, is already chosen.
+  const [pendingConvertMode] = useState(() => readPendingPayFrom()?.convert === true);
+  const [convert, setConvert] = useState(pendingConvertMode); // false = send to someone, true = convert into my own account
+  const [toId, setToId] = useState("");
   const [payFromAcct] = useState(() => {
     const pf = readPendingPayFrom();
     return pf ? HOLDING.find((a) => a.id === pf.fromId) ?? null : null;
@@ -121,6 +133,8 @@ export default function SendPayment({ onNavigate }) {
   const [beneficiaryId, setBeneficiaryId] = useState(fixedBen?.id ?? "");
   const [payDate, setPayDate] = useState(todayIso);
   const [reason, setReason] = useState("");
+  const [fundMethod, setFundMethod] = useState("holding"); // "holding" = from a PulseFX holding account, "debit" = direct debit from your bank
+  const [debitId, setDebitId] = useState("");
   const [fromId, setFromId] = useState(payFromAcct?.id ?? "");
   const [reference, setReference] = useState("");
   const [quote, setQuote] = useState(null);
@@ -151,9 +165,27 @@ export default function SendPayment({ onNavigate }) {
     [...fromOptions].sort((a, b) => b.balance - a.balance)[0] ??
     null;
   const balance = fromAcct ? fromAcct.balance : 0;
-  const balanceTooLow = payAmt > 0 && payAmt > balance;
-  const canContinue =
-    payAmt > 0 && recvAmt > 0 && beneficiary !== null && dateOk && reason !== "" && !balanceTooLow;
+  const useDebit = fundMethod === "debit";
+  const debitOptions = getBankAccounts().filter((a) => a.currency === payCur && a.status === "verified");
+  const hasPendingDebit = getBankAccounts().some((a) => a.currency === payCur && a.status === "pending");
+  const debitAcct = debitOptions.find((a) => a.id === debitId) ?? debitOptions[0] ?? null;
+  const balanceTooLow = !useDebit && payAmt > 0 && payAmt > balance;
+  // Convert mode: the money lands in one of your own holding accounts (in the receive currency).
+  const toOptions = HOLDING.filter((a) => a.currency === recvCur);
+  const toAcct = toOptions.find((a) => a.id === toId) ?? toOptions[0] ?? null;
+  const canContinue = convert
+    ? payAmt > 0 && recvAmt > 0 && !sameCur && toAcct !== null && dateOk && reason !== "" && !balanceTooLow && (!useDebit || debitAcct !== null)
+    : payAmt > 0 && recvAmt > 0 && beneficiary !== null && dateOk && reason !== "" && !balanceTooLow && (!useDebit || debitAcct !== null);
+
+  function chooseMode(toConvert) {
+    setConvert(toConvert);
+    setReason(""); // the reasons differ between sending and converting
+    if (toConvert) {
+      setFixedBen(null);
+      setBeneficiaryId("");
+      if (payCur === recvCur) setRecvCur(CURRENCIES.find((c) => c !== payCur));
+    }
+  }
 
   // ---- handlers ----
   // Paying and receiving in the same currency is allowed (no conversion).
@@ -194,6 +226,8 @@ export default function SendPayment({ onNavigate }) {
       payAmt,
       recvAmt,
       rate,
+      convert,
+      toAcct: convert ? toAcct : null,
       beneficiary,
       sameCur,
       payDate,
@@ -201,6 +235,8 @@ export default function SendPayment({ onNavigate }) {
       reference: reference.trim(),
       balanceBefore: balance,
       fromAcct,
+      useDebit,
+      debitAcct: useDebit ? debitAcct : null,
       rateNote:
         fx.status === "live" || fx.status === "stale"
           ? `ECB daily reference rate, ${niceDate(fx.asOf)}`
@@ -228,9 +264,13 @@ export default function SendPayment({ onNavigate }) {
     setAmountStr("");
     setBeneficiaryId("");
     setFixedBen(null);
+    setConvert(false);
+    setToId("");
     setPayDate(todayIso());
     setReason("");
     setFromId("");
+    setFundMethod("holding");
+    setDebitId("");
     setReference("");
     setQuote(null);
     setResult(null);
@@ -249,39 +289,62 @@ export default function SendPayment({ onNavigate }) {
     const q = quote;
     return (
       <div className="flex-1 bg-gray-50 p-4 pt-[72px] md:p-6 min-w-0">
-        <StepHeader step={2} />
-        <h1 className="text-xl font-semibold text-gray-900 mb-4">Confirm &amp; fund</h1>
+        <StepHeader step={2} convert={q.convert} />
+        <h1 className="text-xl font-semibold text-gray-900 mb-4">{q.convert ? "Confirm conversion" : "Confirm &amp; fund"}</h1>
 
         <div className="bg-white rounded-xl border border-gray-200/70 p-4 max-w-xl mb-4">
-          <p className="text-sm font-medium mb-1">Payment summary</p>
-          <Row label="Paying to" value={`${q.beneficiary.name} (${q.beneficiary.bank} ••••${q.beneficiary.last4})`} />
-          <Row label="You pay" value={money(q.payCur, q.payAmt)} strong />
+          <p className="text-sm font-medium mb-1">{q.convert ? "Conversion summary" : "Payment summary"}</p>
+          {q.convert ? (
+            <>
+              <Row label="From" value={q.useDebit ? `${q.payCur} bank account ${acctLabel(q.debitAcct)} (direct debit)` : `${q.payCur} holding account ${acctLabel(q.fromAcct)}`} />
+              <Row label="Into" value={`${q.recvCur} holding account ${acctLabel(q.toAcct)}`} />
+            </>
+          ) : (
+            <Row label="Paying to" value={`${q.beneficiary.name} (${q.beneficiary.bank} ••••${q.beneficiary.last4})`} />
+          )}
+          <Row label={q.convert ? "You convert" : "You pay"} value={money(q.payCur, q.payAmt)} strong />
           {q.sameCur ? (
             <Row label="Currency conversion" value="Not needed (same currency)" />
           ) : (
             <Row label="Exchange rate" value={`1 ${q.payCur} = ${fmtRate(q.rate)} ${q.recvCur}`} />
           )}
-          <Row label="They receive" value={money(q.recvCur, q.recvAmt)} strong />
-          <Row label="Payment date" value={prettyDate(q.payDate)} />
-          <Row label="Reason for payment" value={q.reason} />
-          {q.reference && <Row label="Payment reference" value={q.reference} />}
+          <Row label={q.convert ? "You receive" : "They receive"} value={money(q.recvCur, q.recvAmt)} strong />
+          <Row label={q.convert ? "Conversion date" : "Payment date"} value={prettyDate(q.payDate)} />
+          <Row label={q.convert ? "Reason for conversion" : "Reason for payment"} value={q.reason} />
+          {q.reference && <Row label={q.convert ? "Reference" : "Payment reference"} value={q.reference} />}
           {!q.sameCur && <p className="text-[11px] text-gray-400 mt-2">{q.rateNote}</p>}
         </div>
 
-        <div className="bg-white rounded-xl border border-gray-200/70 p-4 max-w-xl mb-4">
+        <div className={`${q.convert && !q.useDebit ? "hidden" : ""} bg-white rounded-xl border border-gray-200/70 p-4 max-w-xl mb-4`}>
           <p className="text-sm font-medium mb-3">How you're funding this</p>
-          <div className="flex gap-3">
-            <Wallet className="w-5 h-5 text-accent shrink-0 mt-0.5" />
-            <div>
-              <p className="text-sm text-gray-900">
-                We'll use {money(q.payCur, q.payAmt)} from your {q.payCur} holding account {acctLabel(q.fromAcct)}.
-              </p>
-              <p className="text-xs text-gray-500 mt-1">
-                Available now: {money(q.payCur, q.balanceBefore)}. Left after this payment:{" "}
-                {money(q.payCur, q.balanceBefore - q.payAmt)}.
-              </p>
+          {q.useDebit ? (
+            <div className="flex gap-3">
+              <Landmark className="w-5 h-5 text-accent shrink-0 mt-0.5" />
+              <div>
+                <p className="text-sm text-gray-900">
+                  We'll collect {money(q.payCur, q.payAmt)} from your bank account {acctLabel(q.debitAcct)} by direct debit.
+                </p>
+                <p className="text-xs text-gray-500 mt-1">
+                  {q.convert
+                    ? "This usually takes 1 to 3 business days. We convert it once the money arrives."
+                    : "This usually takes 1 to 3 business days. We send the payment once the money arrives."}
+                </p>
+              </div>
             </div>
-          </div>
+          ) : (
+            <div className="flex gap-3">
+              <Wallet className="w-5 h-5 text-accent shrink-0 mt-0.5" />
+              <div>
+                <p className="text-sm text-gray-900">
+                  We'll use {money(q.payCur, q.payAmt)} from your {q.payCur} holding account {acctLabel(q.fromAcct)}.
+                </p>
+                <p className="text-xs text-gray-500 mt-1">
+                  Available now: {money(q.payCur, q.balanceBefore)}. Left after this payment:{" "}
+                  {money(q.payCur, q.balanceBefore - q.payAmt)}.
+                </p>
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="flex items-center gap-2 max-w-xl">
@@ -297,7 +360,7 @@ export default function SendPayment({ onNavigate }) {
             onClick={confirmPayment}
             className="ml-auto text-sm font-medium bg-accent text-white px-5 py-2 rounded-md hover:bg-accent-800 transition-colors"
           >
-            Confirm payment
+            {q.convert ? "Confirm conversion" : "Confirm payment"}
           </button>
         </div>
         <p className="text-[11px] text-gray-400 mt-3 max-w-xl">Demo only: no money is moved.</p>
@@ -308,22 +371,38 @@ export default function SendPayment({ onNavigate }) {
   // ================= STEP 3: DONE =================
   if (step === 3 && quote && result) {
     const q = quote;
-    const nextSteps = [
-      `We've set aside ${money(q.payCur, q.payAmt)} from your ${q.payCur} holding account ${acctLabel(q.fromAcct)}.`,
-      `We send ${money(q.recvCur, q.recvAmt)} to ${q.beneficiary.name}.`,
+    const nextSteps = q.convert && q.useDebit
+      ? [
+          `We collect ${money(q.payCur, q.payAmt)} from your bank account ${acctLabel(q.debitAcct)} (1 to 3 business days).`,
+          `Once it arrives, we convert it and add ${money(q.recvCur, q.recvAmt)} to your ${q.recvCur} holding account ${acctLabel(q.toAcct)}.`,
+          "You can see the new balance on Holding Accounts.",
+        ]
+      : q.convert
+      ? [
+          `We take ${money(q.payCur, q.payAmt)} from your ${q.payCur} holding account ${acctLabel(q.fromAcct)}.`,
+          `We convert it and add ${money(q.recvCur, q.recvAmt)} to your ${q.recvCur} holding account ${acctLabel(q.toAcct)}.`,
+          "You can see the new balance on Holding Accounts.",
+        ]
+      : [
+      q.useDebit
+        ? `We collect ${money(q.payCur, q.payAmt)} from your bank account ${acctLabel(q.debitAcct)} (1 to 3 business days).`
+        : `We've set aside ${money(q.payCur, q.payAmt)} from your ${q.payCur} holding account ${acctLabel(q.fromAcct)}.`,
+      q.useDebit
+        ? `Once it arrives, we send ${money(q.recvCur, q.recvAmt)} to ${q.beneficiary.name}.`
+        : `We send ${money(q.recvCur, q.recvAmt)} to ${q.beneficiary.name}.`,
       "You can follow every step in Reports, under Payment tracker.",
     ];
 
     return (
       <div className="flex-1 bg-gray-50 p-4 pt-[72px] md:p-6 min-w-0">
-        <StepHeader step={3} />
+        <StepHeader step={3} convert={q.convert} />
 
         <div className="bg-white rounded-xl border border-gray-200/70 p-6 max-w-xl">
           <div className="flex flex-col items-center text-center mb-5">
             <CheckCircle2 className="w-12 h-12 text-success mb-3" />
-            <h1 className="text-xl font-semibold text-gray-900">Payment submitted</h1>
+            <h1 className="text-xl font-semibold text-gray-900">{q.convert ? "Conversion submitted" : "Payment submitted"}</h1>
             <p className="text-sm text-gray-500 mt-1">
-              Your payment to {q.beneficiary.name} is on its way to our team.
+              {q.convert ? "Your conversion is on its way to our team." : `Your payment to ${q.beneficiary.name} is on its way to our team.`}
             </p>
           </div>
 
@@ -344,9 +423,9 @@ export default function SendPayment({ onNavigate }) {
           </div>
 
           <div className="mb-5">
-            <Row label="You paid" value={money(q.payCur, q.payAmt)} strong />
-            <Row label="They receive" value={money(q.recvCur, q.recvAmt)} strong />
-            <Row label="Payment date" value={prettyDate(q.payDate)} />
+            <Row label={q.convert ? "You converted" : "You paid"} value={money(q.payCur, q.payAmt)} strong />
+            <Row label={q.convert ? "You receive" : "They receive"} value={money(q.recvCur, q.recvAmt)} strong />
+            <Row label={q.convert ? "Conversion date" : "Payment date"} value={prettyDate(q.payDate)} />
           </div>
 
           <p className="text-sm font-medium mb-2">What happens next</p>
@@ -364,10 +443,10 @@ export default function SendPayment({ onNavigate }) {
           <div className="flex flex-wrap items-center gap-2">
             <button
               type="button"
-              onClick={() => onNavigate("reports")}
+              onClick={() => onNavigate(q.convert ? "holding-accounts" : "reports")}
               className="text-sm font-medium bg-accent text-white px-4 py-2 rounded-md hover:bg-accent-800 transition-colors"
             >
-              Track this payment
+              {q.convert ? "View holding accounts" : "Track this payment"}
             </button>
             <button
               type="button"
@@ -381,10 +460,10 @@ export default function SendPayment({ onNavigate }) {
               onClick={startOver}
               className="text-sm font-medium text-accent px-2 py-2 hover:underline"
             >
-              Send another payment
+              {q.convert ? "Convert more" : "Send another payment"}
             </button>
           </div>
-          <p className="text-[11px] text-gray-400 mt-4">Demo only: this payment won't appear in Reports.</p>
+          <p className="text-[11px] text-gray-400 mt-4">{q.convert ? "Demo only: balances won't change." : "Demo only: this payment won't appear in Reports."}</p>
         </div>
       </div>
     );
@@ -393,15 +472,40 @@ export default function SendPayment({ onNavigate }) {
   // ================= STEP 1: PAYMENT DETAILS =================
   return (
     <form onSubmit={goToConfirm} className="flex-1 bg-gray-50 p-4 pt-[72px] md:p-6 min-w-0">
-      <StepHeader step={1} />
-      <h1 className="text-xl font-semibold text-gray-900 mb-4">Send a payment</h1>
+      <StepHeader step={1} convert={convert} />
+      <h1 className="text-xl font-semibold text-gray-900 mb-3">Move money</h1>
+
+      <div role="tablist" aria-label="What do you want to do?" className="inline-flex p-1 bg-gray-200/70 rounded-lg mb-4 max-w-full">
+        {[
+          { v: false, label: "Send to someone" },
+          { v: true, label: "Convert my money" },
+        ].map((o) => (
+          <button
+            key={o.label}
+            type="button"
+            role="tab"
+            aria-selected={convert === o.v}
+            onClick={() => chooseMode(o.v)}
+            className={`text-sm font-medium px-4 py-1.5 rounded-md transition-colors ${
+              convert === o.v ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-800"
+            }`}
+          >
+            {o.label}
+          </button>
+        ))}
+      </div>
+      {convert && (
+        <p className="text-xs text-gray-500 -mt-2 mb-4 max-w-xl">
+          Exchange money into another currency. It stays with you, in your own holding account.
+        </p>
+      )}
 
 
       {/* Amounts + converter */}
       <div className="bg-white rounded-xl border border-gray-200/70 p-4 max-w-xl mb-4">
         <div className="grid grid-cols-1 sm:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] gap-2.5 items-end mb-4">
           <div>
-            <label htmlFor="pay-amount" className="block text-[11px] text-gray-500 mb-1">You pay</label>
+            <label htmlFor="pay-amount" className="block text-[11px] text-gray-500 mb-1">{convert ? "You convert" : "You pay"}</label>
             <div className="flex gap-1.5">
               <select
                 aria-label="Currency you pay"
@@ -440,7 +544,7 @@ export default function SendPayment({ onNavigate }) {
           </button>
 
           <div>
-            <label htmlFor="recv-amount" className="block text-[11px] text-gray-500 mb-1">They receive</label>
+            <label htmlFor="recv-amount" className="block text-[11px] text-gray-500 mb-1">{convert ? "You receive" : "They receive"}</label>
             <div className="flex gap-1.5">
               <select
                 aria-label="Currency they receive"
@@ -470,7 +574,7 @@ export default function SendPayment({ onNavigate }) {
           </div>
         </div>
 
-        {sameCur && (
+        {sameCur && !convert && (
           <div className="rounded-md px-3 py-2.5 mb-4 border-l-4 bg-gray-50 border-gray-300">
             <p className="text-sm font-semibold text-gray-700">No currency conversion</p>
             <p className="text-[11px] text-gray-500 mt-0.5">
@@ -505,10 +609,95 @@ export default function SendPayment({ onNavigate }) {
           </button>
         </div>
 
+        {(
+          <fieldset className="mb-4">
+            <legend className="block text-[11px] text-gray-500 mb-1.5">How will you fund this?</legend>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              {[
+                { id: "holding", title: "Holding account", desc: "Use money you already hold with PulseFX" },
+                { id: "debit", title: "Direct debit", desc: "Collect the money from your bank account" },
+              ].map((o) => (
+                <label
+                  key={o.id}
+                  className={`flex items-start gap-2.5 border rounded-lg px-3 py-2.5 cursor-pointer transition-colors ${
+                    fundMethod === o.id ? "border-accent bg-accent-100" : "border-gray-200 hover:border-accent"
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="fund-method"
+                    checked={fundMethod === o.id}
+                    onChange={() => setFundMethod(o.id)}
+                    className="accent-accent mt-1"
+                  />
+                  <div>
+                    <p className="text-sm font-medium">{o.title}</p>
+                    <p className="text-[11px] text-gray-500 mt-0.5">{o.desc}</p>
+                  </div>
+                </label>
+              ))}
+            </div>
+          </fieldset>
+        )}
+
+        {useDebit ? (
+          <div className="mb-4">
+            {debitOptions.length > 1 ? (
+              <>
+                <label htmlFor="debit-account" className="block text-[11px] text-gray-500 mb-1">Debit which bank account?</label>
+                <select
+                  id="debit-account"
+                  value={debitAcct ? debitAcct.id : ""}
+                  onChange={(e) => setDebitId(e.target.value)}
+                  className="w-full text-sm border border-gray-200 rounded-md px-2.5 py-2 bg-white"
+                >
+                  {debitOptions.map((a) => (
+                    <option key={a.id} value={a.id}>
+                      {FLAGS[a.currency]} {a.currency} · {acctLabel(a)}
+                    </option>
+                  ))}
+                </select>
+              </>
+            ) : debitAcct ? (
+              <>
+                <p className="block text-[11px] text-gray-500 mb-1">Debit from</p>
+                <div className="flex gap-3 border border-gray-200 rounded-lg px-3 py-2.5">
+                  <Landmark className="w-5 h-5 text-accent shrink-0 mt-0.5" />
+                  <div>
+                    <p className="text-sm text-gray-900">
+                      {FLAGS[debitAcct.currency]} {debitAcct.currency} bank account · {acctLabel(debitAcct)}
+                    </p>
+                    <p className="text-[11px] text-gray-500 mt-0.5">This is your only verified {payCur} bank account.</p>
+                  </div>
+                </div>
+              </>
+            ) : (
+              <div className="border border-dashed border-gray-300 rounded-lg px-3 py-2.5">
+                <p className="text-sm text-gray-700">
+                  {hasPendingDebit ? `Your ${payCur} bank account is still being verified.` : `No ${payCur} bank account is linked yet.`}
+                </p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPendingTab("linked");
+                    onNavigate("holding-accounts");
+                  }}
+                  className="text-xs font-medium text-accent hover:underline mt-1"
+                >
+                  {hasPendingDebit ? "View linked bank accounts" : "Link a bank account"}
+                </button>
+              </div>
+            )}
+            <p className="text-[11px] text-gray-400 mt-1.5">
+              We collect the money from your bank, which usually takes 1 to 3 business days. {convert ? "We convert it once it arrives." : "We send the payment once it arrives."}
+            </p>
+          </div>
+        ) : (
+          <>
         {fromOptions.length > 1 ? (
           <div className="mb-4">
             <label htmlFor="pay-from" className="block text-[11px] text-gray-500 mb-1">
-              Pay from
+              {convert ? "Convert from" : "Pay from"}
             </label>
             <select
               id="pay-from"
@@ -523,12 +712,12 @@ export default function SendPayment({ onNavigate }) {
               ))}
             </select>
             <p className="text-[11px] text-gray-400 mt-1.5">
-              You have {fromOptions.length} {payCur} holding accounts. Choose the one to pay from.
+              You have {fromOptions.length} {payCur} holding accounts. Choose the one to {convert ? "convert" : "pay"} from.
             </p>
           </div>
         ) : fromAcct ? (
           <div className="mb-4">
-          <p className="block text-[11px] text-gray-500 mb-1">Pay from</p>
+          <p className="block text-[11px] text-gray-500 mb-1">{convert ? "Convert from" : "Pay from"}</p>
           <div className="flex gap-3 border border-gray-200 rounded-lg px-3 py-2.5 mb-4">
             <Wallet className="w-5 h-5 text-accent shrink-0 mt-0.5" />
             <div>
@@ -552,6 +741,53 @@ export default function SendPayment({ onNavigate }) {
           </div>
         )}
 
+          </>
+        )}
+
+        {convert ? (
+          <>
+            {sameCur && (
+              <div role="alert" className="flex gap-2 items-start text-xs text-[#7a4e0b] bg-warning-100 border-l-4 border-warning rounded-md px-3 py-2.5 mb-4">
+                <AlertTriangle className="w-4 h-4 shrink-0" />
+                <p>Choose two different currencies to convert.</p>
+              </div>
+            )}
+            {toOptions.length > 1 ? (
+              <div className="mb-1">
+                <label htmlFor="recv-into" className="block text-[11px] text-gray-500 mb-1">Receive into</label>
+                <select
+                  id="recv-into"
+                  value={toAcct ? toAcct.id : ""}
+                  onChange={(e) => setToId(e.target.value)}
+                  className="w-full text-sm border border-gray-200 rounded-md px-2.5 py-2 bg-white"
+                >
+                  {toOptions.map((a) => (
+                    <option key={a.id} value={a.id}>
+                      {FLAGS[a.currency]} {a.currency} · {acctLabel(a)} · {money(a.currency, a.balance)} available
+                    </option>
+                  ))}
+                </select>
+                <p className="text-[11px] text-gray-400 mt-1.5">
+                  You have {toOptions.length} {recvCur} holding accounts. Choose the one to receive into.
+                </p>
+              </div>
+            ) : toAcct ? (
+              <div className="mb-1">
+                <p className="block text-[11px] text-gray-500 mb-1">Receive into</p>
+                <div className="flex gap-3 border border-gray-200 rounded-lg px-3 py-2.5">
+                  <Wallet className="w-5 h-5 text-accent shrink-0 mt-0.5" />
+                  <div>
+                    <p className="text-sm text-gray-900">
+                      {FLAGS[toAcct.currency]} {toAcct.currency} holding account · {acctLabel(toAcct)}
+                    </p>
+                    <p className="text-[11px] text-gray-500 mt-0.5">This is your only {recvCur} holding account.</p>
+                  </div>
+                </div>
+              </div>
+            ) : null}
+          </>
+        ) : (
+          <>
         <label htmlFor="pay-to" className="block text-[11px] text-gray-500 mb-1">Pay to</label>
         <select
           id="pay-to"
@@ -589,9 +825,12 @@ export default function SendPayment({ onNavigate }) {
         </p>
         )}
 
+          </>
+        )}
+
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-4">
           <div>
-            <label htmlFor="pay-date" className="block text-[11px] text-gray-500 mb-1">Payment date</label>
+            <label htmlFor="pay-date" className="block text-[11px] text-gray-500 mb-1">{convert ? "Conversion date" : "Payment date"}</label>
             <input
               id="pay-date"
               type="date"
@@ -608,7 +847,7 @@ export default function SendPayment({ onNavigate }) {
             )}
           </div>
           <div>
-            <label htmlFor="pay-reason" className="block text-[11px] text-gray-500 mb-1">Reason for payment</label>
+            <label htmlFor="pay-reason" className="block text-[11px] text-gray-500 mb-1">{convert ? "Reason for conversion" : "Reason for payment"}</label>
             <select
               id="pay-reason"
               value={reason}
@@ -616,7 +855,7 @@ export default function SendPayment({ onNavigate }) {
               className="w-full text-sm border border-gray-200 rounded-md px-2.5 py-2 bg-white"
             >
               <option value="">Select a reason</option>
-              {REASONS.map((r) => (
+              {(convert ? CONVERT_REASONS : REASONS).map((r) => (
                 <option key={r}>{r}</option>
               ))}
             </select>
@@ -626,8 +865,8 @@ export default function SendPayment({ onNavigate }) {
         <div className="mt-3">
           <div className="flex items-center justify-between mb-1">
             <label htmlFor="pay-ref" className="flex items-center gap-1.5 text-[11px] text-gray-500">
-              Payment reference
-              <Tooltip text="A note your beneficiary sees with the payment, such as an invoice number." />
+              {convert ? "Reference" : "Payment reference"}
+              <Tooltip text={convert ? "A note for your own records." : "A note your beneficiary sees with the payment, such as an invoice number."} />
             </label>
             <span className="text-[11px] text-gray-400">Optional</span>
           </div>
@@ -637,11 +876,12 @@ export default function SendPayment({ onNavigate }) {
             maxLength={35}
             value={reference}
             onChange={(e) => setReference(e.target.value)}
-            placeholder="Custom reference for the beneficiary"
+            placeholder={convert ? "Your own reference" : "Custom reference for the beneficiary"}
             className="w-full text-sm border border-gray-200 rounded-md px-2.5 py-2 bg-white"
           />
           <p className="text-[11px] text-gray-400 mt-1 text-right">{reference.length}/35</p>
         </div>
+
 
         <div className="flex justify-end gap-2 mt-5 pt-4 border-t border-gray-100">
           <button

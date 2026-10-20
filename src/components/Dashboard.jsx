@@ -15,9 +15,8 @@ const STATUS_HELP = {
 };
 
 const BALANCES = [
-  { currency: "USD", flag: "\u{1F1FA}\u{1F1F8}", bank: "RBC", last4: "2231", available: "$0.00", required: "$65,000.00", requiredFlag: true, incoming: "$10,000.00" },
-  { currency: "CAD", flag: "\u{1F1E8}\u{1F1E6}", bank: "RBC", last4: "4410", available: "$0.00", required: "$0.00", requiredFlag: false, incoming: "$106,444.58", incomingGood: true },
-  { currency: "CAD", flag: "\u{1F1E8}\u{1F1E6}", bank: "TD", last4: "8827", available: "$4,200.00", required: "$0.00", requiredFlag: false, incoming: "\u2014" },
+  { currency: "USD", flag: "\u{1F1FA}\u{1F1F8}", accountId: "0031201", available: "$0.00", required: "$65,000.00", requiredFlag: true, incoming: "$10,000.00" },
+  { currency: "CAD", flag: "\u{1F1E8}\u{1F1E6}", accountId: "0031202", available: "$4,200.00", required: "$0.00", requiredFlag: false, incoming: "$106,444.58", incomingGood: true },
 ];
 
 const ACTIVITY = [
@@ -276,7 +275,7 @@ export default function Dashboard({ onNavigate }) {
 
       {/* Balances */}
       <div className="bg-white rounded-xl border border-gray-200/70 p-4 mb-4 overflow-x-auto">
-        <div className="flex items-center justify-between mb-2.5 min-w-[680px]">
+        <div className="flex items-center justify-between mb-2.5 min-w-[560px]">
           <p className="text-xs text-gray-500">Holding accounts &amp; balances</p>
           <button className="flex items-center gap-1 text-xs text-accent hover:underline">
             <FileText className="w-3.5 h-3.5" />
@@ -284,10 +283,9 @@ export default function Dashboard({ onNavigate }) {
           </button>
         </div>
 
-        <div className="grid grid-cols-6 gap-2.5 min-w-[680px] text-[11px] text-gray-400 border-b border-gray-100 pb-1.5">
+        <div className="grid grid-cols-5 gap-2.5 min-w-[560px] text-[11px] text-gray-400 border-b border-gray-100 pb-1.5">
           <span>Currency</span>
-          <span>Bank</span>
-          <span>Account no.</span>
+          <span>Account ID</span>
           <span>Available</span>
           <span className="flex items-center gap-1">
             Required
@@ -298,14 +296,13 @@ export default function Dashboard({ onNavigate }) {
 
         {BALANCES.map((row, i) => (
           <div
-            key={`${row.currency}-${row.bank}-${row.last4}`}
-            className={`grid grid-cols-6 gap-2.5 min-w-[680px] text-sm items-center py-2.5 ${
+            key={row.accountId}
+            className={`grid grid-cols-5 gap-2.5 min-w-[560px] text-sm items-center py-2.5 ${
               i < BALANCES.length - 1 ? "border-b border-gray-100" : ""
             }`}
           >
             <span>{row.flag} {row.currency}</span>
-            <span>{row.bank}</span>
-            <span className="tabular-nums">••••{row.last4}</span>
+            <span className="font-mono text-gray-700">{row.accountId}</span>
             <span>{row.available}</span>
             <span>
               {row.requiredFlag ? (

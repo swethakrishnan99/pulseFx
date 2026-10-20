@@ -3,7 +3,7 @@ import {
   Menu,
   X,
   LayoutDashboard,
-  Send,
+  ArrowLeftRight,
   Users,
   Building2,
   BarChart3,
@@ -14,7 +14,7 @@ import PulseMark from "./PulseMark";
 
 const NAV_ITEMS = [
   { key: "dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { key: "send-payment", label: "Send Payment", icon: Send },
+  { key: "send-payment", label: "Move Money", icon: ArrowLeftRight },
   { key: "beneficiaries", label: "Beneficiaries", icon: Users },
   { key: "holding-accounts", label: "Holding Accounts", icon: Building2 },
   { key: "reports", label: "Reports", icon: BarChart3 },

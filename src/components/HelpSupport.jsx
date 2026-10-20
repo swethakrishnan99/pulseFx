@@ -11,7 +11,7 @@ const FAQ = [
     items: [
       {
         q: "How do I send a payment?",
-        a: "Go to Send Payment, enter the amount you want to pay or the amount they should receive, and choose who to pay. Then choose how you will fund it, check the details and confirm. You can also start from Quick Quote on the Dashboard and select Buy to continue with your quote.",
+        a: "Go to Move Money, choose Send to someone, enter the amount you want to pay or the amount they should receive, and choose who to pay. Then choose which holding account to pay from, check the details and confirm. To exchange your own money into another currency, choose Convert my money instead. You can also start from Quick Quote on the Dashboard and select Buy to continue with your quote.",
       },
       {
         q: "How do I track a payment?",
@@ -19,7 +19,7 @@ const FAQ = [
       },
       {
         q: "Why is my payment showing Awaiting funds?",
-        a: "We have not yet received the money for this payment. Make sure the amount shown has been sent to your holding account, or that your bank has approved the direct debit. We start sending as soon as the funds arrive.",
+        a: "We have not yet received the money for this payment. Make sure the amount shown has been sent to your holding account. We start sending as soon as the funds arrive.",
       },
       {
         q: "What are the delivery options?",

@@ -6,11 +6,11 @@ import Tooltip from "./Tooltip";
 const TODAY = new Date("2026-10-06T00:00:00Z");
 
 const PAYMENTS = [
-  { ref: "EBPOTR031499", from: "RBC ••••4410", date: "2026-10-05", to: "Test Company Inc", paid: { cur: "CAD", amt: 13839.34 }, received: { cur: "USD", amt: 10000 }, rate: 1.3839, status: "awaiting", note: "We're waiting for your CAD 13,839.34 to arrive before we can send this." },
-  { ref: "EBPOTR031305", from: "RBC ••••2231", date: "2026-10-02", to: "Maple Supply Co.", paid: { cur: "USD", amt: 75000 }, received: { cur: "CAD", amt: 106444.58 }, rate: 1.4193, status: "transit", note: "On its way. It should reach the recipient's bank within 1 business day." },
-  { ref: "EBPOTR030981", from: "RBC ••••2231", date: "2026-09-18", to: "Lone Star Logistics", paid: { cur: "USD", amt: 25000 }, received: { cur: "CAD", amt: 34602.5 }, rate: 1.3841, status: "completed" },
-  { ref: "EBPOTR030754", from: "TD ••••8827", date: "2026-08-27", to: "Pacific Freight LLC", paid: { cur: "CAD", amt: 8210 }, received: { cur: "USD", amt: 5940.15 }, rate: 1.382, status: "completed" },
-  { ref: "EBPOTR030212", from: "RBC ••••2231", date: "2026-06-14", to: "Maple Supply Co.", paid: { cur: "USD", amt: 12000 }, received: { cur: "CAD", amt: 16380 }, rate: 1.365, status: "completed" },
+  { ref: "EBPOTR031499", from: "0031202", date: "2026-10-05", to: "Test Company Inc", paid: { cur: "CAD", amt: 13839.34 }, received: { cur: "USD", amt: 10000 }, rate: 1.3839, status: "awaiting", note: "We're waiting for your CAD 13,839.34 to arrive before we can send this." },
+  { ref: "EBPOTR031305", from: "0031201", date: "2026-10-02", to: "Maple Supply Co.", paid: { cur: "USD", amt: 75000 }, received: { cur: "CAD", amt: 106444.58 }, rate: 1.4193, status: "transit", note: "On its way. It should reach the recipient's bank within 1 business day." },
+  { ref: "EBPOTR030981", from: "0031201", date: "2026-09-18", to: "Lone Star Logistics", paid: { cur: "USD", amt: 25000 }, received: { cur: "CAD", amt: 34602.5 }, rate: 1.3841, status: "completed" },
+  { ref: "EBPOTR030754", from: "0031202", date: "2026-08-27", to: "Pacific Freight LLC", paid: { cur: "CAD", amt: 8210 }, received: { cur: "USD", amt: 5940.15 }, rate: 1.382, status: "completed" },
+  { ref: "EBPOTR030212", from: "0031201", date: "2026-06-14", to: "Maple Supply Co.", paid: { cur: "USD", amt: 12000 }, received: { cur: "CAD", amt: 16380 }, rate: 1.365, status: "completed" },
 ];
 
 const STATUS = {
