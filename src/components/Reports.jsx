@@ -6,11 +6,11 @@ import Tooltip from "./Tooltip";
 const TODAY = new Date("2026-10-06T00:00:00Z");
 
 const PAYMENTS = [
-  { ref: "EBPOTR031499", date: "2026-10-05", to: "Test Company Inc", paid: { cur: "CAD", amt: 13839.34 }, received: { cur: "USD", amt: 10000 }, rate: 1.3839, status: "awaiting", note: "We're waiting for your CAD 13,839.34 to arrive before we can send this." },
-  { ref: "EBPOTR031305", date: "2026-10-02", to: "Maple Supply Co.", paid: { cur: "USD", amt: 75000 }, received: { cur: "CAD", amt: 106444.58 }, rate: 1.4193, status: "transit", note: "Sent. It should reach the recipient's bank within 1 business day." },
-  { ref: "EBPOTR030981", date: "2026-09-18", to: "Lone Star Logistics", paid: { cur: "USD", amt: 25000 }, received: { cur: "CAD", amt: 34602.5 }, rate: 1.3841, status: "completed" },
-  { ref: "EBPOTR030754", date: "2026-08-27", to: "Pacific Freight LLC", paid: { cur: "CAD", amt: 8210 }, received: { cur: "USD", amt: 5940.15 }, rate: 1.382, status: "completed" },
-  { ref: "EBPOTR030212", date: "2026-06-14", to: "Maple Supply Co.", paid: { cur: "USD", amt: 12000 }, received: { cur: "CAD", amt: 16380 }, rate: 1.365, status: "completed" },
+  { ref: "EBPOTR031499", from: "RBC ••••4410", date: "2026-10-05", to: "Test Company Inc", paid: { cur: "CAD", amt: 13839.34 }, received: { cur: "USD", amt: 10000 }, rate: 1.3839, status: "awaiting", note: "We're waiting for your CAD 13,839.34 to arrive before we can send this." },
+  { ref: "EBPOTR031305", from: "RBC ••••2231", date: "2026-10-02", to: "Maple Supply Co.", paid: { cur: "USD", amt: 75000 }, received: { cur: "CAD", amt: 106444.58 }, rate: 1.4193, status: "transit", note: "On its way. It should reach the recipient's bank within 1 business day." },
+  { ref: "EBPOTR030981", from: "RBC ••••2231", date: "2026-09-18", to: "Lone Star Logistics", paid: { cur: "USD", amt: 25000 }, received: { cur: "CAD", amt: 34602.5 }, rate: 1.3841, status: "completed" },
+  { ref: "EBPOTR030754", from: "TD ••••8827", date: "2026-08-27", to: "Pacific Freight LLC", paid: { cur: "CAD", amt: 8210 }, received: { cur: "USD", amt: 5940.15 }, rate: 1.382, status: "completed" },
+  { ref: "EBPOTR030212", from: "RBC ••••2231", date: "2026-06-14", to: "Maple Supply Co.", paid: { cur: "USD", amt: 12000 }, received: { cur: "CAD", amt: 16380 }, rate: 1.365, status: "completed" },
 ];
 
 const STATUS = {
@@ -41,7 +41,7 @@ function StatusBadge({ status }) {
 function Stepper({ status }) {
   const done = STEPS_DONE[status];
   return (
-    <ol className="flex items-start w-full max-w-md">
+    <ol className="flex items-start w-full">
       {STEPS.map((label, i) => {
         const isDone = i < done;
         const isCurrent = i === done;
@@ -79,9 +79,9 @@ function csvEscape(v) {
 }
 
 function exportCsv(rows) {
-  const header = ["Reference", "Date", "Paid to", "You paid (currency)", "You paid (amount)", "They received (currency)", "They received (amount)", "Rate", "Status"];
+  const header = ["Reference", "Date", "Paid to", "You paid (currency)", "You paid (amount)", "They received (currency)", "They received (amount)", "Paid from", "Rate", "Status"];
   const lines = rows.map((p) =>
-    [p.ref, p.date, p.to, p.paid.cur, p.paid.amt.toFixed(2), p.received.cur, p.received.amt.toFixed(2), p.rate, STATUS[p.status].label]
+    [p.ref, p.date, p.to, p.paid.cur, p.paid.amt.toFixed(2), p.received.cur, p.received.amt.toFixed(2), p.from, p.rate, STATUS[p.status].label]
       .map(csvEscape)
       .join(",")
   );
@@ -122,7 +122,7 @@ export default function Reports() {
   }
 
   return (
-    <div className="flex-1 bg-gray-50 p-6 min-w-0">
+    <div className="flex-1 bg-gray-50 p-4 pt-[72px] md:p-6 min-w-0">
       <h1 className="text-xl font-semibold text-gray-900 mb-1">Reports</h1>
       <p className="text-sm text-gray-500 mb-4 max-w-xl">
         Follow your payments from start to finish, or look back at what you've sent.
@@ -163,30 +163,41 @@ export default function Reports() {
 
       {/* TRACKER */}
       {tab === "tracker" && (
-        <div className="flex flex-col gap-3.5">
+        <div className="flex flex-col gap-3.5 max-w-3xl">
           {inProgress.length === 0 && (
             <div className="bg-white rounded-xl border border-gray-200/70 p-8 text-center text-sm text-gray-400">
               Nothing in progress right now. Payments you send will show up here.
             </div>
           )}
           {inProgress.map((p) => (
-            <div key={p.ref} className="bg-white rounded-xl border border-gray-200/70 p-4">
-              <div className="flex flex-wrap items-start justify-between gap-3 mb-4">
+            <div key={p.ref} className="bg-white rounded-xl border border-gray-200/70 p-5">
+              <div className="flex flex-wrap items-start justify-between gap-2 mb-4">
                 <div>
-                  <p className="text-sm font-medium text-gray-900">{p.to}</p>
-                  <p className="text-xs text-gray-400 font-mono">{p.ref} · {niceDate(p.date)}</p>
+                  <p className="text-base font-medium text-gray-900">{p.to}</p>
+                  <p className="text-xs text-gray-600 font-mono mt-0.5">{p.ref} · {niceDate(p.date)}</p>
                 </div>
-                <div className="text-right">
-                  <p className="text-sm text-gray-900 tabular-nums">
-                    You pay <span className="font-medium">{money(p.paid)}</span>
-                  </p>
-                  <p className="text-xs text-gray-500 tabular-nums">
-                    They receive {money(p.received)}
-                  </p>
-                </div>
+                <span className={`text-[11px] font-medium px-2 py-0.5 rounded ${STATUS[p.status].className}`}>
+                  {STATUS[p.status].label}
+                </span>
               </div>
+
+              <dl className="grid grid-cols-1 sm:grid-cols-3 gap-x-4 gap-y-3 bg-gray-50 rounded-lg px-4 py-3 mb-5">
+                <div>
+                  <dt className="text-[11px] text-gray-500">{p.status === "awaiting" ? "You pay" : "You paid"}</dt>
+                  <dd className="text-sm font-medium text-gray-900 tabular-nums mt-0.5">{money(p.paid)}</dd>
+                </div>
+                <div>
+                  <dt className="text-[11px] text-gray-500">They receive</dt>
+                  <dd className="text-sm font-medium text-gray-900 tabular-nums mt-0.5">{money(p.received)}</dd>
+                </div>
+                <div>
+                  <dt className="text-[11px] text-gray-500">{p.status === "awaiting" ? "Paying from" : "Paid from"}</dt>
+                  <dd className="text-sm text-gray-900 tabular-nums mt-0.5">{p.from}</dd>
+                </div>
+              </dl>
+
               <Stepper status={p.status} />
-              <p className="text-xs text-gray-500 mt-4">{p.note}</p>
+              <p className="text-xs text-gray-600 mt-4">{p.note}</p>
             </div>
           ))}
         </div>
@@ -238,13 +249,14 @@ export default function Reports() {
             </button>
           </div>
 
-          <div className="bg-white rounded-xl border border-gray-200/70 p-4">
-            <div className="grid grid-cols-[1.1fr_0.9fr_1.3fr_1fr_1fr_1fr_0.8fr] gap-3 text-[11px] text-gray-400 border-b border-gray-100 pb-1.5">
+          <div className="bg-white rounded-xl border border-gray-200/70 p-4 overflow-x-auto">
+            <div className="grid grid-cols-[1fr_0.8fr_1.2fr_1.1fr_1.15fr_1fr_1fr_0.7fr] gap-4 min-w-[980px] text-[11px] text-gray-400 border-b border-gray-100 pb-1.5">
               <span>Reference</span>
               <span>Date</span>
               <span>Paid to</span>
               <span>You paid</span>
               <span>They received</span>
+              <span>Paid from</span>
               <span className="flex items-center gap-1">
                 Status
                 <Tooltip text="Awaiting funds: we haven't received your money yet. In transit: sent and on its way. Completed: the recipient has it." />
@@ -259,7 +271,7 @@ export default function Reports() {
             {rows.map((p, i) => (
               <div
                 key={p.ref}
-                className={`grid grid-cols-[1.1fr_0.9fr_1.3fr_1fr_1fr_1fr_0.8fr] gap-3 items-center py-3 text-sm ${
+                className={`grid grid-cols-[1fr_0.8fr_1.2fr_1.1fr_1.15fr_1fr_1fr_0.7fr] gap-4 min-w-[980px] items-center py-3 text-sm ${
                   i < rows.length - 1 ? "border-b border-gray-100" : ""
                 }`}
               >
@@ -268,6 +280,7 @@ export default function Reports() {
                 <span className="text-gray-900">{p.to}</span>
                 <span className="tabular-nums">{money(p.paid)}</span>
                 <span className="tabular-nums">{money(p.received)}</span>
+                <span className="text-gray-700 tabular-nums">{p.from}</span>
                 <span><StatusBadge status={p.status} /></span>
                 <span className="text-right">
                   <button

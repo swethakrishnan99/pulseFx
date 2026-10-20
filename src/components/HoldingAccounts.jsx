@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { X, Eye, EyeOff, FileText, Copy, Check, Send, ArrowLeftRight, ArrowUpRight, ArrowDownRight } from "lucide-react";
 import Tooltip from "./Tooltip";
+import { setPendingPayFrom } from "../lib/quoteHandoff";
 
 const ACCOUNTS = [
   { id: "usd-rbc", currency: "USD", bank: "RBC", type: "Holding", balance: 0, change90: 10000, institution: "003", transit: "01234", account: "5002231" },
@@ -130,7 +131,7 @@ export default function HoldingAccounts({ onNavigate }) {
   const [selected, setSelected] = useState(null);
 
   return (
-    <div className="flex-1 bg-gray-50 p-6 min-w-0">
+    <div className="flex-1 bg-gray-50 p-4 pt-[72px] md:p-6 min-w-0">
       <h1 className="text-xl font-semibold text-gray-900 mb-1">Holding Accounts</h1>
       <p className="text-sm text-gray-500 mb-4 max-w-xl">
         Money you hold with PulseFX, by currency and bank.
@@ -147,8 +148,8 @@ export default function HoldingAccounts({ onNavigate }) {
       </div>
 
       {/* Accounts table */}
-      <div className="bg-white rounded-xl border border-gray-200/70 p-4">
-        <div className="grid grid-cols-[0.7fr_1fr_1fr_1.2fr_1.2fr_1.6fr] gap-3 text-[11px] text-gray-400 border-b border-gray-100 pb-1.5">
+      <div className="bg-white rounded-xl border border-gray-200/70 p-4 overflow-x-auto">
+        <div className="grid grid-cols-[0.7fr_1fr_1fr_1.2fr_1.2fr_1.6fr] gap-3 min-w-[760px] text-[11px] text-gray-400 border-b border-gray-100 pb-1.5">
           <span>Currency</span>
           <span>Bank</span>
           <span>Account</span>
@@ -166,7 +167,7 @@ export default function HoldingAccounts({ onNavigate }) {
         {ACCOUNTS.map((acc, i) => (
           <div
             key={acc.id}
-            className={`grid grid-cols-[0.7fr_1fr_1fr_1.2fr_1.2fr_1.6fr] gap-3 items-center py-3 text-sm ${
+            className={`grid grid-cols-[0.7fr_1fr_1fr_1.2fr_1.2fr_1.6fr] gap-3 min-w-[760px] items-center py-3 text-sm ${
               i < ACCOUNTS.length - 1 ? "border-b border-gray-100" : ""
             }`}
           >
@@ -182,7 +183,7 @@ export default function HoldingAccounts({ onNavigate }) {
               {acc.change90 >= 0 ? <ArrowUpRight className="w-3 h-3" /> : <ArrowDownRight className="w-3 h-3" />}
               {signed(acc.change90)}
             </span>
-            <span className="flex items-center justify-end gap-3 text-xs font-medium">
+            <span className="flex items-center justify-end gap-6 text-xs font-medium">
               <button type="button" onClick={() => setSelected(acc)} className="text-accent hover:underline">
                 Details
               </button>
@@ -196,7 +197,10 @@ export default function HoldingAccounts({ onNavigate }) {
               </button>
               <button
                 type="button"
-                onClick={() => onNavigate("send-payment")}
+                onClick={() => {
+                  setPendingPayFrom({ fromId: acc.id });
+                  onNavigate("send-payment");
+                }}
                 className="inline-flex items-center gap-1 text-accent hover:underline"
               >
                 <Send className="w-3 h-3" />

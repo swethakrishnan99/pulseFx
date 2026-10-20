@@ -5,10 +5,15 @@ import SendPayment from "./components/SendPayment";
 import Beneficiaries from "./components/Beneficiaries";
 import HoldingAccounts from "./components/HoldingAccounts";
 import Reports from "./components/Reports";
+import Account from "./components/Account";
+import HelpSupport from "./components/HelpSupport";
+import Login from "./components/Login";
 
 
 export default function App() {
-  const [screen, setScreen] = useState("dashboard");
+  const [screen, setScreen] = useState("login");   
+
+if (screen === "login") return <Login onSignIn={() => setScreen("dashboard")} />;
 
   return (
     <div className="h-screen w-full bg-white bg-center bg-no-repeat">
@@ -19,6 +24,8 @@ export default function App() {
       {screen === "beneficiaries" && <Beneficiaries onNavigate={setScreen} />}
       {screen === "holding-accounts" && <HoldingAccounts onNavigate={setScreen} />}
       {screen === "reports" && <Reports onNavigate={setScreen} />}
+     {(screen === "profile" || screen === "security") && <Account tab={screen} />}
+     {screen === "help" && <HelpSupport />}
     </div>
     </div>
   );

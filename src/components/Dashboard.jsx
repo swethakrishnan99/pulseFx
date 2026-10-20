@@ -1,14 +1,13 @@
 import { useState, useEffect } from "react";
 import { Zap, AlertTriangle, FileText, ArrowLeftRight } from "lucide-react";
 import Tooltip from "./Tooltip";
+import { CURRENCIES, FLAGS } from "../lib/currencies";
 import HistoricalRates from "./HistoricalRates";
 import { setPendingQuote } from "../lib/quoteHandoff";
 import { useExchangeRate, getRate, round2, parseAmount, fmt2, fmtRate, niceDate } from "../lib/fx";
 
 const QUOTE_SECONDS = 30;
 const DELIVERY_TYPES = ["Same day", "Next day", "Standard (2-3 business days)"];
-const CURRENCIES = ["USD", "CAD"];
-const FLAGS = { USD: "\u{1F1FA}\u{1F1F8}", CAD: "\u{1F1E8}\u{1F1E6}" };
 
 const STATUS_HELP = {
   "Awaiting funds": "We're waiting for your payment to arrive before we can send this.",
@@ -16,9 +15,9 @@ const STATUS_HELP = {
 };
 
 const BALANCES = [
-  { currency: "USD", flag: "\u{1F1FA}\u{1F1F8}", bank: "RBC", available: "$0.00", required: "$65,000.00", requiredFlag: true, incoming: "$10,000.00" },
-  { currency: "CAD", flag: "\u{1F1E8}\u{1F1E6}", bank: "RBC", available: "$0.00", required: "$0.00", requiredFlag: false, incoming: "$106,444.58", incomingGood: true },
-  { currency: "CAD", flag: "\u{1F1E8}\u{1F1E6}", bank: "TD", available: "$4,200.00", required: "$0.00", requiredFlag: false, incoming: "\u2014" },
+  { currency: "USD", flag: "\u{1F1FA}\u{1F1F8}", bank: "RBC", last4: "2231", available: "$0.00", required: "$65,000.00", requiredFlag: true, incoming: "$10,000.00" },
+  { currency: "CAD", flag: "\u{1F1E8}\u{1F1E6}", bank: "RBC", last4: "4410", available: "$0.00", required: "$0.00", requiredFlag: false, incoming: "$106,444.58", incomingGood: true },
+  { currency: "CAD", flag: "\u{1F1E8}\u{1F1E6}", bank: "TD", last4: "8827", available: "$4,200.00", required: "$0.00", requiredFlag: false, incoming: "\u2014" },
 ];
 
 const ACTIVITY = [
@@ -37,7 +36,7 @@ export default function Dashboard({ onNavigate }) {
   const [secondsLeft, setSecondsLeft] = useState(QUOTE_SECONDS);
   const [agreed, setAgreed] = useState(false);
 
-  const rate = getRate(payCur, recvCur, fx.usdCad);
+  const rate = getRate(payCur, recvCur, fx.rates);
   const typed = parseAmount(amountStr);
   const payAmt = anchor === "pay" ? typed : round2(typed / rate);
   const recvAmt = anchor === "recv" ? typed : round2(typed * rate);
@@ -55,11 +54,11 @@ export default function Dashboard({ onNavigate }) {
 
   function changePay(cur) {
     setPayCur(cur);
-    if (cur === recvCur) setRecvCur(CURRENCIES.find((c) => c !== cur));
+    if (cur === recvCur) setRecvCur(payCur);
   }
   function changeRecv(cur) {
     setRecvCur(cur);
-    if (cur === payCur) setPayCur(CURRENCIES.find((c) => c !== cur));
+    if (cur === payCur) setPayCur(recvCur);
   }
   function swap() {
     setPayCur(recvCur);
@@ -102,13 +101,13 @@ export default function Dashboard({ onNavigate }) {
   }
 
   return (
-    <div className="flex-1 bg-gray-50 p-6 min-w-0">
+    <div className="flex-1 bg-gray-50 p-4 pt-[72px] md:p-6 min-w-0">
       <div className="flex items-center justify-between mb-4">
         <h1 className="text-xl font-semibold text-gray-900">Dashboard</h1>
       </div>
 
       {/* Quick Quote + Rate chart */}
-      <div className="grid grid-cols-1 md:grid-cols-[1.3fr_1fr] gap-3.5 mb-4">
+      <div className="grid grid-cols-1 lg:grid-cols-[1.3fr_1fr] gap-3.5 mb-4">
         <div className="bg-white rounded-xl border border-gray-200/70 p-4 flex flex-col">
           <p className="flex items-center gap-1.5 text-xs text-gray-500 mb-3">
             <Zap className="w-3.5 h-3.5" />
@@ -126,7 +125,7 @@ export default function Dashboard({ onNavigate }) {
                 )}
               </p>
 
-              <div className="grid grid-cols-[1fr_auto_1fr] gap-2 items-end">
+              <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto_1fr] gap-2 items-end">
                 <div className="min-w-0">
                   <label htmlFor="qq-pay" className="block text-[11px] font-medium text-accent mb-1">You pay</label>
                   <div className="flex gap-1.5">
@@ -134,10 +133,10 @@ export default function Dashboard({ onNavigate }) {
                       aria-label="You pay currency"
                       value={payCur}
                       onChange={(e) => changePay(e.target.value)}
-                      className="w-[88px] shrink-0 text-sm border border-gray-200 rounded-md px-1.5 py-1.5 bg-white"
+                      className="w-[100px] shrink-0 text-sm border border-gray-200 rounded-md px-1.5 py-1.5 bg-white"
                     >
                       {CURRENCIES.map((c) => (
-                        <option key={c} value={c} disabled={c === recvCur}>{FLAGS[c]} {c}</option>
+                        <option key={c} value={c}>{FLAGS[c]} {c}</option>
                       ))}
                     </select>
                     <input
@@ -156,7 +155,7 @@ export default function Dashboard({ onNavigate }) {
                   type="button"
                   onClick={swap}
                   aria-label="Swap currencies"
-                  className="mb-0.5 p-1.5 rounded-full border border-gray-200 text-gray-500 hover:text-accent hover:border-accent"
+                  className="mb-0.5 p-1.5 justify-self-center self-center sm:self-end rounded-full border border-gray-200 text-gray-500 hover:text-accent hover:border-accent"
                 >
                   <ArrowLeftRight className="w-3.5 h-3.5" />
                 </button>
@@ -167,10 +166,10 @@ export default function Dashboard({ onNavigate }) {
                       aria-label="They receive currency"
                       value={recvCur}
                       onChange={(e) => changeRecv(e.target.value)}
-                      className="w-[88px] shrink-0 text-sm border border-gray-200 rounded-md px-1.5 py-1.5 bg-white"
+                      className="w-[100px] shrink-0 text-sm border border-gray-200 rounded-md px-1.5 py-1.5 bg-white"
                     >
                       {CURRENCIES.map((c) => (
-                        <option key={c} value={c} disabled={c === payCur}>{FLAGS[c]} {c}</option>
+                        <option key={c} value={c}>{FLAGS[c]} {c}</option>
                       ))}
                     </select>
                     <input
@@ -187,7 +186,7 @@ export default function Dashboard({ onNavigate }) {
                 </div>
               </div>
 
-              <div className="grid grid-cols-[1fr_1fr] gap-3 items-end mt-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-end mt-3">
                 <div>
                   <label htmlFor="qq-delivery" className="block text-[11px] font-medium text-accent mb-1">Delivery type</label>
                   <select
@@ -276,8 +275,8 @@ export default function Dashboard({ onNavigate }) {
       </div>
 
       {/* Balances */}
-      <div className="bg-white rounded-xl border border-gray-200/70 p-4 mb-4">
-        <div className="flex items-center justify-between mb-2.5">
+      <div className="bg-white rounded-xl border border-gray-200/70 p-4 mb-4 overflow-x-auto">
+        <div className="flex items-center justify-between mb-2.5 min-w-[680px]">
           <p className="text-xs text-gray-500">Holding accounts &amp; balances</p>
           <button className="flex items-center gap-1 text-xs text-accent hover:underline">
             <FileText className="w-3.5 h-3.5" />
@@ -285,9 +284,10 @@ export default function Dashboard({ onNavigate }) {
           </button>
         </div>
 
-        <div className="grid grid-cols-5 gap-2.5 text-[11px] text-gray-400 border-b border-gray-100 pb-1.5">
+        <div className="grid grid-cols-6 gap-2.5 min-w-[680px] text-[11px] text-gray-400 border-b border-gray-100 pb-1.5">
           <span>Currency</span>
           <span>Bank</span>
+          <span>Account no.</span>
           <span>Available</span>
           <span className="flex items-center gap-1">
             Required
@@ -298,13 +298,14 @@ export default function Dashboard({ onNavigate }) {
 
         {BALANCES.map((row, i) => (
           <div
-            key={`${row.currency}-${row.bank}`}
-            className={`grid grid-cols-5 gap-2.5 text-sm items-center py-2.5 ${
+            key={`${row.currency}-${row.bank}-${row.last4}`}
+            className={`grid grid-cols-6 gap-2.5 min-w-[680px] text-sm items-center py-2.5 ${
               i < BALANCES.length - 1 ? "border-b border-gray-100" : ""
             }`}
           >
             <span>{row.flag} {row.currency}</span>
             <span>{row.bank}</span>
+            <span className="tabular-nums">••••{row.last4}</span>
             <span>{row.available}</span>
             <span>
               {row.requiredFlag ? (
@@ -321,9 +322,9 @@ export default function Dashboard({ onNavigate }) {
       </div>
 
       {/* Payments & trades in progress */}
-      <div className="bg-white rounded-xl border border-gray-200/70 p-4">
-        <p className="text-xs text-gray-500 mb-2.5">Payments &amp; trades in progress</p>
-        <div className="grid grid-cols-4 gap-2 text-[11px] text-gray-400 border-b border-gray-100 pb-1.5">
+      <div className="bg-white rounded-xl border border-gray-200/70 p-4 overflow-x-auto">
+        <p className="text-xs text-gray-500 mb-2.5 min-w-[480px]">Payments &amp; trades in progress</p>
+        <div className="grid grid-cols-4 gap-2 min-w-[480px] text-[11px] text-gray-400 border-b border-gray-100 pb-1.5">
           <span>Reference</span>
           <span>You pay</span>
           <span>They receive</span>
@@ -332,7 +333,7 @@ export default function Dashboard({ onNavigate }) {
         {ACTIVITY.map((row, i) => (
           <div
             key={row.ref}
-            className={`grid grid-cols-4 gap-2 text-xs items-center py-2.5 ${
+            className={`grid grid-cols-4 gap-2 min-w-[480px] text-xs items-center py-2.5 ${
               i < ACTIVITY.length - 1 ? "border-b border-gray-100" : ""
             }`}
           >

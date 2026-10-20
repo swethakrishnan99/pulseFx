@@ -10,17 +10,19 @@ import { useState, useEffect, useCallback, useRef } from "react";
  * To use Monex's or Ebury's real quote API later, only useExchangeRate() below
  * needs to change. Everything else just reads { usdCad, status, asOf }.
  */
-export const RATE_URL = "https://api.frankfurter.dev/v1/latest?base=USD&symbols=CAD";
+export const RATE_URL = "https://api.frankfurter.dev/v1/latest?base=USD&symbols=CAD,EUR,GBP,AUD,MXN";
 
-// Used only if the rate service can't be reached and we have no earlier rate.
-export const FALLBACK_USD_CAD = 1.3841;
+// Sample USD rates, used only if the service can't be reached.
+export const FALLBACK_RATES = { USD: 1, CAD: 1.3841, EUR: 0.86, GBP: 0.75, AUD: 1.52, MXN: 18.4 };
+
 
 /** Units of `to` you get for 1 unit of `from`. */
-export function getRate(from, to, usdCad) {
+export function getRate(from, to, rates) {
   if (from === to) return 1;
-  if (from === "USD" && to === "CAD") return usdCad;
-  if (from === "CAD" && to === "USD") return 1 / usdCad;
-  throw new Error(`Unsupported currency pair ${from}/${to}`);
+  const f = rates?.[from];
+  const t = rates?.[to];
+  if (!f || !t) throw new Error(`Unsupported currency pair ${from}/${to}`);
+  return t / f; // both rates are "per 1 USD"
 }
 
 export const round2 = (n) => Math.round((n + Number.EPSILON) * 100) / 100;
@@ -48,13 +50,16 @@ export function niceDate(iso) {
   });
 }
 
-/** Validates the API response and returns { usdCad, asOf }. Throws if it looks wrong. */
+/** Validates the API response and returns { rates, asOf }. Throws if it looks wrong. */
 export function parseRateResponse(data) {
-  const rate = data?.rates?.CAD;
-  if (typeof rate !== "number" || !Number.isFinite(rate) || rate <= 0) {
-    throw new Error("Unexpected rate response");
+  const rates = { USD: 1 };
+  for (const c of Object.keys(FALLBACK_RATES)) {
+    if (c === "USD") continue;
+    const r = data?.rates?.[c];
+    if (typeof r !== "number" || !Number.isFinite(r) || r <= 0) throw new Error("Unexpected rate response");
+    rates[c] = r;
   }
-  return { usdCad: rate, asOf: typeof data.date === "string" ? data.date : null };
+  return { rates, asOf: typeof data.date === "string" ? data.date : null };
 }
 
 /**
@@ -65,7 +70,7 @@ export function parseRateResponse(data) {
  *   "fallback" never got a rate; showing the built-in sample rate
  */
 export function useExchangeRate({ refreshMs = 10 * 60 * 1000 } = {}) {
-  const [state, setState] = useState({ status: "loading", usdCad: FALLBACK_USD_CAD, asOf: null });
+  const [state, setState] = useState({ status: "loading", rates: FALLBACK_RATES, asOf: null });
   const controllerRef = useRef(null);
   const mountedRef = useRef(false);
 
@@ -79,15 +84,15 @@ export function useExchangeRate({ refreshMs = 10 * 60 * 1000 } = {}) {
     try {
       const res = await fetch(RATE_URL, { signal: controller.signal });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const { usdCad, asOf } = parseRateResponse(await res.json());
+      const { rates, asOf } = parseRateResponse(await res.json());
       if (!mountedRef.current || controllerRef.current !== controller) return;
-      setState({ status: "live", usdCad, asOf });
+      setState({ status: "live", rates, asOf });
     } catch {
       if (!mountedRef.current || controllerRef.current !== controller) return;
       setState((prev) =>
         prev.asOf
           ? { ...prev, status: "stale" }
-          : { status: "fallback", usdCad: FALLBACK_USD_CAD, asOf: null }
+          : { status: "fallback", rates: FALLBACK_RATES, asOf: null }
       );
     } finally {
       clearTimeout(timeout);

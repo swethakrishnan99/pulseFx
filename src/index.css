@@ -40,3 +40,13 @@ body {
 @media (prefers-reduced-motion: reduce) {
   .pfx-slide-up, .pfx-slide-down { animation: none; }
 }
+
+/* Slide-in mobile menu */
+@keyframes pfx-drawer-in { from { transform: translateX(-100%); } to { transform: none; } }
+.pfx-drawer { animation: pfx-drawer-in 0.2s ease-out; }
+@media (prefers-reduced-motion: reduce) { .pfx-drawer { animation: none; } }
+
+/* Security tip on the sign-in screen */
+@keyframes pfx-tip-in { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+.pfx-tip { animation: pfx-tip-in 0.45s ease-out; }
+@media (prefers-reduced-motion: reduce) { .pfx-tip { animation: none; } }

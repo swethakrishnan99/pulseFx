@@ -1,6 +1,7 @@
 import { useState, useMemo } from "react";
 import { Search, Plus, X, Send, CheckCircle2, Clock } from "lucide-react";
 import Tooltip from "./Tooltip";
+import { setPendingBeneficiary } from "../lib/quoteHandoff";
 
 const INITIAL_BENEFICIARIES = [
   { id: 1, nickname: "Test Company Inc", currency: "CAD", bank: "TD Bank", country: "Canada", account: "12345678", status: "approved" },
@@ -50,7 +51,7 @@ export default function Beneficiaries({ onNavigate }) {
   }
 
   return (
-    <div className="flex-1 bg-gray-50 p-6 min-w-0">
+    <div className="flex-1 bg-gray-50 p-4 pt-[72px] md:p-6 min-w-0">
       <div className="flex items-center justify-between mb-4">
         <h1 className="text-xl font-semibold text-gray-900">Beneficiaries</h1>
         <button
@@ -80,8 +81,8 @@ export default function Beneficiaries({ onNavigate }) {
       </div>
 
       {/* Table */}
-      <div className="bg-white rounded-xl border border-gray-200/70 p-4">
-        <div className="grid grid-cols-[1.5fr_0.7fr_1.2fr_1fr_1fr_1fr] gap-3 text-[11px] text-gray-400 border-b border-gray-100 pb-1.5">
+      <div className="bg-white rounded-xl border border-gray-200/70 p-4 overflow-x-auto">
+        <div className="grid grid-cols-[1.5fr_0.7fr_1.2fr_1fr_1fr_1fr] gap-3 min-w-[720px] text-[11px] text-gray-400 border-b border-gray-100 pb-1.5">
           <span>Nickname</span>
           <span>Currency</span>
           <span>Bank</span>
@@ -105,7 +106,7 @@ export default function Beneficiaries({ onNavigate }) {
           return (
             <div
               key={b.id}
-              className={`grid grid-cols-[1.5fr_0.7fr_1.2fr_1fr_1fr_1fr] gap-3 items-center py-3 text-sm ${
+              className={`grid grid-cols-[1.5fr_0.7fr_1.2fr_1fr_1fr_1fr] gap-3 min-w-[720px] items-center py-3 text-sm ${
                 i < visible.length - 1 ? "border-b border-gray-100" : ""
               }`}
             >
@@ -126,7 +127,10 @@ export default function Beneficiaries({ onNavigate }) {
                 <button
                   type="button"
                   disabled={b.status !== "approved"}
-                  onClick={() => onNavigate("send-payment")}
+                  onClick={() => {
+                    setPendingBeneficiary({ name: b.nickname, currency: b.currency, last4: String(b.account).slice(-4) });
+                    onNavigate("send-payment");
+                  }}
                   className="inline-flex items-center gap-1 text-xs font-medium text-accent hover:underline disabled:text-gray-300 disabled:no-underline disabled:cursor-not-allowed"
                 >
                   <Send className="w-3 h-3" />
