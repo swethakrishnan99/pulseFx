@@ -14,7 +14,7 @@ import { readPendingQuote, clearPendingQuote, readPendingBeneficiary, clearPendi
 import { useExchangeRate, getRate, round2, parseAmount, fmt2, fmtRate, niceDate } from "../lib/fx";
 
 import { CURRENCIES, FLAGS } from "../lib/currencies";
-import { getBankAccounts, setPendingTab } from "../lib/bankAccounts";
+import { getBankAccounts, isVerified, setPendingTab } from "../lib/bankAccounts";
 const money = (cur, n) => `${cur} ${fmt2(n)}`;
 
 const CONVERT_REASONS = [
@@ -41,7 +41,7 @@ const prettyDate = (iso) => {
   return new Date(y, m - 1, d).toLocaleDateString("en-CA", { year: "numeric", month: "short", day: "numeric" });
 };
 
-// Demo data. It mirrors the Beneficiaries and Holding Accounts pages.
+// Demo data. It mirrors the Beneficiaries and Accounts pages.
 const BENEFICIARIES = [
   { id: "1", name: "Test Company Inc", currency: "CAD", bank: "TD Bank", last4: "5678" },
   { id: "2", name: "Maple Supply Co.", currency: "CAD", bank: "RBC Royal Bank", last4: "8842" },
@@ -51,7 +51,7 @@ const BENEFICIARIES = [
   { id: "6", name: "Harbour Imports Pty", currency: "AUD", bank: "Commonwealth Bank", last4: "2086" },
   { id: "7", name: "Azteca Manufactura SA", currency: "MXN", bank: "BBVA México", last4: "5521" },
 ]; // approved beneficiaries only
-// Holding accounts (mirrors the Holding Accounts page). Only accounts in the currency being paid are offered.
+// Holding accounts (mirrors the Accounts page). Only accounts in the currency being paid are offered.
 const HOLDING = [
   { id: "usd-rbc", currency: "USD", accountId: "0031201", balance: 0 },
   { id: "cad-td", currency: "CAD", accountId: "0031202", balance: 4200 },
@@ -113,7 +113,7 @@ export default function SendPayment({ onNavigate }) {
     const pb = readPendingBeneficiary();
     return pb ? BENEFICIARIES.find((b) => b.name === pb.name && b.last4 === pb.last4) ?? null : null;
   });
-  // Coming from Holding Accounts ("Pay"): that account, and so the currency you pay in, is already chosen.
+  // Coming from Accounts ("Pay"): that account, and so the currency you pay in, is already chosen.
   const [pendingConvertMode] = useState(() => readPendingPayFrom()?.convert === true);
   const [convert, setConvert] = useState(pendingConvertMode); // false = send to someone, true = convert into my own account
   const [toId, setToId] = useState("");
@@ -157,7 +157,7 @@ export default function SendPayment({ onNavigate }) {
   const beneficiary = beneficiaryOptions.find((b) => b.id === beneficiaryId) ?? null;
 
   const sameCur = payCur === recvCur;
-  const dateOk = payDate !== "" && payDate >= todayIso();
+  const dateOk = payDate !== "" && payDate >= todayIso() && ![0, 6].includes(new Date(`${payDate}T12:00:00`).getDay());
   const fromOptions = HOLDING.filter((a) => a.currency === payCur);
   // The chosen account, or (if none chosen yet) the one with the most money in it.
   const fromAcct =
@@ -166,8 +166,9 @@ export default function SendPayment({ onNavigate }) {
     null;
   const balance = fromAcct ? fromAcct.balance : 0;
   const useDebit = fundMethod === "debit";
-  const debitOptions = getBankAccounts().filter((a) => a.currency === payCur && a.status === "verified");
-  const hasPendingDebit = getBankAccounts().some((a) => a.currency === payCur && a.status === "pending");
+  const payCurBanks = getBankAccounts().filter((a) => a.currency === payCur);
+  const debitOptions = payCurBanks.filter(isVerified); // only accounts PulseFX has verified
+  const waitingBanks = payCurBanks.length - debitOptions.length;
   const debitAcct = debitOptions.find((a) => a.id === debitId) ?? debitOptions[0] ?? null;
   const balanceTooLow = !useDebit && payAmt > 0 && payAmt > balance;
   // Convert mode: the money lands in one of your own holding accounts (in the receive currency).
@@ -375,13 +376,13 @@ export default function SendPayment({ onNavigate }) {
       ? [
           `We collect ${money(q.payCur, q.payAmt)} from your bank account ${acctLabel(q.debitAcct)} (1 to 3 business days).`,
           `Once it arrives, we convert it and add ${money(q.recvCur, q.recvAmt)} to your ${q.recvCur} holding account ${acctLabel(q.toAcct)}.`,
-          "You can see the new balance on Holding Accounts.",
+          "You can see the new balance on Accounts.",
         ]
       : q.convert
       ? [
           `We take ${money(q.payCur, q.payAmt)} from your ${q.payCur} holding account ${acctLabel(q.fromAcct)}.`,
           `We convert it and add ${money(q.recvCur, q.recvAmt)} to your ${q.recvCur} holding account ${acctLabel(q.toAcct)}.`,
-          "You can see the new balance on Holding Accounts.",
+          "You can see the new balance on Accounts.",
         ]
       : [
       q.useDebit
@@ -473,7 +474,7 @@ export default function SendPayment({ onNavigate }) {
   return (
     <form onSubmit={goToConfirm} className="flex-1 bg-gray-50 p-4 pt-[72px] md:p-6 min-w-0">
       <StepHeader step={1} convert={convert} />
-      <h1 className="text-xl font-semibold text-gray-900 mb-3">Move money</h1>
+      <h1 className="text-xl font-semibold text-gray-900 mb-3">Move Money</h1>
 
       <div role="tablist" aria-label="What do you want to do?" className="inline-flex p-1 bg-gray-200/70 rounded-lg mb-4 max-w-full">
         {[
@@ -667,14 +668,16 @@ export default function SendPayment({ onNavigate }) {
                     <p className="text-sm text-gray-900">
                       {FLAGS[debitAcct.currency]} {debitAcct.currency} bank account · {acctLabel(debitAcct)}
                     </p>
-                    <p className="text-[11px] text-gray-500 mt-0.5">This is your only verified {payCur} bank account.</p>
+                    <p className="text-[11px] text-gray-500 mt-0.5">This is your only linked {payCur} bank account.</p>
                   </div>
                 </div>
               </>
             ) : (
               <div className="border border-dashed border-gray-300 rounded-lg px-3 py-2.5">
                 <p className="text-sm text-gray-700">
-                  {hasPendingDebit ? `Your ${payCur} bank account is still being verified.` : `No ${payCur} bank account is linked yet.`}
+                  {waitingBanks > 0
+                    ? `Your ${payCur} bank account is waiting for PulseFX to verify it. You can use it for direct debit once it's verified.`
+                    : `No ${payCur} bank account is linked yet.`}
                 </p>
                 <button
                   type="button"
@@ -684,7 +687,7 @@ export default function SendPayment({ onNavigate }) {
                   }}
                   className="text-xs font-medium text-accent hover:underline mt-1"
                 >
-                  {hasPendingDebit ? "View linked bank accounts" : "Link a bank account"}
+                  {waitingBanks > 0 ? "View linked bank accounts" : "Link a bank account"}
                 </button>
               </div>
             )}
@@ -842,7 +845,7 @@ export default function SendPayment({ onNavigate }) {
             />
             {!dateOk && (
               <p className="text-[11px] text-danger mt-1" role="alert">
-                Choose today or a future date.
+                Choose today or a future business day (not a weekend).
               </p>
             )}
           </div>

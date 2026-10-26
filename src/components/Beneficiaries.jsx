@@ -186,7 +186,7 @@ export default function Beneficiaries({ onNavigate }) {
     const rows = [
       ["Nickname", "Currency", "Bank name", "Bank country", "Account number", "Routing", "Status"],
       ...filtered.map((b) => [b.nickname, b.currency, b.bank, b.country, maskAccount(b.account), b.routing, b.status]),
-    ].map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(","));
+    ].map((r) => r.map((c) => { const t = String(c); const v = /^[=+\-@\t\r]/.test(t) ? `'${t}` : t; return `"${v.replace(/"/g, '""')}"`; }).join(","));
     const url = URL.createObjectURL(new Blob([rows.join("\n")], { type: "text/csv;charset=utf-8;" }));
     const a = document.createElement("a");
     a.href = url;

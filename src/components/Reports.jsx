@@ -74,7 +74,8 @@ function Stepper({ status }) {
 }
 
 function csvEscape(v) {
-  const s = String(v);
+  let s = String(v);
+  if (/^[=+\-@\t\r]/.test(s) && Number.isNaN(Number(s))) s = `'${s}`;
   return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
 }
 

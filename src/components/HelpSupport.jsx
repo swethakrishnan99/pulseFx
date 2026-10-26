@@ -53,7 +53,7 @@ const FAQ = [
       },
       {
         q: "What is a holding account?",
-        a: "A holding account keeps money in a currency until you use it. Money you send to us, and money you receive from a trade, is held here. Select Holding Accounts to see your balances and the amounts required for payments in progress.",
+        a: "A holding account keeps money in a currency until you use it. Money you send to us, and money you receive from a trade, is held here. Select Accounts to see your balances and the amounts required for payments in progress.",
       },
     ],
   },

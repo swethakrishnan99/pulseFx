@@ -8,6 +8,9 @@ import Reports from "./components/Reports";
 import Account from "./components/Account";
 import HelpSupport from "./components/HelpSupport";
 import Login from "./components/Login";
+import ForwardsDrawdown from "./components/ForwardsDrawdown";
+import TradeFinance from "./components/TradeFinance";
+
 
 
 export default function App() {
@@ -24,7 +27,9 @@ if (screen === "login") return <Login onSignIn={() => setScreen("dashboard")} />
       {screen === "beneficiaries" && <Beneficiaries onNavigate={setScreen} />}
       {screen === "holding-accounts" && <HoldingAccounts onNavigate={setScreen} />}
       {screen === "reports" && <Reports onNavigate={setScreen} />}
-     {(screen === "profile" || screen === "security") && <Account tab={screen} />}
+      {(screen === "profile" || screen === "security") && <Account tab={screen} />}
+      {screen === "forwards-drawdown" && <ForwardsDrawdown onNavigate={setScreen} />}
+      {screen === "trade-finance" && <TradeFinance onNavigate={setScreen} />}
      {screen === "help" && <HelpSupport />}
     </div>
     </div>

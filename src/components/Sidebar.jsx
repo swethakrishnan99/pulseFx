@@ -8,6 +8,8 @@ import {
   Building2,
   BarChart3,
   HelpCircle,
+  CalendarClock,
+  HandCoins,
 } from "lucide-react";
 import ProfileMenu from "./ProfileMenu";
 import PulseMark from "./PulseMark";
@@ -16,7 +18,9 @@ const NAV_ITEMS = [
   { key: "dashboard", label: "Dashboard", icon: LayoutDashboard },
   { key: "send-payment", label: "Move Money", icon: ArrowLeftRight },
   { key: "beneficiaries", label: "Beneficiaries", icon: Users },
-  { key: "holding-accounts", label: "Holding Accounts", icon: Building2 },
+  { key: "holding-accounts", label: "Accounts", icon: Building2 },
+  { key: "forwards-drawdown", label: "Forwards", icon: CalendarClock },
+  { key: "trade-finance", label: "Trade Finance", icon: HandCoins },
   { key: "reports", label: "Reports", icon: BarChart3 },
 ];
 

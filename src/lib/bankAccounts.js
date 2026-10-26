@@ -8,12 +8,16 @@ let accounts = [
   { id: "b-gbp-1", currency: "GBP", bank: "RBC GBP account", last4: "9022", holder: "PulseFX Test Account", status: "verified" },
   { id: "b-aud-1", currency: "AUD", bank: "RBC AUD account", last4: "9023", holder: "PulseFX Test Account", status: "verified" },
   { id: "b-mxn-1", currency: "MXN", bank: "RBC MXN account", last4: "9024", holder: "PulseFX Test Account", status: "verified" },
+  { id: "b-cad-3", currency: "CAD", bank: "Scotiabank Business", last4: "4410", holder: "PulseFX Test Account", status: "pending" },
 ];
 
 export const getBankAccounts = () => accounts;
 export const addBankAccount = (a) => { accounts = [{ id: `b-${Date.now()}`, status: "pending", ...a }, ...accounts]; };
 export const removeBankAccount = (id) => { accounts = accounts.filter((a) => a.id !== id); };
-export const verifyBankAccount = (id) => { accounts = accounts.map((a) => (a.id === id ? { ...a, status: "verified" } : a)); };
+
+// PulseFX checks every newly linked account. Until then it is "pending" and cannot be used for direct debit.
+// (Demo: there is no client-side way to verify; PulseFX does that on its side.)
+export const isVerified = (a) => a.status === "verified";
 
 // Lets Move Money open Holding Accounts straight on the Linked bank accounts tab.
 let pendingTab = null;
