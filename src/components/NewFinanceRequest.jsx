@@ -270,7 +270,7 @@ export default function NewFinanceRequest({ onClose, onSubmit, available = Infin
           </label>
           <div className="flex items-center gap-2">
             <button type="button" onClick={onClose} className="text-sm font-medium text-gray-500 px-4 py-2 rounded-md hover:bg-gray-100">Cancel</button>
-            <button type="submit" disabled={!ready} className="ml-auto text-sm font-medium bg-accent text-white px-5 py-2 rounded-md hover:bg-accent-800 disabled:opacity-50 disabled:cursor-not-allowed">Submit</button>
+            <button type="submit" disabled={!ready} className="ml-auto text-sm font-medium bg-brand text-navy px-5 py-2 rounded-md hover:bg-[#009a7d] disabled:opacity-50 disabled:cursor-not-allowed">Submit</button>
           </div>
         </div>
       </form>

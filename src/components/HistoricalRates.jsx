@@ -180,7 +180,7 @@ function WatchlistModal({ pairs, onSave, onClose }) {
         </div>
         <div className="flex justify-end gap-2 px-5 py-3 border-t border-gray-100">
           <button type="button" onClick={onClose} className="text-sm font-medium text-gray-600 bg-gray-100 rounded-md px-4 py-2 hover:bg-gray-200">Cancel</button>
-          <button type="submit" className="text-sm font-medium bg-accent text-white rounded-md px-5 py-2 hover:bg-accent-800">Save</button>
+          <button type="submit" className="text-sm font-medium bg-brand text-navy rounded-md px-5 py-2 hover:bg-[#009a7d]">Save</button>
         </div>
       </form>
     </Modal>
@@ -231,7 +231,7 @@ function AlertsModal({ alerts, onChange, onClose }) {
       aria-controls="ra-panel"
       onClick={() => { setTab(key); if (key === "set") setSaved(false); }}
       className={`text-xs font-semibold uppercase tracking-wide pb-2 -mb-px border-b-2 focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2 rounded-sm ${
-        tab === key ? "border-accent text-gray-900" : "border-transparent text-gray-400 hover:text-gray-700"
+        tab === key ? "border-brand text-gray-900" : "border-transparent text-gray-400 hover:text-gray-700"
       }`}
     >
       {label}
@@ -274,10 +274,10 @@ function AlertsModal({ alerts, onChange, onClose }) {
               <Field label="Notify me by">
                 <div className="flex gap-5 pt-2.5">
                   <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
-                    <input type="checkbox" checked={email} onChange={(e) => { setEmail(e.target.checked); setErrors((er) => ({ ...er, via: undefined })); }} className="accent-[#00785f]" /> Email
+                    <input type="checkbox" checked={email} onChange={(e) => { setEmail(e.target.checked); setErrors((er) => ({ ...er, via: undefined })); }} className="accent-[#00af8e]" /> Email
                   </label>
                   <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
-                    <input type="checkbox" checked={text} onChange={(e) => { setText(e.target.checked); setErrors((er) => ({ ...er, via: undefined })); }} className="accent-[#00785f]" /> Text message
+                    <input type="checkbox" checked={text} onChange={(e) => { setText(e.target.checked); setErrors((er) => ({ ...er, via: undefined })); }} className="accent-[#00af8e]" /> Text message
                   </label>
                 </div>
                 {errors.via && <p className="text-[11px] text-danger mt-1">{errors.via}</p>}
@@ -286,7 +286,7 @@ function AlertsModal({ alerts, onChange, onClose }) {
             </div>
             <div className="flex justify-end gap-2 px-5 py-3 border-t border-gray-100">
               <button type="button" onClick={onClose} className="text-sm font-medium text-gray-600 bg-gray-100 rounded-md px-4 py-2 hover:bg-gray-200">Cancel</button>
-              <button type="submit" className="text-sm font-medium bg-accent text-white rounded-md px-5 py-2 hover:bg-accent-800">Save</button>
+              <button type="submit" className="text-sm font-medium bg-brand text-navy rounded-md px-5 py-2 hover:bg-[#009a7d]">Save</button>
             </div>
           </form>
         ) : (

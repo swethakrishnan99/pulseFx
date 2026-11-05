@@ -79,7 +79,7 @@ export default function SecurityTab() {
 
   return (
     <div>
-      <div className="grid grid-cols-1 lg:grid-cols-2 lg:gap-x-4 items-start">
+      <div className="grid grid-cols-1 md:grid-cols-2 md:gap-x-4 items-start">
         <div>
       <form onSubmit={updatePassword} noValidate className={CARD} aria-labelledby="sec-pw">
         <h2 id="sec-pw" className="text-sm font-medium text-gray-900">Password</h2>
@@ -103,7 +103,7 @@ export default function SecurityTab() {
         <div className="flex flex-wrap items-center gap-3 mt-4">
           <button
             type="submit"
-            className="bg-accent text-white text-sm font-medium px-4 py-2 rounded-md hover:bg-accent-800 transition-colors"
+            className="bg-brand text-navy text-sm font-medium px-4 py-2 rounded-md hover:bg-[#009a7d] transition-colors"
           >
             Update password
           </button>
@@ -145,7 +145,7 @@ export default function SecurityTab() {
                   method === key ? "border-accent bg-accent-100/50" : "border-gray-200"
                 }`}
               >
-                <input type="radio" name="method" checked={method === key} onChange={() => setMethod(key)} className="mt-1 accent-[#00785F]" />
+                <input type="radio" name="method" checked={method === key} onChange={() => setMethod(key)} className="mt-1 accent-[#00af8e]" />
                 <span>
                   <span className="block text-sm text-gray-900">{title}</span>
                   <span className="block text-xs text-gray-500">{hint}</span>

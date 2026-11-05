@@ -331,7 +331,7 @@ export default function Beneficiaries({ onNavigate }) {
             <button
               type="submit"
               disabled={!canSave}
-              className="text-sm font-medium bg-accent text-white px-5 py-2 rounded-md hover:bg-accent-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="text-sm font-medium bg-brand text-navy px-5 py-2 rounded-md hover:bg-[#009a7d] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {editingId ? "Save changes" : "Save this beneficiary"}
             </button>
@@ -389,7 +389,7 @@ export default function Beneficiaries({ onNavigate }) {
       <button
         type="button"
         onClick={() => openForm(null)}
-        className="flex items-center gap-1.5 bg-accent text-white text-sm font-medium px-4 py-2 rounded-md hover:bg-accent-800 transition-colors mb-4"
+        className="flex items-center gap-1.5 bg-brand text-navy text-sm font-medium px-4 py-2 rounded-md hover:bg-[#009a7d] transition-colors mb-4"
       >
         <Plus className="w-4 h-4" />
         Add beneficiary

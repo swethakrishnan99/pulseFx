@@ -12,11 +12,11 @@ const dayIso = (n) => {
 // original = amount sold when the forward was booked; remaining = still available to draw down.
 // type: "Window" forwards can be drawn down any time up to the value date; "Fixed" settle on the value date.
 export const FORWARDS = [
-  { id: "f1", ref: "PFXFWD-210931", sell: "USD", buy: "CAD", rate: 1.372, entry: dayIso(-75), maturity: dayIso(96), type: "Window", original: 200000, remaining: 150000, deposit: 10000, status: "Open" },
-  { id: "f2", ref: "PFXFWD-210478", sell: "CAD", buy: "USD", rate: 0.732, entry: dayIso(-120), maturity: dayIso(54), type: "Window", original: 100000, remaining: 60000, deposit: 5000, status: "Open" },
-  { id: "f3", ref: "PFXFWD-209812", sell: "CAD", buy: "USD", rate: 0.7298, entry: dayIso(-30), maturity: dayIso(157), type: "Fixed", original: 220000, remaining: 220000, deposit: 11000, status: "Open" },
-  { id: "f5", ref: "PFXFWD-207760", sell: "CAD", buy: "USD", rate: 0.7410, entry: dayIso(-190), maturity: dayIso(-5), type: "Window", original: 60000, remaining: 20000, deposit: 3000, status: "Open" },
-  { id: "f4", ref: "PFXFWD-208114", sell: "USD", buy: "CAD", rate: 1.3590, entry: dayIso(-200), maturity: dayIso(-20), type: "Window", original: 80000, remaining: 0, deposit: 0, status: "Closed" },
+  { id: "f1", ref: "PFXFWD-210931", sell: "USD", buy: "EUR", rate: 0.862, entry: dayIso(-75), maturity: dayIso(96), type: "Window", original: 200000, remaining: 150000, deposit: 10000, status: "Open" },
+  { id: "f2", ref: "PFXFWD-210478", sell: "EUR", buy: "USD", rate: 1.158, entry: dayIso(-120), maturity: dayIso(54), type: "Window", original: 100000, remaining: 60000, deposit: 5000, status: "Open" },
+  { id: "f3", ref: "PFXFWD-209812", sell: "GBP", buy: "USD", rate: 1.334, entry: dayIso(-30), maturity: dayIso(157), type: "Fixed", original: 220000, remaining: 220000, deposit: 11000, status: "Open" },
+  { id: "f5", ref: "PFXFWD-207760", sell: "GBP", buy: "EUR", rate: 1.148, entry: dayIso(-190), maturity: dayIso(-5), type: "Window", original: 60000, remaining: 20000, deposit: 3000, status: "Open" },
+  { id: "f4", ref: "PFXFWD-208114", sell: "USD", buy: "GBP", rate: 0.746, entry: dayIso(-200), maturity: dayIso(-20), type: "Window", original: 80000, remaining: 0, deposit: 0, status: "Closed" },
 ];
 
 // Approved beneficiaries a drawdown can be paid to (pending ones are left out on purpose).
@@ -39,8 +39,8 @@ const BENEFICIARIES = [
   { id: "3", name: "Lone Star Logistics", currency: "USD" },
 ];
 
-const HOLDING_ID = { USD: "0031201", CAD: "0031202" };
-const HOLDING_BAL = { USD: 0, CAD: 4200 }; // demo balances, same as the Accounts page
+const HOLDING_ID = { USD: "0031201", EUR: "0031202", GBP: "0031203" };
+const HOLDING_BAL = { USD: 0, EUR: 12500, GBP: 8300 }; // demo balances, same as the Accounts page
 
 const todayIso = () => {
   const d = new Date();
@@ -64,7 +64,7 @@ function StepHeader({ step }) {
           <li key={label} className="flex items-center gap-2">
             <span
               className={`w-5 h-5 rounded-full border flex items-center justify-center text-[11px] ${
-                done ? "bg-accent border-accent text-white" : cur ? "border-gray-900 text-gray-900 font-semibold" : "border-gray-300 text-gray-400"
+                done ? "bg-brand border-brand text-navy" : cur ? "border-gray-900 text-gray-900 font-semibold" : "border-gray-300 text-gray-400"
               }`}
             >
               {done ? <Check className="w-3 h-3" /> : n}
@@ -187,7 +187,7 @@ function DrawdownForm({ onNavigate, initialFwd = "", onBack }) {
             <li className="flex gap-2"><span className="text-accent font-medium">{d.payments.length ? "•" : "2."}</span>{d.credited > 0 ? `We credit ${money(d.fwd.buy, d.credited)} to your ${d.fwd.buy} holding account ${HOLDING_ID[d.fwd.buy] ?? ""}.` : "Nothing is left to credit to your holding account."}</li>
           </ol>
           <div className="flex flex-wrap gap-2">
-            <button type="button" onClick={() => onNavigate("holding-accounts")} className="text-sm font-medium bg-accent text-white px-4 py-2 rounded-md hover:bg-accent-800">View holding accounts</button>
+            <button type="button" onClick={() => onNavigate("holding-accounts")} className="text-sm font-medium bg-brand text-navy px-4 py-2 rounded-md hover:bg-[#009a7d]">View holding accounts</button>
             <button type="button" onClick={() => onNavigate("dashboard")} className="text-sm font-medium border border-gray-200 text-gray-700 px-4 py-2 rounded-md hover:bg-gray-50">Back to dashboard</button>
             <button type="button" onClick={onBack} className="text-sm font-medium text-accent px-3 py-2 hover:underline">Back to forwards</button>
           </div>
@@ -311,7 +311,7 @@ function DrawdownForm({ onNavigate, initialFwd = "", onBack }) {
             )}
 
             <div className="flex justify-end mt-5">
-              <button type="button" disabled={!step1Ok} onClick={() => setStep(2)} className="text-sm font-medium bg-accent text-white px-5 py-2 rounded-md hover:bg-accent-800 disabled:opacity-50 disabled:cursor-not-allowed">Continue</button>
+              <button type="button" disabled={!step1Ok} onClick={() => setStep(2)} className="text-sm font-medium bg-brand text-navy px-5 py-2 rounded-md hover:bg-[#009a7d] disabled:opacity-50 disabled:cursor-not-allowed">Continue</button>
             </div>
           </>
         )}
@@ -391,7 +391,7 @@ function DrawdownForm({ onNavigate, initialFwd = "", onBack }) {
 
             <div className="flex items-center gap-2 mt-5">
               <button type="button" onClick={() => setStep(1)} className="text-sm font-medium text-gray-500 px-4 py-2 rounded-md hover:bg-gray-100">Back</button>
-              <button type="button" disabled={!fundOk} onClick={confirm} className="ml-auto text-sm font-medium bg-accent text-white px-5 py-2 rounded-md hover:bg-accent-800 disabled:opacity-50 disabled:cursor-not-allowed">Confirm</button>
+              <button type="button" disabled={!fundOk} onClick={confirm} className="ml-auto text-sm font-medium bg-brand text-navy px-5 py-2 rounded-md hover:bg-[#009a7d] disabled:opacity-50 disabled:cursor-not-allowed">Confirm</button>
             </div>
             <p className="text-[11px] text-gray-400 mt-3 flex items-center gap-1"><CalendarClock className="w-3 h-3" />Demo only: no drawdown is created.</p>
           </>
@@ -552,7 +552,7 @@ export default function Forwards({ onNavigate }) {
                       disabled={!canDrawdown(f)}
                       title={statusOf(f) === "Closed" ? "This forward is closed" : f.type !== "Window" ? "Fixed forwards settle on the value date and can't be drawn down" : undefined}
                       onClick={() => { setStartWith(f.id); setView("drawdown"); }}
-                      className="text-xs font-medium bg-accent text-white rounded-md px-3.5 py-1.5 hover:bg-accent-800 disabled:opacity-40 disabled:cursor-not-allowed"
+                      className="text-xs font-medium bg-brand text-navy rounded-md px-3.5 py-1.5 hover:bg-[#009a7d] disabled:opacity-40 disabled:cursor-not-allowed"
                     >
                       Drawdown
                     </button>

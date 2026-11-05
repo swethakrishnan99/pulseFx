@@ -43,7 +43,7 @@ export default function NotificationsTab() {
 
   return (
     <div>
-      <div className="grid grid-cols-1 lg:grid-cols-2 lg:gap-x-4 items-start">
+      <div className="grid grid-cols-1 md:grid-cols-2 md:gap-x-4 items-start">
       <section className={CARD} aria-labelledby="nt-what">
         <h2 id="nt-what" className="text-sm font-medium text-gray-900 mb-1">What you are notified about</h2>
         <ul className="divide-y divide-gray-100">
@@ -74,7 +74,7 @@ export default function NotificationsTab() {
                 form.via === key ? "border-accent bg-accent-100/50" : "border-gray-200"
               }`}
             >
-              <input type="radio" name="via" checked={form.via === key} onChange={() => change({ via: key })} className="mt-1 accent-[#00785F]" />
+              <input type="radio" name="via" checked={form.via === key} onChange={() => change({ via: key })} className="mt-1 accent-[#00af8e]" />
               <span>
                 <span className="block text-sm text-gray-900">{title}</span>
                 <span className="block text-xs text-gray-500">{hint}</span>
@@ -90,7 +90,7 @@ export default function NotificationsTab() {
           type="button"
           onClick={onSave}
           disabled={!dirty}
-          className="bg-accent text-white text-sm font-medium px-4 py-2 rounded-md hover:bg-accent-800 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+          className="bg-brand text-navy text-sm font-medium px-4 py-2 rounded-md hover:bg-[#009a7d] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
         >
           Save
         </button>

@@ -87,7 +87,7 @@ export default function ProfileTab({ username, email }) {
         <button
           type="submit"
           disabled={!dirty}
-          className="bg-accent text-white text-sm font-medium px-5 py-2 rounded-md hover:bg-accent-800 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+          className="bg-brand text-navy text-sm font-medium px-5 py-2 rounded-md hover:bg-[#009a7d] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
         >
           Save
         </button>

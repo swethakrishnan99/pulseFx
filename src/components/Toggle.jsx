@@ -9,7 +9,7 @@ export default function Toggle({ checked, onChange, label, id }) {
       aria-label={label}
       onClick={() => onChange(!checked)}
       className={`relative shrink-0 w-10 h-6 rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-accent-100 ${
-        checked ? "bg-accent" : "bg-gray-300"
+        checked ? "bg-brand" : "bg-gray-300"
       }`}
     >
       <span

@@ -15,12 +15,13 @@ const STATUS_HELP = {
 };
 
 const BALANCES = [
-  { currency: "USD", flag: "\u{1F1FA}\u{1F1F8}", accountId: "0031201", available: "$0.00", required: "$65,000.00", requiredFlag: true, incoming: "$10,000.00" },
-  { currency: "CAD", flag: "\u{1F1E8}\u{1F1E6}", accountId: "0031202", available: "$4,200.00", required: "$0.00", requiredFlag: false, incoming: "$106,444.58", incomingGood: true },
+  { currency: "USD", flag: "\u{1F1FA}\u{1F1F8}", accountId: "0031201", balance: "$0.00", available: "$0.00", required: "$65,000.00", requiredFlag: true, incoming: "$10,000.00" },
+  { currency: "EUR", flag: "\u{1F1EA}\u{1F1FA}", accountId: "0031202", balance: "\u20AC12,500.00", available: "\u20AC12,500.00", required: "\u20AC0.00", requiredFlag: false, incoming: "\u20AC0.00" },
+  { currency: "GBP", flag: "\u{1F1EC}\u{1F1E7}", accountId: "0031203", balance: "\u00A38,300.00", available: "\u00A38,300.00", required: "\u00A30.00", requiredFlag: false, incoming: "\u00A325,000.00", incomingGood: true },
 ];
 
 const ACTIVITY = [
-  { ref: "EBPOTR031499", pay: "CAD 13,839.34", receive: "$10,000.00", status: "Awaiting funds", tone: "warning" },
+  { ref: "EBPOTR031499", pay: "EUR 8,600.00", receive: "$10,000.00", status: "Awaiting funds", tone: "warning" },
   { ref: "EBPOTR031305", pay: "$75,000.00", receive: "CAD 106,444.58", status: "In transit", tone: "success" },
 ];
 
@@ -116,7 +117,7 @@ export default function Dashboard({ onNavigate }) {
 
           {!quote ? (
             <form onSubmit={getQuote} className="flex-1 flex flex-col">
-              <p className="text-sm font-medium text-accent">Get a quote for a single currency.</p>
+              <p className="text-sm font-medium text-accent">Get a quote for a currency pair.</p>
               <p id="qq-help" className="text-[11px] text-gray-500 mb-3">
                 Enter an amount in either field. The other amount appears in your quote.
                 {amountStr !== "" && (
@@ -200,7 +201,7 @@ export default function Dashboard({ onNavigate }) {
                 <button
                   type="submit"
                   disabled={payAmt <= 0}
-                  className="w-full text-sm font-medium bg-accent text-white rounded-md py-2 hover:bg-accent-800 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="w-full text-sm font-medium bg-brand text-navy rounded-md py-2 hover:bg-[#009a7d] disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Get a quote
                 </button>
@@ -226,7 +227,7 @@ export default function Dashboard({ onNavigate }) {
                       <circle cx="32" cy="32" r="28" fill="none" stroke="#e5e7eb" strokeWidth="5" />
                       <circle
                         cx="32" cy="32" r="28" fill="none"
-                        stroke={expired ? "#b42318" : "#00785f"} strokeWidth="5" strokeLinecap="round"
+                        stroke={expired ? "#b42318" : "#00846b"} strokeWidth="5" strokeLinecap="round"
                         strokeDasharray={2 * Math.PI * 28}
                         strokeDashoffset={2 * Math.PI * 28 * (1 - secondsLeft / QUOTE_SECONDS)}
                         style={{ transition: "stroke-dashoffset 1s linear" }}
@@ -246,7 +247,7 @@ export default function Dashboard({ onNavigate }) {
                     <p className="text-xs text-danger mt-2">This quote has expired. Please request a new quote.</p>
                   ) : (
                     <label className="flex items-start gap-2 mt-2 text-xs text-gray-600 cursor-pointer">
-                      <input type="checkbox" checked={agreed} onChange={(e) => setAgreed(e.target.checked)} className="mt-0.5 accent-[#00785f]" />
+                      <input type="checkbox" checked={agreed} onChange={(e) => setAgreed(e.target.checked)} className="mt-0.5 accent-[#00af8e]" />
                       <span>I understand that by selecting Buy, I agree to purchase this currency at the rate shown. <i className="text-gray-400">(Demo only. No money is moved.)</i></span>
                     </label>
                   )}
@@ -261,7 +262,7 @@ export default function Dashboard({ onNavigate }) {
                   type="button"
                   onClick={buy}
                   disabled={!agreed || expired}
-                  className="text-xs font-medium bg-accent text-white rounded-md px-5 py-2 hover:bg-accent-800 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="text-xs font-medium bg-brand text-navy rounded-md px-5 py-2 hover:bg-[#009a7d] disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Buy
                 </button>
@@ -275,7 +276,7 @@ export default function Dashboard({ onNavigate }) {
 
       {/* Balances */}
       <div className="bg-white rounded-xl border border-gray-200/70 p-4 mb-4 overflow-x-auto">
-        <div className="flex items-center justify-between mb-2.5 min-w-[560px]">
+        <div className="flex items-center justify-between mb-2.5 min-w-[640px]">
           <p className="text-xs text-gray-500">Holding accounts &amp; balances</p>
           <button className="flex items-center gap-1 text-xs text-accent hover:underline">
             <FileText className="w-3.5 h-3.5" />
@@ -283,9 +284,10 @@ export default function Dashboard({ onNavigate }) {
           </button>
         </div>
 
-        <div className="grid grid-cols-5 gap-2.5 min-w-[560px] text-[11px] text-gray-400 border-b border-gray-100 pb-1.5">
+        <div className="grid grid-cols-6 gap-2.5 min-w-[640px] text-[11px] text-gray-400 border-b border-gray-100 pb-1.5">
           <span>Currency</span>
           <span>Account ID</span>
+          <span>Balance</span>
           <span>Available</span>
           <span className="flex items-center gap-1">
             Required
@@ -297,12 +299,13 @@ export default function Dashboard({ onNavigate }) {
         {BALANCES.map((row, i) => (
           <div
             key={row.accountId}
-            className={`grid grid-cols-5 gap-2.5 min-w-[560px] text-sm items-center py-2.5 ${
+            className={`grid grid-cols-6 gap-2.5 min-w-[640px] text-sm items-center py-2.5 ${
               i < BALANCES.length - 1 ? "border-b border-gray-100" : ""
             }`}
           >
             <span>{row.flag} {row.currency}</span>
             <span className="font-mono text-gray-700">{row.accountId}</span>
+            <span>{row.balance}</span>
             <span>{row.available}</span>
             <span>
               {row.requiredFlag ? (

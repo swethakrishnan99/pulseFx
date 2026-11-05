@@ -253,7 +253,7 @@ export default function HelpSupport() {
 
             <button
               type="submit"
-              className="bg-accent text-white text-sm font-medium px-4 py-2 rounded-md hover:bg-accent-800 transition-colors"
+              className="bg-brand text-navy text-sm font-medium px-4 py-2 rounded-md hover:bg-[#009a7d] transition-colors"
             >
               Send message
             </button>

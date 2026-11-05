@@ -10,13 +10,16 @@ import HelpSupport from "./components/HelpSupport";
 import Login from "./components/Login";
 import ForwardsDrawdown from "./components/ForwardsDrawdown";
 import TradeFinance from "./components/TradeFinance";
+import PartnerPortal from "./components/PartnerPortal";
 
 
 
 export default function App() {
   const [screen, setScreen] = useState("login");   
+  const [partner, setPartner] = useState(() => window.location.hash === "#partner");
+if (partner) return <PartnerPortal onExit={() => { window.location.hash = ""; setPartner(false); }} />;
 
-if (screen === "login") return <Login onSignIn={() => setScreen("dashboard")} />;
+if (screen === "login") return <Login onSignIn={(role) => { if (role === "partner") { window.location.hash = "partner"; setPartner(true); } else setScreen("dashboard"); }} />;
 
   return (
     <div className="h-screen w-full bg-white bg-center bg-no-repeat">

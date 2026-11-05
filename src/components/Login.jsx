@@ -49,7 +49,7 @@ function EmailRequestModal({ mode, onClose }) {
           <button
             type="button"
             onClick={onClose}
-            className="bg-accent text-white text-sm font-medium px-4 py-2 rounded-md hover:bg-accent-800 transition-colors"
+            className="bg-brand text-navy text-sm font-medium px-4 py-2 rounded-md hover:bg-[#009a7d] transition-colors"
           >
             Back to sign in
           </button>
@@ -80,7 +80,7 @@ function EmailRequestModal({ mode, onClose }) {
             </button>
             <button
               type="submit"
-              className="bg-accent text-white text-sm font-medium px-4 py-2 rounded-md hover:bg-accent-800 transition-colors"
+              className="bg-brand text-navy text-sm font-medium px-4 py-2 rounded-md hover:bg-[#009a7d] transition-colors"
             >
               {isReset ? "Send reset link" : "Send instructions"}
             </button>
@@ -100,6 +100,7 @@ export default function Login({ onSignIn }) {
   const [show, setShow] = useState(false);
   const [errors, setErrors] = useState({});
   const [busy, setBusy] = useState(false);
+  const [partner, setPartner] = useState(false); // signing in to the partner portal instead of the client portal
   const [tip, setTip] = useState(0);
   const [modal, setModal] = useState(null); // "reset" | "activate" | null
   const [paused, setPaused] = useState(false);
@@ -121,7 +122,7 @@ export default function Login({ onSignIn }) {
     setErrors(er);
     if (Object.keys(er).length) return;
     setBusy(true);
-    setTimeout(() => onSignIn?.(), 600);
+    setTimeout(() => onSignIn?.(partner ? "partner" : "client"), 600);
   }
 
   return (
@@ -185,8 +186,8 @@ export default function Login({ onSignIn }) {
           </div>
 
           <form onSubmit={submit} noValidate className="flex-1 flex flex-col justify-center p-6 md:p-10 w-full max-w-sm mx-auto">
-            <h1 className="text-xl font-semibold text-gray-900 mb-1">Sign in</h1>
-            <p className="text-sm text-gray-500 mb-6">Welcome back. Enter your details to continue.</p>
+            <h1 className="text-xl font-semibold text-gray-900 mb-1">{partner ? "Partner sign in" : "Sign in"}</h1>
+            <p className="text-sm text-gray-500 mb-6">{partner ? "Sign in to the PulseFX partner portal to track your referrals." : "Welcome back. Enter your details to continue."}</p>
 
             <label htmlFor="lg-email" className="block text-[11px] font-medium text-gray-500 mb-1">Email address</label>
             <div className={`${INPUT_WRAP} ${errors.email ? "border-danger" : "border-gray-200"}`}>
@@ -243,16 +244,24 @@ export default function Login({ onSignIn }) {
             <button
               type="submit"
               disabled={busy}
-              className="mt-5 w-full bg-accent text-white text-sm font-medium py-2.5 rounded-md hover:bg-accent-800 transition-colors disabled:opacity-70 disabled:cursor-not-allowed"
+              className="mt-5 w-full bg-brand text-navy text-sm font-medium py-2.5 rounded-md hover:bg-[#009a7d] transition-colors disabled:opacity-70 disabled:cursor-not-allowed"
             >
               {busy ? "Signing in..." : "Sign in"}
             </button>
 
-            <div className="border-t border-gray-100 mt-6 pt-4 text-center text-sm text-gray-500">
-              First time here?{" "}
-              <button type="button" onClick={() => setModal("activate")} className="font-medium text-accent hover:underline">
-                Activate your account
-              </button>
+            <div className="border-t border-gray-100 mt-6 pt-4 text-center text-sm text-gray-500 flex flex-col gap-2">
+              <p>
+                First time here?{" "}
+                <button type="button" onClick={() => setModal("activate")} className="font-medium text-accent hover:underline">
+                  Activate your account
+                </button>
+              </p>
+              <p>
+                {partner ? "Not a partner?" : "Are you a partner?"}{" "}
+                <button type="button" onClick={() => { setPartner((p) => !p); setErrors({}); }} className="font-medium text-accent hover:underline">
+                  {partner ? "Sign in as a client" : "Sign in here"}
+                </button>
+              </p>
             </div>
             <p className="text-[11px] text-gray-400 text-center mt-3">Demo only. Enter any email address and password.</p>
           </form>

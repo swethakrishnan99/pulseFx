@@ -54,7 +54,8 @@ const BENEFICIARIES = [
 // Holding accounts (mirrors the Accounts page). Only accounts in the currency being paid are offered.
 const HOLDING = [
   { id: "usd-rbc", currency: "USD", accountId: "0031201", balance: 0 },
-  { id: "cad-td", currency: "CAD", accountId: "0031202", balance: 4200 },
+  { id: "eur-1", currency: "EUR", accountId: "0031202", balance: 12500 },
+  { id: "gbp-1", currency: "GBP", accountId: "0031203", balance: 8300 },
   { id: "eur-rbc", currency: "EUR", accountId: "0031203", balance: 0 },
   { id: "gbp-rbc", currency: "GBP", accountId: "0031204", balance: 0 },
   { id: "aud-rbc", currency: "AUD", accountId: "0031205", balance: 0 },
@@ -359,7 +360,7 @@ export default function SendPayment({ onNavigate }) {
           <button
             type="button"
             onClick={confirmPayment}
-            className="ml-auto text-sm font-medium bg-accent text-white px-5 py-2 rounded-md hover:bg-accent-800 transition-colors"
+            className="ml-auto text-sm font-medium bg-brand text-navy px-5 py-2 rounded-md hover:bg-[#009a7d] transition-colors"
           >
             {q.convert ? "Confirm conversion" : "Confirm payment"}
           </button>
@@ -445,7 +446,7 @@ export default function SendPayment({ onNavigate }) {
             <button
               type="button"
               onClick={() => onNavigate(q.convert ? "holding-accounts" : "reports")}
-              className="text-sm font-medium bg-accent text-white px-4 py-2 rounded-md hover:bg-accent-800 transition-colors"
+              className="text-sm font-medium bg-brand text-navy px-4 py-2 rounded-md hover:bg-[#009a7d] transition-colors"
             >
               {q.convert ? "View holding accounts" : "Track this payment"}
             </button>
@@ -474,7 +475,7 @@ export default function SendPayment({ onNavigate }) {
   return (
     <form onSubmit={goToConfirm} className="flex-1 bg-gray-50 p-4 pt-[72px] md:p-6 min-w-0">
       <StepHeader step={1} convert={convert} />
-      <h1 className="text-xl font-semibold text-gray-900 mb-3">Move Money</h1>
+      <h1 className="text-xl font-semibold text-gray-900 mb-3">Move money</h1>
 
       <div role="tablist" aria-label="What do you want to do?" className="inline-flex p-1 bg-gray-200/70 rounded-lg mb-4 max-w-full">
         {[
@@ -735,7 +736,14 @@ export default function SendPayment({ onNavigate }) {
           </div>
         ) : null}
 
-        {balanceTooLow && (
+        {!useDebit && !fromAcct && (
+          <div role="alert" className="flex gap-2 items-start text-xs text-[#7a4e0b] bg-warning-100 border-l-4 border-warning rounded-md px-3 py-2.5 mb-4">
+            <AlertTriangle className="w-4 h-4 shrink-0" />
+            <p>You don't have a {payCur} holding account. Choose a different currency to pay from, or pay by direct debit from a linked {payCur} bank account.</p>
+          </div>
+        )}
+
+        {balanceTooLow && fromAcct && (
           <div role="alert" className="flex gap-2 items-start text-xs text-[#7a4e0b] bg-warning-100 border-l-4 border-warning rounded-md px-3 py-2.5 mb-4">
             <AlertTriangle className="w-4 h-4 shrink-0" />
             <p>
@@ -787,7 +795,11 @@ export default function SendPayment({ onNavigate }) {
                   </div>
                 </div>
               </div>
-            ) : null}
+            ) : (
+              <p role="alert" className="text-xs text-[#7a4e0b] bg-warning-100 border-l-4 border-warning rounded-md px-3 py-2.5">
+                You don't have a {recvCur} holding account to receive into. Choose a different currency.
+              </p>
+            )}
           </>
         ) : (
           <>
@@ -897,7 +909,7 @@ export default function SendPayment({ onNavigate }) {
           <button
             type="submit"
             disabled={!canContinue}
-            className="text-sm font-medium bg-accent text-white px-5 py-2 rounded-md hover:bg-accent-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="text-sm font-medium bg-brand text-navy px-5 py-2 rounded-md hover:bg-[#009a7d] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             Continue
           </button>

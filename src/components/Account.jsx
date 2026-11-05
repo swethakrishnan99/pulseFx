@@ -50,7 +50,7 @@ export default function Account({ tab: initialTab = "profile" }) {
             aria-controls={`acct-panel-${t.key}`}
             onClick={() => setTab(t.key)}
             className={`text-sm px-4 py-2 -mb-px border-b-2 whitespace-nowrap transition-colors ${
-              tab === t.key ? "border-accent text-accent font-medium" : "border-transparent text-gray-500 hover:text-gray-800"
+              tab === t.key ? "border-brand text-accent font-medium" : "border-transparent text-gray-500 hover:text-gray-800"
             }`}
           >
             {t.label}

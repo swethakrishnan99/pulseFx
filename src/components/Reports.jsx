@@ -6,10 +6,10 @@ import Tooltip from "./Tooltip";
 const TODAY = new Date("2026-10-06T00:00:00Z");
 
 const PAYMENTS = [
-  { ref: "EBPOTR031499", from: "0031202", date: "2026-10-05", to: "Test Company Inc", paid: { cur: "CAD", amt: 13839.34 }, received: { cur: "USD", amt: 10000 }, rate: 1.3839, status: "awaiting", note: "We're waiting for your CAD 13,839.34 to arrive before we can send this." },
+  { ref: "EBPOTR031499", from: "0031202", date: "2026-10-05", to: "Test Company Inc", paid: { cur: "EUR", amt: 8600 }, received: { cur: "USD", amt: 10000 }, rate: 0.86, status: "awaiting", note: "We're waiting for your EUR 8,600.00 to arrive before we can send this." },
   { ref: "EBPOTR031305", from: "0031201", date: "2026-10-02", to: "Maple Supply Co.", paid: { cur: "USD", amt: 75000 }, received: { cur: "CAD", amt: 106444.58 }, rate: 1.4193, status: "transit", note: "On its way. It should reach the recipient's bank within 1 business day." },
   { ref: "EBPOTR030981", from: "0031201", date: "2026-09-18", to: "Lone Star Logistics", paid: { cur: "USD", amt: 25000 }, received: { cur: "CAD", amt: 34602.5 }, rate: 1.3841, status: "completed" },
-  { ref: "EBPOTR030754", from: "0031202", date: "2026-08-27", to: "Pacific Freight LLC", paid: { cur: "CAD", amt: 8210 }, received: { cur: "USD", amt: 5940.15 }, rate: 1.382, status: "completed" },
+  { ref: "EBPOTR030754", from: "0031203", date: "2026-08-27", to: "Pacific Freight LLC", paid: { cur: "GBP", amt: 4455.11 }, received: { cur: "USD", amt: 5940.15 }, rate: 0.75, status: "completed" },
   { ref: "EBPOTR030212", from: "0031201", date: "2026-06-14", to: "Maple Supply Co.", paid: { cur: "USD", amt: 12000 }, received: { cur: "CAD", amt: 16380 }, rate: 1.365, status: "completed" },
 ];
 
@@ -49,15 +49,15 @@ function Stepper({ status }) {
           <li key={label} className="flex-1 flex flex-col items-center relative">
             {i > 0 && (
               <span
-                className={`absolute top-3 right-1/2 w-full h-0.5 ${i < done ? "bg-success" : "bg-gray-200"}`}
+                className={`absolute top-3 right-1/2 w-full h-0.5 ${i < done ? "bg-brand" : "bg-gray-200"}`}
               />
             )}
             <span
               className={`relative z-10 w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-medium border-2 ${
                 isDone
-                  ? "bg-success border-success text-white"
+                  ? "bg-brand border-brand text-navy"
                   : isCurrent
-                  ? "bg-white border-accent text-accent"
+                  ? "bg-white border-brand text-accent"
                   : "bg-white border-gray-200 text-gray-300"
               }`}
             >
@@ -154,7 +154,7 @@ export default function Reports() {
             type="button"
             onClick={() => setTab(t.key)}
             className={`text-sm px-4 py-2 -mb-px border-b-2 transition-colors ${
-              tab === t.key ? "border-accent text-accent font-medium" : "border-transparent text-gray-500 hover:text-gray-800"
+              tab === t.key ? "border-brand text-accent font-medium" : "border-transparent text-gray-500 hover:text-gray-800"
             }`}
           >
             {t.label}

@@ -7,14 +7,14 @@ import { CURRENCIES, FLAGS } from "../lib/currencies";
 
 const ACCOUNTS = [
   { id: "usd-rbc", accountId: "0031201", currency: "USD", type: "Holding", balance: 0, change90: 10000, account: "50031201", iban: "GB12DEMO20060550031201", ref: "PFXCLI1008905" },
-  { id: "cad-td", accountId: "0031202", currency: "CAD", type: "Holding", balance: 4200, change90: 104644.58, account: "53031202", iban: "GB34DEMO20060553031202", ref: "PFXCLI1008906" },
+  { id: "eur-1", accountId: "0031202", currency: "EUR", type: "Holding", balance: 12500, change90: 12500, account: "53031202", iban: "GB34DEMO20060553031202", ref: "PFXCLI1008906" },
+  { id: "gbp-1", accountId: "0031203", currency: "GBP", type: "Holding", balance: 8300, change90: 25000, account: "53031203", iban: "GB56DEMO20060553031203", ref: "PFXCLI1008907" },
 ];
 
-// en-US prints a plain "$" for both USD and CAD amounts (en-CA would print "US$")
-const money = (n) =>
-  n.toLocaleString("en-US", { style: "currency", currency: "USD", minimumFractionDigits: 2 });
+const SYMBOL = { USD: "$", EUR: "\u20AC", GBP: "\u00A3" };
+const money = (n, cur = "USD") => `${SYMBOL[cur] ?? ""}${n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
-const signed = (n) => `${n >= 0 ? "+" : "-"}${money(Math.abs(n))}`;
+const signed = (n, cur) => `${n >= 0 ? "+" : "-"}${money(Math.abs(n), cur)}`;
 
 const amt = (n) => n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
@@ -111,7 +111,7 @@ function DetailsPanel({ account, onClose }) {
           type="button"
           onClick={handleDownload}
           disabled={download === "preparing"}
-          className="w-full flex items-center justify-center gap-2 bg-accent text-white text-sm font-medium px-4 py-2.5 rounded-md hover:bg-accent-800 transition-colors disabled:opacity-60"
+          className="w-full flex items-center justify-center gap-2 bg-brand text-navy text-sm font-medium px-4 py-2.5 rounded-md hover:bg-[#009a7d] transition-colors disabled:opacity-60"
         >
           <FileText className="w-4 h-4" />
           {download === "preparing" ? "Preparing certificate..." : "Download account certificate (PDF)"}
@@ -173,7 +173,7 @@ function LinkedAccounts() {
         <button
           type="button"
           onClick={() => { setNotice(""); setAdding(true); }}
-          className="flex items-center gap-1.5 bg-accent text-white text-sm font-medium px-4 py-2 rounded-md hover:bg-accent-800 transition-colors mb-4"
+          className="flex items-center gap-1.5 bg-brand text-navy text-sm font-medium px-4 py-2 rounded-md hover:bg-[#009a7d] transition-colors mb-4"
         >
           <Plus className="w-4 h-4" />
           Link a bank account
@@ -220,7 +220,7 @@ function LinkedAccounts() {
             <button
               type="submit"
               disabled={!ok || duplicate}
-              className="text-sm font-medium bg-accent text-white px-5 py-2 rounded-md hover:bg-accent-800 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="text-sm font-medium bg-brand text-navy px-5 py-2 rounded-md hover:bg-[#009a7d] disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Link account
             </button>
@@ -343,7 +343,7 @@ export default function HoldingAccounts({ onNavigate }) {
             aria-selected={tab === k}
             onClick={() => setTab(k)}
             className={`text-sm px-3 py-2 -mb-px border-b-2 transition-colors ${
-              tab === k ? "border-accent text-accent font-medium" : "border-transparent text-gray-500 hover:text-gray-800"
+              tab === k ? "border-brand text-accent font-medium" : "border-transparent text-gray-500 hover:text-gray-800"
             }`}
           >
             {t}
@@ -406,7 +406,7 @@ export default function HoldingAccounts({ onNavigate }) {
               }`}
             >
               {acc.change90 >= 0 ? <ArrowUpRight className="w-3 h-3" /> : <ArrowDownRight className="w-3 h-3" />}
-              {signed(acc.change90)}
+              {signed(acc.change90, acc.currency)}
             </span>
             <span className="flex items-center justify-end gap-6 text-xs font-medium">
               <button type="button" onClick={() => setSelected(acc)} className="text-accent hover:underline">

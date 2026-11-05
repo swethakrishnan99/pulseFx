@@ -116,7 +116,7 @@ export default function TradeFinance() {
           <h1 className="text-xl font-semibold text-gray-900 mb-1">Trade finance</h1>
           <p className="text-sm text-gray-500 max-w-xl">Supplier payment finance: pay your suppliers now and repay later.</p>
         </div>
-        <button type="button" onClick={() => { setNotice(""); setNewOpen(true); }} className="shrink-0 inline-flex items-center gap-1.5 text-sm font-medium bg-accent text-white px-4 py-2 rounded-md hover:bg-accent-800"><Plus className="w-4 h-4" />New request</button>
+        <button type="button" onClick={() => { setNotice(""); setNewOpen(true); }} className="shrink-0 inline-flex items-center gap-1.5 text-sm font-medium bg-brand text-navy px-4 py-2 rounded-md hover:bg-[#009a7d]"><Plus className="w-4 h-4" />New request</button>
       </div>
 
       {notice && (
@@ -141,7 +141,7 @@ export default function TradeFinance() {
           <p className="text-[11px] text-gray-500">Credit line</p>
           <p className="text-lg font-semibold text-gray-900">{money(CREDIT_LINE)}</p>
           <div className="h-2 bg-gray-100 rounded-full mt-3 overflow-hidden" role="progressbar" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100} aria-label="Credit line used">
-            <div className="h-full bg-accent rounded-full" style={{ width: `${pct}%` }} />
+            <div className="h-full bg-brand rounded-full" style={{ width: `${pct}%` }} />
           </div>
           <div className="flex justify-between text-xs text-gray-500 mt-2">
             <span>Used {money(used)} ({pct}%)</span>
@@ -158,7 +158,7 @@ export default function TradeFinance() {
       <div className="bg-white rounded-xl border border-gray-200/70">
         <div className="flex flex-wrap items-center gap-2 px-4 pt-3 border-b border-gray-100">
           {[["requests", "Submitted requests"], ["repayments", "Repayments"]].map(([k, l]) => (
-            <button key={k} type="button" onClick={() => { setTab(k); setStatus("All"); }} className={`text-sm px-3 py-2 -mb-px border-b-2 ${tab === k ? "border-accent text-accent font-medium" : "border-transparent text-gray-500 hover:text-gray-800"}`}>{l}</button>
+            <button key={k} type="button" onClick={() => { setTab(k); setStatus("All"); }} className={`text-sm px-3 py-2 -mb-px border-b-2 ${tab === k ? "border-brand text-accent font-medium" : "border-transparent text-gray-500 hover:text-gray-800"}`}>{l}</button>
           ))}
           <button type="button" onClick={exportCsv} aria-label="Download statement" title="Download statement (CSV)" className="ml-auto mb-1 p-2 text-gray-500 hover:text-accent"><FileDown className="w-4 h-4" /></button>
         </div>
@@ -255,7 +255,7 @@ export default function TradeFinance() {
                 <p className="text-sm font-medium text-gray-900 flex items-center gap-1.5"><Calculator className="w-4 h-4 text-accent" />Calculate early repayment</p>
                 <label htmlFor="early" className="block text-[11px] text-gray-500 mt-3 mb-1">Repayment date</label>
                 <input id="early" type="date" value={early} min={iso(0)} max={open.due} onChange={(e) => { setEarly(e.target.value); setEarlyResult(null); }} className="w-full text-sm border border-gray-200 rounded-md px-2.5 py-2 bg-white" />
-                <button type="button" disabled={!early} onClick={calcEarly} className="mt-3 text-sm font-medium bg-accent text-white px-4 py-2 rounded-md hover:bg-accent-800 disabled:opacity-50 disabled:cursor-not-allowed">Calculate</button>
+                <button type="button" disabled={!early} onClick={calcEarly} className="mt-3 text-sm font-medium bg-brand text-navy px-4 py-2 rounded-md hover:bg-[#009a7d] disabled:opacity-50 disabled:cursor-not-allowed">Calculate</button>
                 {earlyResult && (
                   <div className="mt-3 text-sm">
                     <div className="flex justify-between py-1"><span className="text-gray-500">Interest to that date</span><span>{money(earlyResult.interest)}</span></div>

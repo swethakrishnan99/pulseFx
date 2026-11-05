@@ -12,7 +12,7 @@ Built with React, Vite and Tailwind CSS v4.
 Requires Node 20.19+ (or 22.12+).
 
 ## Screens
-- Dashboard: Quick Quote, USD/CAD rate trend, holding accounts and balances, payments and trades in progress, help tooltips
+- Dashboard: Quick Quote, USD/CAD rate trend, holding accounts (USD, EUR, GBP) with balances, payments and trades in progress, help tooltips
 - Move Money: one page with a toggle between sending a payment and converting between your own accounts; fund from a holding account or by direct debit from a verified linked bank account
 - Beneficiaries: masked account numbers, search, add and edit beneficiary form, CSV export
 - Accounts: holding accounts (flags and balances, details side panel, certificate download demo) and a Linked bank accounts tab (new accounts show as Pending until PulseFX verifies them)

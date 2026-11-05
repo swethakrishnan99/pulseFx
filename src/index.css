@@ -6,16 +6,16 @@
   --color-navy: #001229;
   --color-navy-800: #000b1a;
 
-  /* UI accent: a deeper teal so white text on buttons/links passes WCAG AA
+  /* UI accent: a deeper teal so white text on buttons/links passes WCAG AA (about 4.6:1 on white)
      (brand teal #00AF8E with white text is only ~2.8:1) */
-  --color-accent: #00785f;
+  --color-accent: #00846b;
   --color-accent-100: #e0f5f0;
-  --color-accent-800: #005c48;
+  --color-accent-800: #006b56;
 
   --color-danger: #c0392b;
   --color-danger-100: #fbe4e1;
-  --color-success: #1e8e4e;
-  --color-success-100: #e3f4ea;
+  --color-success: #00846b;
+  --color-success-100: #e0f5f0;
   --color-warning: #b7791f;
   --color-warning-100: #faeeda;
 
