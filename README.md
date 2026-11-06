@@ -31,3 +31,5 @@ Requires Node 20.19+ (or 22.12+).
 - Forwards, Trade Finance, deposit rules, holidays, fees (about 1.5%) and the minimum finance amount are invented sample values pending confirmation with PulseFX.
 - All state (new beneficiaries, linked accounts, drawdowns, finance requests) is kept in memory and resets when the page reloads.
 - Sign-in accepts any well-formed email and any password: there is no real authentication.
+
+- 
