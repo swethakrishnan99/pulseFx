@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { Home, Users, Landmark, BookOpen, Headset, Copy, Check, X, ArrowUpDown, Download, UserPlus, ChevronDown, CheckCircle2, ArrowLeft } from "lucide-react";
+import { Home, Users, Landmark, BookOpen, Headset, Copy, Check, X, ArrowUpDown, Download, UserPlus, ChevronDown, CheckCircle2, ArrowLeft, Palette, Upload, Phone, MessageSquare, Mail, FileText, History, Trash2 } from "lucide-react";
 import PulseMark from "./PulseMark";
 
 // Partner portal demo for referral partners (for example an accounting firm that refers its clients to PulseFX).
@@ -38,11 +38,24 @@ const field = "w-full text-sm border border-gray-200 rounded-md px-2.5 py-2 bg-w
 const lab = "block text-[11px] text-gray-500 mb-1";
 const primary = "text-sm font-medium bg-brand text-navy px-4 py-2 rounded-md hover:bg-[#009a7d] disabled:opacity-50 disabled:cursor-not-allowed";
 
+const ghost = "inline-flex items-center gap-1.5 text-sm font-medium border border-gray-200 px-3 py-2 rounded-md hover:bg-gray-50";
+const PHONE = { display: "416 848 1028", tel: "+14168481028" };
+const EMAIL = "partnerships@pulsefx.com";
+
+// Download helpers. CSV cells that start with a formula character get a leading ' so Excel won't run them.
+const safeCell = (v) => { let t = String(v ?? ""); if (/^[=+\-@\t\r]/.test(t)) t = `'${t}`; return `"${t.replace(/"/g, '""')}"`; };
+function saveBlob(blob, name) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
 function Badge({ s }) {
   return <span className={`inline-block text-[11px] font-medium px-2 py-0.5 rounded-full whitespace-nowrap ${STATUS_STYLE[s]}`}>{s}</span>;
 }
 
-const NAV = [["home", "Home", Home], ["referrals", "Referrals", Users], ["add", "Add a client", UserPlus], ["banking", "Banking details", Landmark], ["guide", "Partner guide", BookOpen], ["contact", "Contact", Headset]];
+const NAV = [["home", "Home", Home], ["referrals", "Referrals", Users], ["add", "Add a client", UserPlus], ["banking", "Banking details", Landmark], ["brand", "Brand kit", Palette], ["guide", "Partner guide", BookOpen], ["contact", "Contact", Headset]];
 
 /* ---------------------------------------------------------------- Home */
 function PartnerHome({ go }) {
@@ -262,6 +275,7 @@ let PAYOUT = { bank: "RBC Royal Bank", holder: "ABC Accounting Inc.", last4: "48
 function Banking() {
   const [p, setP] = useState(PAYOUT);
   const [edit, setEdit] = useState(false);
+  const [hist, setHist] = useState(false);
   const [f, setF] = useState({ bank: "", holder: "", account: "", routing: "" });
   const ok = f.bank.trim() && f.holder.trim() && f.account.length >= 4 && f.routing.length >= 3;
   function save(e) {
@@ -280,8 +294,12 @@ function Banking() {
         ))}
         <p className="mt-3"><span className={`inline-block text-[11px] font-medium px-2 py-0.5 rounded-full ${p.status === "Verified" ? "bg-success-100 text-success" : "bg-gray-100 text-gray-700"}`}>{p.status}</span></p>
         {p.status !== "Verified" && <p className="text-xs text-gray-500 mt-2">PulseFX will verify your new details. Payouts go to your previous account until then.</p>}
-        {!edit && <button type="button" onClick={() => setEdit(true)} className="mt-4 text-sm font-medium border border-gray-200 px-3 py-2 rounded-md hover:bg-gray-50">Update bank details</button>}
+        <div className="flex flex-wrap gap-2 mt-4">
+          {!edit && <button type="button" onClick={() => setEdit(true)} className={ghost}>Update bank details</button>}
+          <button type="button" aria-expanded={hist} onClick={() => setHist(!hist)} className={ghost}><History className="w-4 h-4" />Payout history</button>
+        </div>
       </div>
+      {hist && <PayoutHistory onClose={() => setHist(false)} />}
       {edit && (
         <form onSubmit={save} className={`${card} p-5 flex flex-col gap-3`}>
           <div><label htmlFor="bk-b" className={lab}>Bank name *</label><input id="bk-b" className={field} value={f.bank} onChange={(e) => setF({ ...f, bank: e.target.value })} /></div>
@@ -297,6 +315,127 @@ function Banking() {
   );
 }
 
+const PAYOUTS = [
+  { ref: "PO-0007", date: iso(-12), client: "Redline Outdoor Gear", amount: 420, status: "Paid" },
+  { ref: "PO-0006", date: iso(-45), client: "Summit Dental Group", amount: 310, status: "Paid" },
+  { ref: "PO-0005", date: iso(-78), client: "Birchwood Furniture", amount: 275, status: "Paid" },
+  { ref: "PO-0004", date: iso(-110), client: "Redline Outdoor Gear", amount: 180, status: "Paid" },
+];
+function PayoutHistory({ onClose }) {
+  const total = PAYOUTS.reduce((a, r) => a + r.amount, 0);
+  const cad = (n) => n.toLocaleString("en-CA", { style: "currency", currency: "CAD" });
+  function csv() {
+    const rows = [["Reference", "Date", "Client", "Amount (CAD)", "Status"], ...PAYOUTS.map((r) => [r.ref, r.date, r.client, r.amount.toFixed(2), r.status])];
+    saveBlob(new Blob(["\uFEFF" + rows.map((r) => r.map(safeCell).join(",")).join("\r\n")], { type: "text/csv;charset=utf-8" }), "payout-history.csv");
+  }
+  return (
+    <div className={`${card} p-5`} role="region" aria-label="Payout history">
+      <div className="flex items-start justify-between gap-3">
+        <div><p className="text-sm font-medium text-gray-900">Payout history</p><p className="text-xs text-gray-500 mt-0.5">Total paid: {cad(total)}</p></div>
+        <div className="flex gap-2">
+          <button type="button" onClick={csv} className={ghost}><Download className="w-4 h-4" />Download</button>
+          <button type="button" onClick={onClose} aria-label="Close payout history" className="p-2 rounded-md text-gray-500 hover:bg-gray-100"><X className="w-4 h-4" /></button>
+        </div>
+      </div>
+      <div className="overflow-x-auto mt-3">
+        <table className="w-full text-sm min-w-[420px]">
+          <thead><tr className="text-left text-[11px] text-gray-500 border-b border-gray-100"><th className="py-2 font-normal">Date</th><th className="py-2 font-normal">Client</th><th className="py-2 font-normal text-right">Amount</th><th className="py-2 font-normal pl-4">Status</th></tr></thead>
+          <tbody>{PAYOUTS.map((r) => (
+            <tr key={r.ref} className="border-b border-gray-50 last:border-0"><td className="py-2 text-gray-600 whitespace-nowrap">{pretty(r.date)}</td><td className="py-2 text-gray-900">{r.client}</td><td className="py-2 text-right tabular-nums">{cad(r.amount)}</td><td className="py-2 pl-4"><span className="text-[11px] font-medium px-2 py-0.5 rounded-full bg-success-100 text-success">{r.status}</span></td></tr>
+          ))}</tbody>
+        </table>
+      </div>
+      <p className="text-[11px] text-gray-400 mt-3">Demo only: sample payouts. Real amounts will depend on the payout terms PulseFX confirms.</p>
+    </div>
+  );
+}
+
+/* --------------------------------------------------------------- Brand kit */
+
+// Module-level so uploads survive tab switches (reset on reload; nothing is sent anywhere).
+let BRAND = { logo: null, headshot: null, description: "" };
+const TYPES = { png: "image/png", jpg: "image/jpeg", svg: "image/svg+xml" };
+function Uploader({ id, label, hint, kind, accept, maxMB }) {
+  const [file, setFile] = useState(BRAND[kind]);
+  const [err, setErr] = useState("");
+  function pick(e) {
+    const f = e.target.files?.[0];
+    e.target.value = "";
+    if (!f) return;
+    if (!accept.includes(f.type)) { setErr(`Use a ${accept.map((t) => t.split("/")[1].replace("jpeg", "JPG").replace("svg+xml", "SVG").toUpperCase()).join(", ")} file.`); return; }
+    if (f.size > maxMB * 1024 * 1024) { setErr(`That file is over ${maxMB} MB.`); return; }
+    if (BRAND[kind]?.url) URL.revokeObjectURL(BRAND[kind].url);
+    BRAND[kind] = { name: f.name, size: f.size, url: URL.createObjectURL(f) };
+    setFile(BRAND[kind]); setErr("");
+  }
+  function remove() { if (file?.url) URL.revokeObjectURL(file.url); BRAND[kind] = null; setFile(null); }
+  return (
+    <div className={`${card} p-5`}>
+      <p className="text-sm font-medium text-gray-900">{label}</p>
+      <p className="text-xs text-gray-500 mt-0.5">{hint}</p>
+      {file && (
+        <div className="flex items-center gap-3 mt-3 p-2 rounded-md bg-gray-50">
+          <img src={file.url} alt={`${label} preview`} className={`w-12 h-12 object-contain bg-white border border-gray-200 ${kind === "headshot" ? "rounded-full object-cover" : "rounded-md"}`} />
+          <div className="min-w-0 flex-1"><p className="text-sm text-gray-900 truncate">{file.name}</p><p className="text-[11px] text-gray-500">{(file.size / 1024).toFixed(0)} KB</p></div>
+          <button type="button" onClick={remove} aria-label={`Remove ${label}`} className="p-2 rounded-md text-gray-500 hover:bg-gray-100"><Trash2 className="w-4 h-4" /></button>
+        </div>
+      )}
+      <div className="mt-3">
+        <input id={id} type="file" accept={accept.join(",")} onChange={pick} className="sr-only" />
+        <label htmlFor={id} className={`${ghost} cursor-pointer focus-within:ring-2`}><Upload className="w-4 h-4" />{file ? "Replace" : "Upload"}</label>
+      </div>
+      {err && <p role="alert" className="text-xs text-danger mt-2">{err}</p>}
+    </div>
+  );
+}
+
+const ASSETS = [
+  { name: "PulseFX logo, full colour (PNG)", file: "pulsefx-logo-colour.png" },
+  { name: "PulseFX logo, white text for dark backgrounds (PNG)", file: "pulsefx-logo-white.png" },
+  { name: "PulseFX logo mark on navy circle (SVG)", file: "pulsefx-logo-navy-circle.svg" },
+];
+function BrandKit() {
+  const [desc, setDesc] = useState(BRAND.description);
+  const [saved, setSaved] = useState(false);
+  const max = 500;
+  function save(e) { e.preventDefault(); BRAND.description = desc.trim(); setDesc(BRAND.description); setSaved(true); setTimeout(() => setSaved(false), 2000); }
+  return (
+    <div className="flex flex-col gap-4 max-w-2xl">
+      <div>
+        <p className="text-sm font-medium text-gray-900">Your details for referral pages</p>
+        <p className="text-xs text-gray-500 mt-0.5">Add your own logo, head shot and description. Clients may see these when they sign up through your link.</p>
+      </div>
+      <div className="grid sm:grid-cols-2 gap-4">
+        <Uploader id="bk-logo" kind="logo" label="Referral logo" hint="PNG, JPG or SVG, up to 2 MB." accept={["image/png", "image/jpeg", "image/svg+xml"]} maxMB={2} />
+        <Uploader id="bk-head" kind="headshot" label="Head shot" hint="PNG or JPG, up to 5 MB." accept={["image/png", "image/jpeg"]} maxMB={5} />
+      </div>
+      <form onSubmit={save} className={`${card} p-5`}>
+        <label htmlFor="bk-desc" className="text-sm font-medium text-gray-900">Description</label>
+        <p className="text-xs text-gray-500 mt-0.5">A short introduction to your firm.</p>
+        <textarea id="bk-desc" rows={4} maxLength={max} className={`${field} mt-3`} value={desc} onChange={(e) => { setDesc(e.target.value); setSaved(false); }} />
+        <div className="flex items-center justify-between gap-3 mt-2">
+          <div className="flex items-center gap-3"><button type="submit" className={primary}>Save description</button>{saved && <span role="status" className="text-xs text-success flex items-center gap-1"><CheckCircle2 className="w-3.5 h-3.5" />Saved</span>}</div>
+          <span className="text-[11px] text-gray-400">{desc.length}/{max}</span>
+        </div>
+      </form>
+
+      <div className={`${card} p-5`}>
+        <p className="text-sm font-medium text-gray-900">PulseFX brand assets</p>
+        <p className="text-xs text-gray-500 mt-0.5">Use these when you talk about PulseFX to your clients.</p>
+        <ul className="mt-3 divide-y divide-gray-100">
+          {ASSETS.map((a) => (
+            <li key={a.file} className="flex items-center justify-between gap-3 py-2.5">
+              <span className="flex items-center gap-2 text-sm text-gray-900 min-w-0"><FileText className="w-4 h-4 text-gray-400 shrink-0" /><span className="truncate">{a.name}</span></span>
+              <a href={`${import.meta.env.BASE_URL}brand/${a.file}`} download={a.file} aria-label={`Download ${a.name}`} className={ghost}><Download className="w-4 h-4" />Download</a>
+            </li>
+          ))}
+        </ul>
+        
+      </div>
+    </div>
+  );
+}
+
 /* --------------------------------------------------------------- Guide */
 const GUIDE = [
   ["How does referring a client work?", "Share your referral link or add the client yourself. The client opens a PulseFX account, submits their documents and goes through review. You can follow every step under Referrals."],
@@ -305,10 +444,16 @@ const GUIDE = [
   ["How long does onboarding take?", "Timing depends on the client and the documents provided. Your PulseFX partner manager will confirm typical timelines."],
   ["How and when am I paid?", "Payouts go to the account under Banking details. Your PulseFX partner manager will confirm the payout terms."],
 ];
+const ONE_PAGERS = [
+  ["PulseFX company and core offerings", "pulsefx-company-overview.pdf"],
+  ["PulseFX hedging solutions", "hedging-solutions.pdf"],
+];
 function Guide() {
   const [open, setOpen] = useState(0);
+  const base = import.meta.env.BASE_URL;
   return (
-    <div className={`${card} max-w-2xl divide-y divide-gray-100`}>
+    <div className="flex flex-col gap-4 max-w-2xl">
+    <div className={`${card} divide-y divide-gray-100`}>
       {GUIDE.map(([q, a], i) => (
         <div key={q}>
           <button type="button" aria-expanded={open === i} onClick={() => setOpen(open === i ? -1 : i)} className="w-full flex items-center justify-between gap-3 text-left px-5 py-4 text-sm font-medium text-gray-900 hover:bg-gray-50">
@@ -319,6 +464,20 @@ function Guide() {
       ))}
       <p className="px-5 py-3 text-[11px] text-gray-400">Demo only: wording is a placeholder until PulseFX confirms the real partner terms.</p>
     </div>
+    <div className={`${card} p-5`}>
+      <p className="text-sm font-medium text-gray-900">One-pagers</p>
+      <p className="text-xs text-gray-500 mt-0.5">Download and share these with your clients.</p>
+      <ul className="mt-3 divide-y divide-gray-100">
+        {ONE_PAGERS.map(([n, f]) => (
+          <li key={f} className="flex items-center justify-between gap-3 py-2.5">
+            <span className="flex items-center gap-2 text-sm text-gray-900 min-w-0"><FileText className="w-4 h-4 text-gray-400 shrink-0" /><span className="truncate">{n}</span><span className="text-[11px] text-gray-400 shrink-0">PDF</span></span>
+            <a href={`${base}onepagers/${f}`} download={f} aria-label={`Download ${n}`} className={ghost}><Download className="w-4 h-4" />Download</a>
+          </li>
+        ))}
+      </ul>
+      
+    </div>
+    </div>
   );
 }
 
@@ -328,7 +487,16 @@ function Contact() {
   const [sent, setSent] = useState(false);
   const ok = m.subject.trim() && m.body.trim();
   return (
-    <div className={`${card} p-5 max-w-xl`}>
+    <div className="flex flex-col gap-4 max-w-xl">
+    <div className={`${card} p-5`}>
+      <p className="text-sm font-medium text-gray-900">Reach the partnerships team</p>
+      <div className="flex flex-wrap gap-2 mt-3">
+        <a href={`tel:${PHONE.tel}`} className={ghost}><Phone className="w-4 h-4" />Call {PHONE.display}</a>
+        <a href={`sms:${PHONE.tel}`} className={ghost}><MessageSquare className="w-4 h-4" />Text {PHONE.display}</a>
+        <a href={`mailto:${EMAIL}`} className={ghost}><Mail className="w-4 h-4" />{EMAIL}</a>
+      </div>
+    </div>
+    <div className={`${card} p-5`}>
       <p className="text-sm font-medium text-gray-900">Contact your partner manager</p>
       <p className="text-xs text-gray-500 mt-0.5">Questions about a client, payouts or the programme? Send a message.</p>
       {sent ? (
@@ -340,6 +508,7 @@ function Contact() {
           <div><button type="submit" disabled={!ok} className={primary}>Send message</button></div>
         </form>
       )}
+    </div>
     </div>
   );
 }
@@ -376,6 +545,7 @@ export default function PartnerPortal({ onExit }) {
         {tab === "referrals" && <Referrals />}
         {tab === "add" && <AddClient go={setTab} />}
         {tab === "banking" && <Banking />}
+        {tab === "brand" && <BrandKit />}
         {tab === "guide" && <Guide />}
         {tab === "contact" && <Contact />}
         <p className="text-[11px] text-gray-400 mt-4">Demo only: all names and figures are sample data.</p>
