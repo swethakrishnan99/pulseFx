@@ -426,7 +426,7 @@ function BrandKit() {
           {ASSETS.map((a) => (
             <li key={a.file} className="flex items-center justify-between gap-3 py-2.5">
               <span className="flex items-center gap-2 text-sm text-gray-900 min-w-0"><FileText className="w-4 h-4 text-gray-400 shrink-0" /><span className="truncate">{a.name}</span></span>
-              <a href={`${import.meta.env.BASE_URL}brand/${a.file}`} download={a.file} aria-label={`Download ${a.name}`} className={ghost}><Download className="w-4 h-4" />Download</a>
+              <a href={`${import.meta.env.BASE_URL}Brand/${a.file}`} download={a.file} aria-label={`Download ${a.name}`} className={ghost}><Download className="w-4 h-4" />Download</a>
             </li>
           ))}
         </ul>
