@@ -10,9 +10,12 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "predeploy": "npm run build",
-    "deploy": "gh-pages -d dist"
+    "deploy": "gh-pages -d dist",
+    "lint:auth": "eslint src/App.jsx src/components/Login.jsx src/components/PartnerSession.jsx src/components/Sidebar.jsx src/components/ProfileMenu.jsx src/lib/supabase.js",
+    "test:auth": "node --test supabase/functions/referrals/membership.test.mjs"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.119.0",
     "@tailwindcss/vite": "^4.3.3",
     "lucide-react": "^1.50.0",
     "react": "^19.2.8",

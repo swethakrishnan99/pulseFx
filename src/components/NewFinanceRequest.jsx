@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { X, Paperclip, Plus } from "lucide-react";
-import { FORWARDS, canDrawdown } from "./ForwardsDrawdown";
+import { FORWARDS, canDrawdown } from "./Forwardsdrawdown";
 import { FALLBACK_RATES } from "../lib/fx";
 
 // Side panel for "New Request" on the Trade Finance page. Fields follow Ebury's

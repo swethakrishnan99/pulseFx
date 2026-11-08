@@ -1,9 +1,9 @@
 import { useState, useMemo } from "react";
-import { Home, Users, Landmark, BookOpen, Headset, Copy, Check, X, ArrowUpDown, Download, UserPlus, ChevronDown, CheckCircle2, ArrowLeft, Palette, Upload, Phone, MessageSquare, Mail, FileText, History, Trash2 } from "lucide-react";
-import PulseMark from "./PulseMark";
+import { Home, Users, Landmark, BookOpen, Headset, Copy, Check, X, ArrowUpDown, Download, UserPlus, ChevronDown, CheckCircle2, Palette, Upload, Phone, MessageSquare, Mail, FileText, History, Trash2 } from "lucide-react";
+import Sidebar from "./Sidebar";
 
 // Partner portal demo for referral partners (for example an accounting firm that refers its clients to PulseFX).
-// Reached at  #partner  on the demo URL. All data is sample data and nothing is sent anywhere.
+// The public demo is reached at #partner-demo. Portal content currently uses sample data.
 
 const PARTNER = { name: "ABC Accounting", onboardedOn: "2026-09-02", slug: "abc-accounting" };
 const LINK = `https://partners.pulsefx.example/${PARTNER.slug}/signup`;
@@ -514,33 +514,41 @@ function Contact() {
 }
 
 /* --------------------------------------------------------------- Shell */
-export default function PartnerPortal({ onExit }) {
+const PARTNER_NAV_ITEMS = NAV
+  .filter(([key]) => key !== "contact")
+  .map(([key, label, icon]) => ({
+    key,
+    label: key === "home" ? "Dashboard" : label,
+    icon,
+  }));
+
+export default function PartnerPortal({ onExit, user, signingOut = false, signOutError = "" }) {
   const [tab, setTab] = useState("home");
-  const title = NAV.find((n) => n[0] === tab)?.[1];
+  const title = tab === "home" ? "Dashboard" : NAV.find((n) => n[0] === tab)?.[1];
+  const username = user?.user_metadata?.full_name || user?.email?.split("@")[0] || PARTNER.name;
+
   return (
-    <div className="flex min-h-screen bg-gray-50 flex-col md:flex-row">
-      <nav aria-label="Partner navigation" className="md:w-60 md:shrink-0 bg-navy text-white md:min-h-screen md:sticky md:top-0 md:h-screen flex md:flex-col">
-        <div className="flex items-center gap-2 px-4 py-4 md:py-5">
-          <PulseMark className="w-8 h-8" /><div className="leading-tight"><p className="text-base font-medium">PulseFX</p><p className="text-[11px] text-white/60">Partner portal</p></div>
+    <div className="flex min-h-screen bg-gray-50">
+      <Sidebar
+        active={tab}
+        onNavigate={setTab}
+        items={PARTNER_NAV_ITEMS}
+        helpKey="contact"
+        portalLabel="Partner portal"
+        account={{
+          name: username,
+          email: user?.email || "partner@pulsefx.example",
+          onLogout: onExit,
+          showSettings: false,
+          disabled: signingOut,
+        }}
+      />
+      <main className="flex-1 bg-gray-50 min-w-0 p-4 pt-[72px] md:p-6">
+        <div className="flex items-center justify-between mb-4">
+          <h1 className="text-xl font-semibold text-gray-900">{title}</h1>
         </div>
-        <ul className="hidden md:flex flex-col gap-1 px-3 flex-1">
-          {NAV.map(([k, l, Icon]) => (
-            <li key={k}><button type="button" aria-label={l} aria-current={tab === k ? "page" : undefined} onClick={() => setTab(k)} className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm ${tab === k ? "bg-white/10 text-white font-medium" : "text-white/70 hover:bg-white/5"}`}><Icon className="w-4 h-4" />{l}</button></li>
-          ))}
-        </ul>
-        {onExit && <button type="button" onClick={onExit} className="hidden md:flex items-center gap-2 mx-3 mb-4 px-3 py-2.5 text-sm text-white/70 hover:bg-white/5 rounded-lg"><ArrowLeft className="w-4 h-4" />Client portal</button>}
-      </nav>
-
-      <div className="md:hidden bg-navy-800 overflow-x-auto"><ul className="flex gap-1 px-2 pb-2">
-        {NAV.map(([k, l]) => <li key={k}><button type="button" aria-current={tab === k ? "page" : undefined} onClick={() => setTab(k)} className={`whitespace-nowrap px-3 py-1.5 rounded-md text-xs ${tab === k ? "bg-white/15 text-white font-medium" : "text-white/70"}`}>{l}</button></li>)}
-      </ul></div>
-
-      <main className="flex-1 min-w-0 p-4 md:p-6">
-        <div className="flex items-center justify-between gap-3 mb-4">
-          <div><h1 className="text-xl font-semibold text-gray-900">{tab === "home" ? `Welcome, ${PARTNER.name}` : title}</h1>
-            {tab === "home" && <p className="text-sm text-gray-500">Refer clients to PulseFX and track their onboarding.</p>}</div>
-          {onExit && <button type="button" onClick={onExit} className="md:hidden text-xs font-medium text-accent">Client portal</button>}
-        </div>
+        {tab === "home" && <p className="text-sm text-gray-500 mb-4">Welcome, {username}. Refer clients to PulseFX and track their onboarding.</p>}
+        {signOutError && <p role="alert" className="text-sm text-danger mb-4">{signOutError}</p>}
         {tab === "home" && <PartnerHome go={setTab} />}
         {tab === "referrals" && <Referrals />}
         {tab === "add" && <AddClient go={setTab} />}
@@ -548,7 +556,7 @@ export default function PartnerPortal({ onExit }) {
         {tab === "brand" && <BrandKit />}
         {tab === "guide" && <Guide />}
         {tab === "contact" && <Contact />}
-        <p className="text-[11px] text-gray-400 mt-4">Demo only: all names and figures are sample data.</p>
+        <p className="text-[11px] text-gray-400 mt-4">Portal preview: all names and figures are sample data.</p>
       </main>
     </div>
   );

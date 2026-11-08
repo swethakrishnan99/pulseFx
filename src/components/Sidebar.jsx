@@ -24,7 +24,7 @@ const NAV_ITEMS = [
   { key: "reports", label: "Reports", icon: BarChart3 },
 ];
 
-function SidebarContent({ active, onNavigate, collapsible = false }) {
+function SidebarContent({ active, onNavigate, items, account, helpKey, portalLabel, collapsible = false }) {
   // collapsible: on tablet widths show icons only; labels return at laptop width
   const lbl = collapsible ? "hidden lg:inline" : "";
   const center = collapsible ? "justify-center lg:justify-start" : "";
@@ -32,13 +32,14 @@ function SidebarContent({ active, onNavigate, collapsible = false }) {
     <>
       <div className={`flex items-center gap-2 px-1.5 mb-7 ${center}`}>
         <PulseMark className="w-8 h-8" />
-        <span className={`text-white text-lg font-medium tracking-tight ${lbl}`}>
-          PulseFX
-        </span>
+        <div className={lbl}>
+          <p className="text-white text-lg font-medium tracking-tight">PulseFX</p>
+          <p className="text-[11px] text-white/55">{portalLabel}</p>
+        </div>
       </div>
 
       <nav className="flex flex-col gap-1">
-        {NAV_ITEMS.map(({ key, label, icon: Icon }) => {
+        {items.map(({ key, label, icon: Icon }) => {
           const isActive = key === active;
           return (
             <button
@@ -64,27 +65,32 @@ function SidebarContent({ active, onNavigate, collapsible = false }) {
       <div className="mt-auto flex flex-col gap-1">
         <button
           type="button"
-          onClick={() => onNavigate("help")}
+          onClick={() => onNavigate(helpKey)}
           title="Help & support"
           aria-label="Help & support"
-          aria-current={active === "help" ? "page" : undefined}
+          aria-current={active === helpKey ? "page" : undefined}
           className={`flex items-center gap-2.5 text-sm px-2.5 py-2 rounded-lg transition-colors ${center} ${
-            active === "help"
+            active === helpKey
               ? "bg-white/10 text-white shadow-[inset_3px_0_0_var(--color-brand)]"
               : "text-white/55 hover:text-white hover:bg-white/10"
           }`}
         >
-          <HelpCircle className={`w-4 h-4 ${active === "help" ? "text-brand" : ""}`} />
+          <HelpCircle className={`w-4 h-4 ${active === helpKey ? "text-brand" : ""}`} />
           <span className={lbl}>Help &amp; support</span>
         </button>
 
         <ProfileMenu
           collapsible={collapsible}
-          name="User Name"
-          email="info@pulsefx.com"
+          name={account?.name ?? "User Name"}
+          email={account?.email ?? "info@pulsefx.com"}
+          showSettings={account?.showSettings ?? true}
+          disabled={account?.disabled ?? false}
           onSelect={(key) => {
             if (key === "settings") onNavigate("profile"); // opens the Account page (tabs: Profile, Security, Notifications)
-            else if (key === "logout") onNavigate("login");
+            else if (key === "logout") {
+              if (account?.onLogout) account.onLogout();
+              else onNavigate("login");
+            }
           }}
         />
       </div>
@@ -92,7 +98,7 @@ function SidebarContent({ active, onNavigate, collapsible = false }) {
   );
 }
 
-export default function Sidebar({ active, onNavigate }) {
+export default function Sidebar({ active, onNavigate, items = NAV_ITEMS, account, helpKey = "help", portalLabel = "Client portal" }) {
   const [open, setOpen] = useState(false);
 
   useEffect(() => {
@@ -111,7 +117,7 @@ export default function Sidebar({ active, onNavigate }) {
     <>
       {/* Tablet: icon-only sidebar. Laptop and larger: full sidebar */}
       <aside className="hidden md:flex w-[72px] lg:w-[200px] shrink-0 bg-navy flex-col p-2.5 lg:p-3.5 sticky top-0 h-screen self-start z-20">
-        <SidebarContent active={active} onNavigate={onNavigate} collapsible />
+        <SidebarContent active={active} onNavigate={onNavigate} items={items} account={account} helpKey={helpKey} portalLabel={portalLabel} collapsible />
       </aside>
 
       {/* Phone: top bar with a slide-in menu */}
@@ -126,7 +132,10 @@ export default function Sidebar({ active, onNavigate }) {
           <Menu className="w-5 h-5" />
         </button>
         <PulseMark className="w-7 h-7" />
-        <span className="text-white text-base font-medium tracking-tight">PulseFX</span>
+        <div>
+          <p className="text-white text-base font-medium tracking-tight">PulseFX</p>
+          <p className="text-[11px] text-white/55">{portalLabel}</p>
+        </div>
       </header>
 
       {open && (
@@ -145,7 +154,7 @@ export default function Sidebar({ active, onNavigate }) {
             >
               <X className="w-5 h-5" />
             </button>
-            <SidebarContent active={active} onNavigate={go} />
+            <SidebarContent active={active} onNavigate={go} items={items} account={account} helpKey={helpKey} portalLabel={portalLabel} />
           </aside>
         </div>
       )}
