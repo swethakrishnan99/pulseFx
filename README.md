@@ -34,7 +34,7 @@ Requires Node 24 LTS.
 
 ## Partner login setup
 
-1. Copy `.env.example` to `.env.local` and fill in the Supabase project URL and publishable key.
+1. Create a local `.env.local` file with `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY`, filled with your Supabase project URL and publishable key.
 2. Run `supabase/migrations/20261106224500_create_partner_memberships.sql` in the project's SQL Editor once.
 3. In Supabase Authentication settings, disable public signups and anonymous sign-ins. Create authorized test accounts in Authentication > Users.
 4. Grant accounts membership in the SQL Editor. Use the actual Airtable partner record ID when available.
@@ -51,11 +51,6 @@ on conflict (user_id)
 do update set partner_id = excluded.partner_id
 returning user_id, partner_id;
 ```
-
-The separate `supabase/scripts/grant_partner_access.sql` is an optional test-only bulk provisioning script.
-It grants membership to every Auth account without one, using each account's UUID as a provisional partner ID.
-Run it only after reviewing which accounts should receive partner access. The application never runs it automatically.
-Replace provisional IDs with the correct Airtable partner record IDs when connecting real referrals.
 
 The membership table uses row-level security. Authenticated users can read only their own membership and cannot create or change assignments.
 The UI restores and revalidates the session on reload at `#partner`; logout clears this browser's partner session.
