@@ -28,7 +28,8 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run lint:auth
-      - run: npm run test:auth
+      - run: npm run lint:referrals
+      - run: npm run test:referrals
       - name: Check deployment configuration
         if: github.event_name != 'pull_request'
         run: |

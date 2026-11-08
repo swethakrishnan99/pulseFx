@@ -26,3 +26,6 @@ dist-ssr
 # Environment configuration
 .env
 .env.*
+
+# Supabase CLI local metadata
+supabase/.temp/

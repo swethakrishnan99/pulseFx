@@ -1,16 +1,17 @@
-import { useState, useMemo } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { Home, Users, Landmark, BookOpen, Headset, Copy, Check, X, ArrowUpDown, Download, UserPlus, ChevronDown, CheckCircle2, Palette, Upload, Phone, MessageSquare, Mail, FileText, History, Trash2 } from "lucide-react";
 import Sidebar from "./Sidebar";
+import { loadPartnerReferrals } from "../lib/referrals";
 
 // Partner portal demo for referral partners (for example an accounting firm that refers its clients to PulseFX).
-// The public demo is reached at #partner-demo. Portal content currently uses sample data.
+// The public demo is reached at #partner-demo. Authenticated referrals use Airtable.
 
 const PARTNER = { name: "ABC Accounting", onboardedOn: "2026-09-02", slug: "abc-accounting" };
 const LINK = `https://partners.pulsefx.example/${PARTNER.slug}/signup`;
 
 const DAY = 86400000;
 const iso = (off) => { const d = new Date(Date.now() + off * DAY); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; };
-const pretty = (s) => new Date(`${s}T12:00:00`).toLocaleDateString("en-CA", { year: "numeric", month: "short", day: "numeric" });
+const pretty = (s) => s ? new Date(`${s}T12:00:00`).toLocaleDateString("en-CA", { year: "numeric", month: "short", day: "numeric" }) : "—";
 
 const STEPS = ["Invite sent", "Account created", "Documents submitted", "Under review", "Onboarded"];
 const STATUSES = ["Invited", "Account created", "Documents submitted", "Under review", "Onboarded", "Rejected"];
@@ -52,7 +53,7 @@ function saveBlob(blob, name) {
 }
 
 function Badge({ s }) {
-  return <span className={`inline-block text-[11px] font-medium px-2 py-0.5 rounded-full whitespace-nowrap ${STATUS_STYLE[s]}`}>{s}</span>;
+  return <span className={`inline-block text-[11px] font-medium px-2 py-0.5 rounded-full whitespace-nowrap ${STATUS_STYLE[s] || STATUS_STYLE.Invited}`}>{s}</span>;
 }
 
 const NAV = [["home", "Home", Home], ["referrals", "Referrals", Users], ["add", "Add a client", UserPlus], ["banking", "Banking details", Landmark], ["brand", "Brand kit", Palette], ["guide", "Partner guide", BookOpen], ["contact", "Contact", Headset]];
@@ -125,55 +126,83 @@ function exportReferrals(rows) {
   URL.revokeObjectURL(url);
 }
 
-function Referrals() {
+const referralHeader = "text-left text-[11px] font-medium text-gray-500 px-3 py-2.5 whitespace-nowrap";
+function ReferralSortHeader({ column, sort, onSort, children }) {
+  return (
+    <th className={referralHeader} aria-sort={sort.key === column ? (sort.dir === "asc" ? "ascending" : "descending") : "none"}>
+      <button type="button" onClick={() => onSort(column)} className="inline-flex items-center gap-1 hover:text-gray-800">{children}<ArrowUpDown className="w-3 h-3" /></button>
+    </th>
+  );
+}
+
+function Referrals({ authenticated = false }) {
   const [f, setF] = useState({ company: "", status: "", cFrom: "", cTo: "", mFrom: "", mTo: "" });
   const [sort, setSort] = useState({ key: "created", dir: "desc" });
   const [open, setOpen] = useState(null);
-  const [tick] = useState(0);
+  const [attempt, setAttempt] = useState(0);
+  const [remote, setRemote] = useState({ loading: authenticated, records: [], error: "" });
+  useEffect(() => {
+    if (!authenticated) return;
+    const controller = new AbortController();
+    let active = true;
+    loadPartnerReferrals({ signal: controller.signal }).then((records) => {
+      if (active) setRemote({ loading: false, records, error: "" });
+    }).catch((error) => {
+      if (active) setRemote({ loading: false, records: [], error: error.message });
+    });
+    return () => { active = false; controller.abort(); };
+  }, [authenticated, attempt]);
+  const referrals = authenticated ? remote.records : REFERRALS;
+  function reload() {
+    setOpen(null);
+    setRemote({ loading: true, records: [], error: "" });
+    setAttempt((value) => value + 1);
+  }
   const rows = useMemo(() => {
-    const r = REFERRALS.filter((x) =>
+    const r = referrals.filter((x) =>
       (!f.company || x.company === f.company) && (!f.status || x.status === f.status) &&
       (!f.cFrom || x.created >= f.cFrom) && (!f.cTo || x.created <= f.cTo) &&
       (!f.mFrom || x.modified >= f.mFrom) && (!f.mTo || x.modified <= f.mTo));
     const k = sort.key;
     return [...r].sort((a, b) => (a[k] < b[k] ? -1 : a[k] > b[k] ? 1 : 0) * (sort.dir === "asc" ? 1 : -1));
-  }, [f, sort, tick]);
+  }, [f, sort, referrals]);
   const set = (k) => (e) => setF({ ...f, [k]: e.target.value });
   const sortBy = (key) => setSort((s) => ({ key, dir: s.key === key && s.dir === "asc" ? "desc" : "asc" }));
-  const th = "text-left text-[11px] font-medium text-gray-500 px-3 py-2.5 whitespace-nowrap";
-  const SortTh = ({ k, children }) => (
-    <th className={th} aria-sort={sort.key === k ? (sort.dir === "asc" ? "ascending" : "descending") : "none"}>
-      <button type="button" onClick={() => sortBy(k)} className="inline-flex items-center gap-1 hover:text-gray-800">{children}<ArrowUpDown className="w-3 h-3" /></button>
-    </th>
-  );
   const td = "px-3 py-3 text-sm text-gray-700 whitespace-nowrap";
   const dateBad = (a, b) => a && b && a > b;
   return (
     <div className={card}>
       <div className="px-4 pt-4">
         <p className="text-sm text-gray-500">Keep track of your referrals and where each one is in onboarding.</p>
-        <div className="grid grid-cols-2 lg:grid-cols-6 gap-3 mt-3 items-end">
+        <fieldset disabled={remote.loading || !!remote.error} className="grid grid-cols-2 lg:grid-cols-6 gap-3 mt-3 items-end">
           <div><label htmlFor="rf-co" className={lab}>Company</label>
-            <select id="rf-co" className={field} value={f.company} onChange={set("company")}><option value="">All companies</option>{REFERRALS.map((r) => <option key={r.id}>{r.company}</option>)}</select></div>
+            <select id="rf-co" className={field} value={f.company} onChange={set("company")}><option value="">All companies</option>{[...new Set(referrals.map((r) => r.company))].sort().map((company) => <option key={company}>{company}</option>)}</select></div>
           <div><label htmlFor="rf-st" className={lab}>Status</label>
             <select id="rf-st" className={field} value={f.status} onChange={set("status")}><option value="">All statuses</option>{STATUSES.map((s) => <option key={s}>{s}</option>)}</select></div>
           <div><label htmlFor="rf-cf" className={lab}>Created from</label><input id="rf-cf" type="date" className={field} value={f.cFrom} onChange={set("cFrom")} /></div>
           <div><label htmlFor="rf-ct" className={lab}>Created to</label><input id="rf-ct" type="date" className={field} value={f.cTo} onChange={set("cTo")} /></div>
           <div><label htmlFor="rf-mf" className={lab}>Modified from</label><input id="rf-mf" type="date" className={field} value={f.mFrom} onChange={set("mFrom")} /></div>
           <div><label htmlFor="rf-mt" className={lab}>Modified to</label><input id="rf-mt" type="date" className={field} value={f.mTo} onChange={set("mTo")} /></div>
-        </div>
+        </fieldset>
         {(dateBad(f.cFrom, f.cTo) || dateBad(f.mFrom, f.mTo)) && <p role="alert" className="text-[11px] text-danger mt-2">The "from" date must be before the "to" date.</p>}
         <div className="flex items-center justify-between gap-3 mt-3">
           <button type="button" onClick={() => setF({ company: "", status: "", cFrom: "", cTo: "", mFrom: "", mTo: "" })} className="text-xs font-medium text-accent hover:underline">Clear filters</button>
-          <button type="button" onClick={() => exportReferrals(rows)} disabled={rows.length === 0} className="inline-flex items-center gap-1.5 text-sm font-medium bg-brand text-navy px-4 py-2 rounded-md hover:bg-[#009a7d] disabled:opacity-50 disabled:cursor-not-allowed">
-            <Download className="w-4 h-4" />Download Excel
-          </button>
+          <div className="flex items-center gap-3">
+            {authenticated && <button type="button" onClick={reload} disabled={remote.loading} className="text-xs font-medium text-accent hover:underline disabled:opacity-50">Refresh</button>}
+            <button type="button" onClick={() => exportReferrals(rows)} disabled={remote.loading || !!remote.error || rows.length === 0} className="inline-flex items-center gap-1.5 text-sm font-medium bg-brand text-navy px-4 py-2 rounded-md hover:bg-[#009a7d] disabled:opacity-50 disabled:cursor-not-allowed">
+              <Download className="w-4 h-4" />Download Excel
+            </button>
+          </div>
         </div>
       </div>
       <div className="overflow-x-auto mt-2">
-        <table className="w-full">
+        <table className="w-full" aria-busy={remote.loading}>
           <thead className="bg-gray-50"><tr>
-            <SortTh k="company">Company</SortTh><SortTh k="status">Status</SortTh><th className={th}>Onboarded</th><SortTh k="created">Created</SortTh><SortTh k="modified">Last modified</SortTh>
+            <ReferralSortHeader column="company" sort={sort} onSort={sortBy}>Company</ReferralSortHeader>
+            <ReferralSortHeader column="status" sort={sort} onSort={sortBy}>Status</ReferralSortHeader>
+            <th className={referralHeader}>Onboarded</th>
+            <ReferralSortHeader column="created" sort={sort} onSort={sortBy}>Created</ReferralSortHeader>
+            <ReferralSortHeader column="modified" sort={sort} onSort={sortBy}>Last modified</ReferralSortHeader>
           </tr></thead>
           <tbody>
             {rows.map((r) => (
@@ -184,7 +213,9 @@ function Referrals() {
                 <td className={td}>{pretty(r.created)}</td><td className={td}>{pretty(r.modified)}</td>
               </tr>
             ))}
-            {rows.length === 0 && <tr><td colSpan={5} className="px-3 py-8 text-center text-sm text-gray-400">No referrals match those filters.</td></tr>}
+            {remote.loading && <tr><td colSpan={5} className="px-3 py-8 text-center text-sm text-gray-500"><span role="status">Loading referrals…</span></td></tr>}
+            {remote.error && <tr><td colSpan={5} className="px-3 py-8 text-center text-sm"><p role="alert" className="text-danger">{remote.error}</p><button type="button" onClick={reload} className="mt-3 font-medium text-accent hover:underline">Try again</button></td></tr>}
+            {!remote.loading && !remote.error && rows.length === 0 && <tr><td colSpan={5} className="px-3 py-8 text-center text-sm text-gray-400">{referrals.length === 0 ? "No referrals yet." : "No referrals match those filters."}</td></tr>}
           </tbody>
         </table>
       </div>
@@ -354,7 +385,6 @@ function PayoutHistory({ onClose }) {
 
 // Module-level so uploads survive tab switches (reset on reload; nothing is sent anywhere).
 let BRAND = { logo: null, headshot: null, description: "" };
-const TYPES = { png: "image/png", jpg: "image/jpeg", svg: "image/svg+xml" };
 function Uploader({ id, label, hint, kind, accept, maxMB }) {
   const [file, setFile] = useState(BRAND[kind]);
   const [err, setErr] = useState("");
@@ -550,13 +580,13 @@ export default function PartnerPortal({ onExit, user, signingOut = false, signOu
         {tab === "home" && <p className="text-sm text-gray-500 mb-4">Welcome, {username}. Refer clients to PulseFX and track their onboarding.</p>}
         {signOutError && <p role="alert" className="text-sm text-danger mb-4">{signOutError}</p>}
         {tab === "home" && <PartnerHome go={setTab} />}
-        {tab === "referrals" && <Referrals />}
+        {tab === "referrals" && <Referrals key={user?.id || "demo"} authenticated={!!user} />}
         {tab === "add" && <AddClient go={setTab} />}
         {tab === "banking" && <Banking />}
         {tab === "brand" && <BrandKit />}
         {tab === "guide" && <Guide />}
         {tab === "contact" && <Contact />}
-        <p className="text-[11px] text-gray-400 mt-4">Portal preview: all names and figures are sample data.</p>
+        <p className="text-[11px] text-gray-400 mt-4">{user ? "Referrals use your partner account data. Other sections, including Add a client, are demonstrations." : "Portal preview: all names and figures are sample data."}</p>
       </main>
     </div>
   );
