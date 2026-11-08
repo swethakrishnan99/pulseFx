@@ -3,7 +3,7 @@ import { Settings, LogOut, ChevronUp, ChevronDown, UserCircle2 } from "lucide-re
 
 const MENU_ITEMS = [{ key: "settings", label: "User settings", icon: Settings }];
 
-export default function ProfileMenu({ name = "User Name", email = "info@pulsefx.com", onSelect, collapsible = false }) {
+export default function ProfileMenu({ name = "User Name", email = "info@pulsefx.com", onSelect, collapsible = false, showSettings = true, disabled = false }) {
   const wide = collapsible ? "hidden lg:block" : "";
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
@@ -26,7 +26,7 @@ export default function ProfileMenu({ name = "User Name", email = "info@pulsefx.
                      bg-[#0b1d33] border border-white/10
                      shadow-[0_8px_24px_rgba(0,0,0,0.35)]`}
         >
-          {MENU_ITEMS.map(({ key, label, icon: Icon }) => (
+          {showSettings && MENU_ITEMS.map(({ key, label, icon: Icon }) => (
             <button
               key={key}
               type="button"
@@ -43,7 +43,7 @@ export default function ProfileMenu({ name = "User Name", email = "info@pulsefx.
             </button>
           ))}
 
-          <div className="h-px bg-white/10 my-1" />
+          {showSettings && <div className="h-px bg-white/10 my-1" />}
 
           <button
             type="button"
@@ -52,6 +52,7 @@ export default function ProfileMenu({ name = "User Name", email = "info@pulsefx.
               setOpen(false);
             }}
             role="menuitem"
+            disabled={disabled}
             className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-sm text-danger-dark
                        hover:bg-white/10 transition-colors text-left"
           >
@@ -65,6 +66,7 @@ export default function ProfileMenu({ name = "User Name", email = "info@pulsefx.
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
+        disabled={disabled}
         aria-expanded={open}
         aria-label="Account menu"
         title={name}

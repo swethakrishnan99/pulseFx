@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
-import { Mail, Lock, Eye, EyeOff, ShieldCheck } from "lucide-react";
+import { Mail, Lock, Eye, EyeOff, ShieldCheck, Users, Wallet, ArrowLeft } from "lucide-react";
 import PulseMark from "./PulseMark";
 import Modal from "./Modal";
+import { supabase, requirePartner } from "../lib/supabase";
 
 const INPUT_WRAP =
   "flex items-center gap-2 border rounded-md px-3 bg-white focus-within:border-accent focus-within:ring-2 focus-within:ring-accent-100";
@@ -93,14 +94,15 @@ function EmailRequestModal({ mode, onClose }) {
   );
 }
 
-/** Sign-in screen. `onSignIn` is called after a successful (demo) sign-in. */
+/** Partner credentials are verified by Supabase before opening the portal. */
 export default function Login({ onSignIn }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [show, setShow] = useState(false);
   const [errors, setErrors] = useState({});
   const [busy, setBusy] = useState(false);
-  const [partner, setPartner] = useState(false); // signing in to the partner portal instead of the client portal
+  const [portal, setPortal] = useState(null);
+  const partner = portal === "partner";
   const [tip, setTip] = useState(0);
   const [modal, setModal] = useState(null); // "reset" | "activate" | null
   const [paused, setPaused] = useState(false);
@@ -114,16 +116,52 @@ export default function Login({ onSignIn }) {
     return () => clearTimeout(id);
   }, [tip, paused]);
 
-  function submit(e) {
+  function choosePortal(role) {
+    setEmail("");
+    setPassword("");
+    setShow(false);
+    setErrors({});
+    setModal(null);
+    setPortal(role);
+  }
+
+  async function submit(e) {
     e.preventDefault();
+    if (busy) return;
     const er = {};
     if (!/^\S+@\S+\.\S+$/.test(email)) er.email = "Enter a valid email address.";
     if (!password) er.password = "Enter your password.";
     setErrors(er);
     if (Object.keys(er).length) return;
+
     setBusy(true);
-    setTimeout(() => onSignIn?.(partner ? "partner" : "client"), 600);
+    try {
+      if (partner) {
+        if (!supabase) {
+          throw new Error("Partner sign-in is not configured. Please contact PulseFX.");
+        }
+        const { data, error } = await supabase.auth.signInWithPassword({
+          email: email.trim(),
+          password,
+        });
+        if (error) throw error;
+        await requirePartner(data.session);
+      }
+      onSignIn?.(partner ? "partner" : "client");
+    } catch (error) {
+      let message = "Unable to sign in. Please try again.";
+      if (error.code === "invalid_credentials") message = "Invalid email or password.";
+      else if (error.code === "email_not_confirmed") message = "Please confirm your email before signing in.";
+      else if (error.message === "Your account does not have partner access. Please contact PulseFX." ||
+               error.message === "Partner sign-in is not configured. Please contact PulseFX.") {
+        message = error.message;
+      }
+      setErrors({ auth: message });
+    } finally {
+      setBusy(false);
+    }
   }
+
 
   return (
     <div className="min-h-screen w-full bg-gray-50 flex flex-col items-center justify-center p-4 md:p-8">
@@ -179,14 +217,53 @@ export default function Login({ onSignIn }) {
         </aside>
 
         {/* Sign-in form */}
-        <section className="flex flex-col">
+        <section className="relative flex flex-col">
           <div className="md:hidden flex items-center gap-2 bg-navy text-white px-5 py-4">
             <PulseMark className="w-8 h-8" />
             <span className="text-lg font-medium tracking-tight">PulseFX</span>
           </div>
 
-          <form onSubmit={submit} noValidate className="flex-1 flex flex-col justify-center p-6 md:p-10 w-full max-w-sm mx-auto">
-            <h1 className="text-xl font-semibold text-gray-900 mb-1">{partner ? "Partner sign in" : "Sign in"}</h1>
+          {!portal ? (
+            <div className="flex-1 flex flex-col justify-start p-6 pt-12 md:p-10 w-full max-w-sm mx-auto md:min-h-[520px]">
+              <h1 className="text-xl font-semibold text-gray-900 mb-1">Welcome to PulseFX</h1>
+              <p className="text-sm text-gray-500 mb-6">Choose your portal to continue.</p>
+              <div className="flex flex-col gap-3">
+                {[
+                  { role: "client", title: "Client portal", description: "Access your accounts and manage payments.", Icon: Wallet },
+                  { role: "partner", title: "Partner portal", description: "Refer clients and track their onboarding.", Icon: Users },
+                ].map(({ role, title, description, Icon }) => (
+                  <section key={role} className="rounded-xl border border-gray-200 p-3">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Icon className="w-5 h-5 text-gray-500" aria-hidden="true" />
+                      <h2 className="text-base font-semibold text-gray-900">{title}</h2>
+                    </div>
+                    <p className="text-xs text-gray-500 mb-3">{description}</p>
+                    <button type="button" onClick={() => choosePortal(role)} className="w-full bg-brand text-navy text-sm font-medium py-2.5 rounded-md hover:bg-[#009a7d] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent">
+                      Login
+                    </button>
+                  </section>
+                ))}
+              </div>
+              <div className="border-t border-gray-100 mt-6 pt-4 text-center text-sm text-gray-500">
+                <p>Want to take a look first?</p>
+                <select
+                  aria-label="Explore a demo"
+                  value=""
+                  onChange={(event) => onSignIn?.(event.target.value)}
+                  className="mt-2 rounded-md border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+                >
+                  <option value="" disabled>Explore a demo</option>
+                  <option value="client">Client demo</option>
+                  <option value="partner-demo">Partner demo</option>
+                </select>
+              </div>
+            </div>
+          ) : (
+          <form onSubmit={submit} noValidate className="flex-1 flex flex-col justify-start p-6 pt-12 md:p-10 w-full max-w-sm mx-auto md:min-h-[520px]">
+            <button type="button" disabled={busy} onClick={() => choosePortal(null)} className="absolute top-[76px] md:top-3 left-6 md:left-10 flex items-center gap-1 text-xs text-gray-500 hover:text-accent disabled:opacity-50">
+              <ArrowLeft className="w-4 h-4" aria-hidden="true" /> Choose another portal
+            </button>
+            <h1 className="text-xl font-semibold text-gray-900 mb-1">{partner ? "Partner sign in" : "Client sign in"}</h1>
             <p className="text-sm text-gray-500 mb-6">{partner ? "Sign in to the PulseFX partner portal to track your referrals." : "Welcome back. Enter your details to continue."}</p>
 
             <label htmlFor="lg-email" className="block text-[11px] font-medium text-gray-500 mb-1">Email address</label>
@@ -241,6 +318,8 @@ export default function Login({ onSignIn }) {
               </button>
             </div>
 
+            {errors.auth && <p role="alert" className="text-xs text-danger mt-3">{errors.auth}</p>}
+
             <button
               type="submit"
               disabled={busy}
@@ -249,22 +328,8 @@ export default function Login({ onSignIn }) {
               {busy ? "Signing in..." : "Sign in"}
             </button>
 
-            <div className="border-t border-gray-100 mt-6 pt-4 text-center text-sm text-gray-500 flex flex-col gap-2">
-              <p>
-                First time here?{" "}
-                <button type="button" onClick={() => setModal("activate")} className="font-medium text-accent hover:underline">
-                  Activate your account
-                </button>
-              </p>
-              <p>
-                {partner ? "Not a partner?" : "Are you a partner?"}{" "}
-                <button type="button" onClick={() => { setPartner((p) => !p); setErrors({}); }} className="font-medium text-accent hover:underline">
-                  {partner ? "Sign in as a client" : "Sign in here"}
-                </button>
-              </p>
-            </div>
-            <p className="text-[11px] text-gray-400 text-center mt-3">Demo only. Enter any email address and password.</p>
           </form>
+          )}
         </section>
       </div>
 

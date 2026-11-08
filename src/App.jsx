@@ -8,18 +8,37 @@ import Reports from "./components/Reports";
 import Account from "./components/Account";
 import HelpSupport from "./components/HelpSupport";
 import Login from "./components/Login";
-import ForwardsDrawdown from "./components/ForwardsDrawdown";
-import TradeFinance from "./components/TradeFinance";
+import ForwardsDrawdown from "./components/Forwardsdrawdown";
+import TradeFinance from "./components/Tradefinance";
 import PartnerPortal from "./components/PartnerPortal";
+import PartnerSession from "./components/PartnerSession";
 
 
 
 export default function App() {
-  const [screen, setScreen] = useState("login");   
-  const [partner, setPartner] = useState(() => window.location.hash === "#partner");
-if (partner) return <PartnerPortal onExit={() => { window.location.hash = ""; setPartner(false); }} />;
+  const [screen, setScreen] = useState(() => {
+    if (window.location.hash === "#partner") return "partner";
+    if (window.location.hash === "#partner-demo") return "partner-demo";
+    return "login";
+  });
 
-if (screen === "login") return <Login onSignIn={(role) => { if (role === "partner") { window.location.hash = "partner"; setPartner(true); } else setScreen("dashboard"); }} />;
+  function returnToLogin() {
+    window.location.hash = "";
+    setScreen("login");
+  }
+
+  if (screen === "partner") return <PartnerSession onExit={returnToLogin} />;
+  if (screen === "partner-demo") return <PartnerPortal onExit={returnToLogin} />;
+  if (screen === "login") {
+    return <Login onSignIn={(role) => {
+      if (role === "partner" || role === "partner-demo") {
+        window.location.hash = role;
+        setScreen(role);
+      } else {
+        setScreen("dashboard");
+      }
+    }} />;
+  }
 
   return (
     <div className="h-screen w-full bg-white bg-center bg-no-repeat">
