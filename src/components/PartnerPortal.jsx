@@ -77,7 +77,7 @@ function PartnerHome({ go }) {
       </div>
 
       <div className={`${card} p-5`}>
-        <p className="text-sm font-medium text-gray-900">Referral link</p>
+        <p className="text-sm font-medium text-accent">Referral link</p>
         <p className="text-xs text-gray-500 mt-0.5">Share this link with your clients. Anyone who signs up with it appears under Referrals.</p>
         <div className="flex items-center gap-2 mt-3">
           <input readOnly aria-label="Referral link" value={LINK} className={`${field} font-mono text-xs bg-gray-50`} />
@@ -101,7 +101,7 @@ function PartnerHome({ go }) {
           ["Banking details", "Where we send partner payouts. Keep these up to date.", "View details", "banking"],
         ].map(([t, d, b, k]) => (
           <div key={k} className={`${card} p-5 flex flex-col`}>
-            <p className="text-sm font-medium text-gray-900">{t}</p>
+            <p className="text-sm font-medium text-accent">{t}</p>
             <p className="text-sm text-gray-500 mt-1 flex-1">{d}</p>
             <button type="button" onClick={() => go(k)} className={`${primary} mt-4 self-start`}>{b}</button>
           </div>
@@ -236,7 +236,7 @@ function Detail({ r, onClose }) {
         {[["Contact", r.contact], ["Email", r.email], ["Country", r.country], ["Created", pretty(r.created)], ["Last modified", pretty(r.modified)], ["Onboarded", r.status === "Onboarded" ? "Yes" : "No"]].map(([k, v]) => (
           <div key={k} className="flex justify-between gap-4 py-2 border-b border-gray-100 text-sm"><span className="text-gray-500">{k}</span><span className="text-gray-900 text-right break-all">{v}</span></div>
         ))}
-        <p className="text-sm font-medium text-gray-900 mt-5 mb-2">Onboarding progress</p>
+        <p className="text-sm font-medium text-accent mt-5 mb-2">Onboarding progress</p>
         <ol className="flex flex-col gap-2">
           {STEPS.map((s, i) => {
             const rejectedHere = r.status === "Rejected" && i === 4;
@@ -258,18 +258,19 @@ function Detail({ r, onClose }) {
 
 /* ----------------------------------------------------------- Add client */
 function AddClient({ go }) {
-  const empty = { company: "", contact: "", email: "", country: "", volume: "", cur: [], notes: "" };
+  const empty = { company: "", contact: "", email: "", country: "", volume: "", cur: [], otherCur: "", notes: "" };
   const [v, setV] = useState(empty);
   const [done, setDone] = useState(null);
   const dup = REFERRALS.some((r) => r.company.toLowerCase() === v.company.trim().toLowerCase()) && v.company.trim() !== "";
   const emailOk = /^\S+@\S+\.\S+$/.test(v.email);
-  const ok = v.company.trim() && !dup && v.contact.trim() && emailOk && v.country && v.volume && v.cur.length > 0;
+  const otherOk = !v.cur.includes("Other") || v.otherCur.trim() !== "";
+  const ok = !dup && v.contact.trim() && emailOk && v.country && v.volume && v.cur.length > 0 && otherOk;
   const toggle = (c) => setV((x) => ({ ...x, cur: x.cur.includes(c) ? x.cur.filter((y) => y !== c) : [...x.cur, c] }));
   function submit(e) {
     e.preventDefault();
     if (!ok) return;
-    REFERRALS.unshift({ id: nextId++, company: v.company.trim(), contact: v.contact.trim(), email: v.email.trim(), country: v.country, status: "Invited", created: iso(0), modified: iso(0) });
-    setDone(v.company.trim()); setV(empty);
+    REFERRALS.unshift({ id: nextId++, company: v.company.trim() || "Not provided", contact: v.contact.trim(), email: v.email.trim(), country: v.country, status: "Invited", created: iso(0), modified: iso(0) });
+    setDone(v.company.trim() || v.contact.trim()); setV(empty);
   }
   if (done) return (
     <div className={`${card} p-6 max-w-xl`}>
@@ -282,7 +283,7 @@ function AddClient({ go }) {
   return (
     <form onSubmit={submit} noValidate className={`${card} p-5 max-w-xl flex flex-col gap-4`}>
       <p className="text-sm text-gray-500">Enter your client's details and we'll invite them to open a PulseFX account. They then show under Referrals.</p>
-      <div><label htmlFor="ac-co" className={lab}>Company name *</label><input id="ac-co" className={field} value={v.company} onChange={(e) => setV({ ...v, company: e.target.value })} />
+      <div><label htmlFor="ac-co" className={lab}>Company name</label><input id="ac-co" className={field} value={v.company} onChange={(e) => setV({ ...v, company: e.target.value })} />
         {dup && <p role="alert" className="text-[11px] text-danger mt-1">You have already referred this company.</p>}</div>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div><label htmlFor="ac-ct" className={lab}>Contact name *</label><input id="ac-ct" className={field} value={v.contact} onChange={(e) => setV({ ...v, contact: e.target.value })} /></div>
@@ -290,11 +291,14 @@ function AddClient({ go }) {
           {v.email !== "" && !emailOk && <p role="alert" className="text-[11px] text-danger mt-1">Enter a valid email address.</p>}</div>
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        <div><label htmlFor="ac-cn" className={lab}>Country *</label><select id="ac-cn" className={field} value={v.country} onChange={(e) => setV({ ...v, country: e.target.value })}><option value="">Select</option>{["Canada", "United States", "United Kingdom", "Mexico", "Other"].map((c) => <option key={c}>{c}</option>)}</select></div>
+        <div><label htmlFor="ac-cn" className={lab}>Country *</label><select id="ac-cn" className={field} value={v.country} onChange={(e) => setV({ ...v, country: e.target.value })}><option value="">Select</option>{["Canada", "United States"].map((c) => <option key={c}>{c}</option>)}</select></div>
         <div><label htmlFor="ac-vo" className={lab}>Expected monthly volume *</label><select id="ac-vo" className={field} value={v.volume} onChange={(e) => setV({ ...v, volume: e.target.value })}><option value="">Select</option>{["Under CAD 50,000", "CAD 50,000 to 250,000", "CAD 250,000 to 1,000,000", "Over CAD 1,000,000"].map((c) => <option key={c}>{c}</option>)}</select></div>
       </div>
       <fieldset><legend className={lab}>Currencies they will use *</legend>
-        <div className="flex flex-wrap gap-3 text-sm">{["CAD", "USD", "EUR", "GBP", "AUD", "MXN"].map((c) => <label key={c} className="flex items-center gap-1.5 cursor-pointer"><input type="checkbox" className="accent-accent" checked={v.cur.includes(c)} onChange={() => toggle(c)} />{c}</label>)}</div></fieldset>
+        <div className="flex flex-wrap gap-3 text-sm">{["CAD", "USD", "EUR", "GBP", "AUD", "MXN", "Other"].map((c) => <label key={c} className="flex items-center gap-1.5 cursor-pointer"><input type="checkbox" className="accent-accent" checked={v.cur.includes(c)} onChange={() => toggle(c)} />{c}</label>)}</div>
+        {v.cur.includes("Other") && (
+          <div className="mt-2"><label htmlFor="ac-oc" className={lab}>Other currency *</label><input id="ac-oc" className={`${field} sm:max-w-xs`} maxLength={60} placeholder="For example JPY" value={v.otherCur} onChange={(e) => setV({ ...v, otherCur: e.target.value })} /></div>
+        )}</fieldset>
       <div><label htmlFor="ac-no" className={lab}>Notes (optional)</label><textarea id="ac-no" rows={2} className={field} value={v.notes} onChange={(e) => setV({ ...v, notes: e.target.value })} /></div>
       <div><button type="submit" disabled={!ok} className={primary}>Send invitation</button></div>
     </form>
@@ -318,7 +322,7 @@ function Banking() {
   return (
     <div className="flex flex-col gap-4 max-w-xl">
       <div className={`${card} p-5`}>
-        <p className="text-sm font-medium text-gray-900">Payout account</p>
+        <p className="text-sm font-medium text-accent">Payout account</p>
         <p className="text-xs text-gray-500 mt-0.5">Where PulseFX sends partner payouts.</p>
         {[["Bank", p.bank], ["Account holder", p.holder], ["Account", `•••• ${p.last4}`], ["Currency", p.currency]].map(([k, val]) => (
           <div key={k} className="flex justify-between gap-4 py-2 border-b border-gray-100 text-sm"><span className="text-gray-500">{k}</span><span className="text-gray-900">{val}</span></div>
@@ -362,7 +366,7 @@ function PayoutHistory({ onClose }) {
   return (
     <div className={`${card} p-5`} role="region" aria-label="Payout history">
       <div className="flex items-start justify-between gap-3">
-        <div><p className="text-sm font-medium text-gray-900">Payout history</p><p className="text-xs text-gray-500 mt-0.5">Total paid: {cad(total)}</p></div>
+        <div><p className="text-sm font-medium text-accent">Payout history</p><p className="text-xs text-gray-500 mt-0.5">Total paid: {cad(total)}</p></div>
         <div className="flex gap-2">
           <button type="button" onClick={csv} className={ghost}><Download className="w-4 h-4" />Download</button>
           <button type="button" onClick={onClose} aria-label="Close payout history" className="p-2 rounded-md text-gray-500 hover:bg-gray-100"><X className="w-4 h-4" /></button>
@@ -401,7 +405,7 @@ function Uploader({ id, label, hint, kind, accept, maxMB }) {
   function remove() { if (file?.url) URL.revokeObjectURL(file.url); BRAND[kind] = null; setFile(null); }
   return (
     <div className={`${card} p-5`}>
-      <p className="text-sm font-medium text-gray-900">{label}</p>
+      <p className="text-sm font-medium text-accent">{label}</p>
       <p className="text-xs text-gray-500 mt-0.5">{hint}</p>
       {file && (
         <div className="flex items-center gap-3 mt-3 p-2 rounded-md bg-gray-50">
@@ -432,7 +436,7 @@ function BrandKit() {
   return (
     <div className="flex flex-col gap-4 max-w-2xl">
       <div>
-        <p className="text-sm font-medium text-gray-900">Your details for referral pages</p>
+        <p className="text-sm font-medium text-accent">Your details for referral pages</p>
         <p className="text-xs text-gray-500 mt-0.5">Add your own logo, head shot and description. Clients may see these when they sign up through your link.</p>
       </div>
       <div className="grid sm:grid-cols-2 gap-4">
@@ -440,7 +444,7 @@ function BrandKit() {
         <Uploader id="bk-head" kind="headshot" label="Head shot" hint="PNG or JPG, up to 5 MB." accept={["image/png", "image/jpeg"]} maxMB={5} />
       </div>
       <form onSubmit={save} className={`${card} p-5`}>
-        <label htmlFor="bk-desc" className="text-sm font-medium text-gray-900">Description</label>
+        <label htmlFor="bk-desc" className="text-sm font-medium text-accent">Description</label>
         <p className="text-xs text-gray-500 mt-0.5">A short introduction to your firm.</p>
         <textarea id="bk-desc" rows={4} maxLength={max} className={`${field} mt-3`} value={desc} onChange={(e) => { setDesc(e.target.value); setSaved(false); }} />
         <div className="flex items-center justify-between gap-3 mt-2">
@@ -450,7 +454,7 @@ function BrandKit() {
       </form>
 
       <div className={`${card} p-5`}>
-        <p className="text-sm font-medium text-gray-900">PulseFX brand assets</p>
+        <p className="text-sm font-medium text-accent">PulseFX brand assets</p>
         <p className="text-xs text-gray-500 mt-0.5">Use these when you talk about PulseFX to your clients.</p>
         <ul className="mt-3 divide-y divide-gray-100">
           {ASSETS.map((a) => (
@@ -486,16 +490,16 @@ function Guide() {
     <div className={`${card} divide-y divide-gray-100`}>
       {GUIDE.map(([q, a], i) => (
         <div key={q}>
-          <button type="button" aria-expanded={open === i} onClick={() => setOpen(open === i ? -1 : i)} className="w-full flex items-center justify-between gap-3 text-left px-5 py-4 text-sm font-medium text-gray-900 hover:bg-gray-50">
+          <button type="button" aria-expanded={open === i} onClick={() => setOpen(open === i ? -1 : i)} className="w-full flex items-center justify-between gap-3 text-left px-5 py-4 text-sm font-medium text-accent hover:bg-gray-50">
             {q}<ChevronDown className={`w-4 h-4 text-gray-400 shrink-0 ${open === i ? "rotate-180" : ""}`} />
           </button>
           {open === i && <p className="px-5 pb-4 text-sm text-gray-600">{a}</p>}
         </div>
       ))}
-      <p className="px-5 py-3 text-[11px] text-gray-400">Demo only: wording is a placeholder until PulseFX confirms the real partner terms.</p>
+      {/* <p className="px-5 py-3 text-[11px] text-gray-400">Demo only: wording is a placeholder until PulseFX confirms the real partner terms.</p> */}
     </div>
     <div className={`${card} p-5`}>
-      <p className="text-sm font-medium text-gray-900">One-pagers</p>
+      <p className="text-sm font-medium text-accent">One-pagers</p>
       <p className="text-xs text-gray-500 mt-0.5">Download and share these with your clients.</p>
       <ul className="mt-3 divide-y divide-gray-100">
         {ONE_PAGERS.map(([n, f]) => (
@@ -519,15 +523,15 @@ function Contact() {
   return (
     <div className="flex flex-col gap-4 max-w-xl">
     <div className={`${card} p-5`}>
-      <p className="text-sm font-medium text-gray-900">Reach the partnerships team</p>
+      <p className="text-sm font-medium text-accent">Reach the partnerships team</p>
       <div className="flex flex-wrap gap-2 mt-3">
-        <a href={`tel:${PHONE.tel}`} className={ghost}><Phone className="w-4 h-4" />Call {PHONE.display}</a>
-        <a href={`sms:${PHONE.tel}`} className={ghost}><MessageSquare className="w-4 h-4" />Text {PHONE.display}</a>
-        <a href={`mailto:${EMAIL}`} className={ghost}><Mail className="w-4 h-4" />{EMAIL}</a>
+        <a href={`tel:${PHONE.tel}`} className={ghost}><Phone className="w-4 h-4 text-accent" />Call {PHONE.display}</a>
+        <a href={`sms:${PHONE.tel}`} className={ghost}><MessageSquare className="w-4 h-4 text-accent" />Text {PHONE.display}</a>
+        <a href={`mailto:${EMAIL}`} className={ghost}><Mail className="w-4 h-4 text-accent" />{EMAIL}</a>
       </div>
     </div>
     <div className={`${card} p-5`}>
-      <p className="text-sm font-medium text-gray-900">Contact your partner manager</p>
+      <p className="text-sm font-medium text-accent">Contact your partner manager</p>
       <p className="text-xs text-gray-500 mt-0.5">Questions about a client, payouts or the programme? Send a message.</p>
       {sent ? (
         <p role="status" className="mt-4 text-sm text-success flex items-center gap-1.5"><CheckCircle2 className="w-4 h-4" />Message sent. Demo only: nothing was actually sent.</p>
