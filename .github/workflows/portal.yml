@@ -27,6 +27,8 @@ jobs:
           node-version: '24'
           cache: npm
       - run: npm ci
+      - run: npm run lint:tables
+      - run: npm run test:tables
       - run: npm run lint:auth
       - run: npm run lint:referrals
       - run: npm run test:referrals

@@ -1,3 +1,6 @@
+import SortableHeader from "./SortableHeader";
+import useTableSort from "../lib/useTableSort";
+import ClearFiltersButton from "./ClearFiltersButton";
 import { useState, useEffect } from "react";
 import { Check, Plus, Trash2, CalendarClock, Wallet, ArrowDownToLine, CheckCircle2, AlertTriangle, RefreshCw, FileText, FileSpreadsheet, Printer, Search, SlidersHorizontal, ChevronDown, Info, Download, X } from "lucide-react";
 import { FLAGS } from "../lib/currencies";
@@ -428,6 +431,7 @@ const DEFAULT_COLS = COLUMNS.filter((c) => c.on).map((c) => c.key);
 let savedCols = DEFAULT_COLS; // remembered while you move around the demo
 
 export default function Forwards({ onNavigate }) {
+  const { sort, toggleSort, sortRows } = useTableSort();
   const [view, setView] = useState("list"); // list | drawdown
   const [startWith, setStartWith] = useState("");
   const [q, setQ] = useState("");
@@ -446,7 +450,8 @@ export default function Forwards({ onNavigate }) {
 
   const shown = COLUMNS.filter((c) => cols.includes(c.key));
   const showConfirm = cols.includes("confirmation");
-  const rows = FORWARDS.filter((f) => (status === "All" || statusOf(f) === status) && (!q || f.ref.toLowerCase().includes(q.toLowerCase())));
+  const filteredRows = FORWARDS.filter((f) => (status === "All" || statusOf(f) === status) && (!q || f.ref.toLowerCase().includes(q.toLowerCase())));
+  const rows = sortRows(filteredRows, { deal: f => f.ref, status: statusOf, pair: f => `${f.sell}/${f.buy}`, rate: f => f.rate, value: { value: f => f.maturity, type: "date" }, available: f => f.remaining, entry: { value: f => f.entry, type: "date" }, type: f => f.type, obuy: f => f.original * f.rate, osell: f => f.original, xbuy: f => f.remaining * f.rate, deposit: f => f.deposit });
   const td = "px-3 py-3.5 text-sm text-gray-700 whitespace-nowrap";
   const iconBtn = "p-1.5 text-gray-400 hover:text-accent";
   const changed = cols.length !== DEFAULT_COLS.length || DEFAULT_COLS.some((k) => !cols.includes(k));
@@ -486,6 +491,8 @@ export default function Forwards({ onNavigate }) {
             Columns
           </button>
 
+          <ClearFiltersButton onClick={() => { setQ(""); setStatus("All"); }} />
+
           {showPanel && (
             <div role="dialog" aria-label="Columns and filters" className="absolute left-4 top-full z-20 mt-1 w-72 bg-white border border-gray-200 rounded-xl shadow-lg p-4">
               <div className="flex items-center justify-between mb-2">
@@ -524,12 +531,7 @@ export default function Forwards({ onNavigate }) {
             <thead className="bg-gray-50">
               <tr>
                 {shown.map((c) => (
-                  <th key={c.key} className={`text-[11px] font-medium text-gray-500 px-3 py-2.5 leading-tight ${c.right ? "text-right" : "text-left"}`}>
-                    <span className="inline-flex items-center gap-1">
-                      {c.label}
-                      {c.tip && <span title={c.tip}><Info className="w-3 h-3 text-gray-400" aria-label={c.tip} /></span>}
-                    </span>
-                  </th>
+                  <SortableHeader key={c.key} column={c.key} label={c.label} sort={sort} onSort={toggleSort} right={c.right} className="text-[11px] font-medium text-gray-500 px-3 py-2.5 leading-tight" extra={c.tip && <span title={c.tip}><Info className="w-3 h-3 text-gray-400" aria-label={c.tip} /></span>} />
                 ))}
                 {showConfirm && <th className="text-[11px] font-medium text-gray-500 px-3 py-2.5 text-right">Confirmation</th>}
                 <th className="w-px sticky right-0 bg-gray-50" aria-label="Actions" />

@@ -8,7 +8,7 @@ const cors = {
 };
 const recordId = /^rec[A-Za-z0-9]{14}$/;
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-const bankFields = ["Submission ID", "Partner", "Partner ID", "Institution name", "Account holder", "Account number", "Institution code", "Transit number", "Currency", "Status", "Current account", "Review notes", "Submitted at", "Last modified"];
+const bankFields = ["Submission ID", "Partner", "Partner ID", "Institution name", "Account holder", "Account number", "Institution code", "Transit number", "Currency", "Status", "Current account", "Approval reason", "Submitted at", "Last modified", "Show approval reason to partner", "Partner Comments", "Rejection reason", "Show rejection reason to partner", "Approved at", "Rejected at"];
 const text = (fields, key) => typeof fields[key] === "string" ? fields[key] : "";
 const json = (body, status = 200) => Response.json(body, { status, headers: { ...cors, "Cache-Control": "no-store" } });
 
@@ -20,19 +20,20 @@ function bankSummary(record) {
     id: record.id, bank: text(f, "Institution name"), holder: text(f, "Account holder"),
     account: text(f, "Account number"), last4: text(f, "Account number").slice(-4), currency: text(f, "Currency"),
     status: text(f, "Status") || "Pending verification", current: f["Current account"] === true,
-    reviewNotes: text(f, "Review notes"), submittedAt: text(f, "Submitted at") || record.createdTime || "",
-    modifiedAt: text(f, "Last modified"),
+    ...(f.Status !== "Rejected" && f["Show approval reason to partner"] === true ? { reviewNotes: text(f, "Approval reason") } : {}), ...(f["Show rejection reason to partner"] === true ? { rejectionReason: text(f, "Rejection reason") } : {}), submittedAt: text(f, "Submitted at") || record.createdTime || "",
+    approvedAt: text(f, "Approved at"), rejectedAt: text(f, "Rejected at"), modifiedAt: text(f, "Last modified"), comments: text(f, "Partner Comments"),
   };
 }
 function validInput(body) {
   if (!body || typeof body !== "object" || Array.isArray(body)) return null;
-  const keys = ["submissionId", "bank", "holder", "account", "institutionCode", "transitNumber", "currency"];
+  const keys = ["submissionId", "bank", "holder", "account", "institutionCode", "transitNumber", "currency", "comments"];
   if (Object.keys(body).some((key) => !keys.includes(key))) return null;
   if (!uuid.test(body.submissionId || "")) return null;
   for (const key of ["bank", "holder", "account", "institutionCode", "transitNumber", "currency"]) {
     if (typeof body[key] !== "string") return null;
   }
-  const input = Object.fromEntries(keys.map((key) => [key, body[key].trim()]));
+  if (body.comments !== undefined && (typeof body.comments !== "string" || body.comments.length > 2000)) return null;
+  const input = Object.fromEntries(keys.map((key) => [key, (body[key] ?? "").trim()]));
   if (!input.bank || input.bank.length > 200 || !input.holder || input.holder.length > 200 ||
       !/^\d{4,34}$/.test(input.account) || !/^\d{3}$/.test(input.institutionCode) || !/^\d{5}$/.test(input.transitNumber) || input.currency !== "CAD") return null;
   return input;
@@ -97,7 +98,7 @@ export function createBankingHandler({ env, admin = null, fetchImpl = fetch }) {
       let input;
       if (request.method === "POST") {
         const raw = await request.text();
-        if (raw.length > 4000) return json({ error: "Banking details are too long." }, 413);
+        if (raw.length > 20000) return json({ error: "Banking details are too long." }, 413);
         try { input = validInput(JSON.parse(raw)); } catch { /* Reject malformed JSON. */ }
         if (!input) return json({ error: "Check all required fields. Enter a 3-digit institution code and a 5-digit transit number." }, 400);
       }
@@ -109,19 +110,19 @@ export function createBankingHandler({ env, admin = null, fetchImpl = fetch }) {
         if (existing) {
           const f = existing.fields;
           if (f["Institution name"] !== input.bank || f["Account holder"] !== input.holder || f["Account number"] !== input.account ||
-              f["Institution code"] !== input.institutionCode || f["Transit number"] !== input.transitNumber || f.Currency !== input.currency) {
+              f["Institution code"] !== input.institutionCode || f["Transit number"] !== input.transitNumber || f.Currency !== input.currency || text(f, "Partner Comments") !== input.comments) {
             return json({ error: "This submission has already been saved. Refresh before submitting another change." }, 409);
           }
           return json({ account: bankSummary(existing) });
         }
         const fields = { "Submission ID": submissionId, Partner: [partnerId], "Partner ID": partnerId,
           "Institution name": input.bank, "Account holder": input.holder, "Account number": input.account,
-          "Institution code": input.institutionCode, "Transit number": input.transitNumber, Currency: input.currency, Status: "Pending verification", "Current account": false };
+          "Institution code": input.institutionCode, "Transit number": input.transitNumber, Currency: input.currency, Status: "Pending verification", "Current account": false, "Partner Comments": input.comments };
         const body = await airtable(`${base}/${encodeURIComponent(bankTable)}`, { method: "POST", body: JSON.stringify({ records: [{ fields }] }) });
         const saved = body.records?.[0];
         if (!saved || !owns(saved, partnerId) || saved.fields["Submission ID"] !== submissionId || saved.fields.Status !== "Pending verification" || saved.fields["Current account"] === true ||
             saved.fields["Institution name"] !== input.bank || saved.fields["Account holder"] !== input.holder || saved.fields["Account number"] !== input.account ||
-            saved.fields["Institution code"] !== input.institutionCode || saved.fields["Transit number"] !== input.transitNumber || saved.fields.Currency !== input.currency) throw new Error("Invalid saved account");
+            saved.fields["Institution code"] !== input.institutionCode || saved.fields["Transit number"] !== input.transitNumber || saved.fields.Currency !== input.currency || text(saved.fields, "Partner Comments") !== input.comments) throw new Error("Invalid saved account");
         return json({ account: bankSummary(saved) }, 201);
       }
       const accounts = records.map(bankSummary).sort((a, b) => b.submittedAt.localeCompare(a.submittedAt));

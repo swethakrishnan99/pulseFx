@@ -1,10 +1,12 @@
 import { adminSessionValid } from "../_shared/admin-session.mjs";
 
+const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const iso = value => value && Number.isFinite(Date.parse(value)) ? new Date(value).toISOString() : "";
 const recordId = /^rec[A-Za-z0-9]{14}$/;
-const bankFields = ["Submission ID", "Partner", "Partner ID", "Institution name", "Account holder", "Account number", "Institution code", "Transit number", "Currency", "Status", "Current account", "Review notes", "Submitted at", "Last modified"];
+const bankFields = ["Submission ID", "Partner", "Partner ID", "Institution name", "Account holder", "Account number", "Institution code", "Transit number", "Currency", "Status", "Current account", "Approval reason", "Submitted at", "Last modified", "Show approval reason to partner", "Approved at", "Approved by user ID", "Approved by email", "Rejected at", "Rejected by user ID", "Rejected by email", "Partner Comments", "Rejection reason", "Show rejection reason to partner"];
 class ReviewError extends Error { constructor(message, status = 409) { super(message); this.status = status; } }
 const owner = (row) => recordId.test(row?.fields?.["Partner ID"] || "") && row.fields.Partner?.length === 1 && row.fields.Partner[0] === row.fields["Partner ID"];
-const summary = (row) => ({ id: row.id, partnerId: row.fields["Partner ID"], submissionId: row.fields["Submission ID"] || "", holder: row.fields["Account holder"] || "", bank: row.fields["Institution name"] || "", institutionCode: row.fields["Institution code"] || "", transitNumber: row.fields["Transit number"] || "", account: row.fields["Account number"] || "", currency: row.fields.Currency || "", status: row.fields.Status || "Pending verification", current: row.fields["Current account"] === true, reviewNotes: row.fields["Review notes"] || "", submittedAt: row.fields["Submitted at"] || row.createdTime || "", modifiedAt: row.fields["Last modified"] || "", validOwnership: owner(row) });
+const summary = (row) => ({ id: row.id, partnerId: row.fields["Partner ID"], submissionId: row.fields["Submission ID"] || "", holder: row.fields["Account holder"] || "", bank: row.fields["Institution name"] || "", institutionCode: row.fields["Institution code"] || "", transitNumber: row.fields["Transit number"] || "", account: row.fields["Account number"] || "", currency: row.fields.Currency || "", status: row.fields.Status || "Pending verification", current: row.fields["Current account"] === true, comments: typeof row.fields["Partner Comments"] === "string" ? row.fields["Partner Comments"] : "", rejectionReason: row.fields["Rejection reason"] || "", showRejectionReasonToPartner: row.fields["Show rejection reason to partner"] === true, reviewNotes: row.fields["Approval reason"] || "", showReviewNotesToPartner: row.fields["Show approval reason to partner"] === true, approvedAt: iso(row.fields["Approved at"]), approvedByUserId: row.fields["Approved by user ID"] || "", approvedByEmail: row.fields["Approved by email"] || "", rejectedAt: iso(row.fields["Rejected at"]), rejectedByUserId: row.fields["Rejected by user ID"] || "", rejectedByEmail: row.fields["Rejected by email"] || "", submittedAt: row.fields["Submitted at"] || row.createdTime || "", modifiedAt: row.fields["Last modified"] || "", validOwnership: owner(row) });
 
 export async function bankingReview({ request, env, user, admin, fetchImpl, json }) {
   if (user.app_metadata?.role !== "partner_admin") return json({ error: "Administrator access is required." }, 403);
@@ -64,12 +66,16 @@ export async function bankingReview({ request, env, user, admin, fetchImpl, json
       return json({ submissions });
     }
     const raw = await request.text();
-    if (raw.length > 5000) return json({ error: "Review notes are too long." }, 413);
+    if (raw.length > 5000) return json({ error: "Approval reason are too long." }, 413);
     let body;
     try { body = JSON.parse(raw); } catch { return json({ error: "Invalid request." }, 400); }
-    if (!body || Object.keys(body).some((key) => !["id", "action", "reviewNotes", "expectedModifiedAt"].includes(key)) ||
-        !recordId.test(body.id || "") || !["approve", "reject"].includes(body.action) || typeof body.reviewNotes !== "string" || body.reviewNotes.length > 2000 ||
-        typeof body.expectedModifiedAt !== "string" || (body.action === "reject" && !body.reviewNotes.trim())) return json({ error: "Check the submission and include a reason when rejecting." }, 400);
+    const approving = body?.action === "approve";
+    const textKey = approving ? "reviewNotes" : "rejectionReason";
+    const visibilityKey = approving ? "showReviewNotesToPartner" : "showRejectionReasonToPartner";
+    if (!body || Object.keys(body).some(key => !["id", "action", textKey, "expectedModifiedAt", visibilityKey].includes(key)) ||
+      !recordId.test(body.id || "") || !["approve", "reject"].includes(body.action) || typeof body[textKey] !== "string" || body[textKey].length > 2000 ||
+      (body[visibilityKey] !== undefined && typeof body[visibilityKey] !== "boolean") || typeof body.expectedModifiedAt !== "string" || (!approving && !body[textKey].trim())) return json({ error: "Check the submission and include a reason when rejecting." }, 400);
+    if (!uuid.test(user.id || "") || typeof user.email !== "string" || !/^\S+@\S+\.\S+$/.test(user.email)) return json({ error: "Unable to verify the reviewer. Sign in again.", }, 401);
     const original = await get(body.id);
     if (!owner(original)) return json({ error: "The partner link is inconsistent. Correct it before reviewing." }, 409);
     partnerId = original.fields["Partner ID"]; token = crypto.randomUUID();
@@ -78,29 +84,36 @@ export async function bankingReview({ request, env, user, admin, fetchImpl, json
     }
     const target = await get(body.id);
     if (!owner(target) || target.fields["Partner ID"] !== partnerId) throw new ReviewError("The partner link changed. Refresh before reviewing.");
-    const notes = body.reviewNotes.trim(), f = target.fields;
+    const notes = body[textKey].trim(), f = target.fields;
     const alreadyDone = body.action === "approve" ? f.Status === "Verified" && f["Current account"] === true : f.Status === "Rejected" && !f["Current account"];
+    const prefix = body.action === "approve" ? "Approved" : "Rejected";
+    const shareNotes = body[visibilityKey] === true;
+    const notesField = approving ? "Approval reason" : "Rejection reason";
+    const visibilityField = approving ? "Show approval reason to partner" : "Show rejection reason to partner";
+    // A retry may finish the audit, but must never replace the original decision or reviewer.
+    if (alreadyDone && (f[`${prefix} by user ID`] !== user.id || !iso(f[`${prefix} at`]) || (f[notesField] || "") !== notes || (f[visibilityField] === true) !== shareNotes)) throw new ReviewError("This submission has already been reviewed. Refresh to see the recorded decision.");
+    const reviewFields = { [notesField]: notes, [visibilityField]: shareNotes, [`${prefix} at`]: new Date(Math.floor(Date.now() / 1000) * 1000).toISOString(), [`${prefix} by user ID`]: user.id, [`${prefix} by email`]: user.email.trim().toLowerCase() };
     if (!alreadyDone && (f["Last modified"] || "") !== body.expectedModifiedAt) throw new ReviewError("This submission changed since you opened it. Refresh before reviewing.");
     if (!alreadyDone && (f.Status || "Pending verification") !== "Pending verification") throw new ReviewError("Only pending submissions can be reviewed.");
     if (body.action === "approve" && (!f["Account holder"]?.trim() || !f["Institution name"]?.trim() || !/^\d{3}$/.test(f["Institution code"]) || !/^\d{5}$/.test(f["Transit number"]) || !/^\d{4,34}$/.test(f["Account number"]) || f.Currency !== "CAD")) throw new ReviewError("The submission has incomplete or invalid bank details.");
     async function patch(records) {
       if (!await rpc("renew_banking_review", { p_partner_id: partnerId, p_token: token })) throw new ReviewError("The review lock expired. Refresh before trying again.");
       const body = await airtable(url, { method: "PATCH", body: JSON.stringify({ records }) });
-      if (!Array.isArray(body.records) || records.some((expected) => !body.records.some((actual) => actual.id === expected.id && Object.entries(expected.fields).every(([key, value]) => (actual.fields?.[key] ?? (value === false ? false : "")) === value)))) throw new Error("Review result unconfirmed");
+      if (!Array.isArray(body.records) || records.some((expected) => !body.records.some((actual) => actual.id === expected.id && Object.entries(expected.fields).every(([key, value]) => (["Approved at", "Rejected at"].includes(key) ? iso(actual.fields?.[key]) === iso(value) : (actual.fields?.[key] ?? (value === false ? false : "")) === value))))) throw new Error("Review result unconfirmed");
     }
     if (body.action === "approve") {
       const related = await list(url, bankFields, `{Partner ID}='${partnerId}'`);
       if (related.some((row) => !owner(row) || row.fields["Partner ID"] !== partnerId)) throw new ReviewError("There are inconsistent partner links. Correct them before approving.");
       const previous = related.filter((row) => row.id !== target.id && row.fields["Current account"] === true);
       for (let start = 0; start < previous.length; start += 10) await patch(previous.slice(start, start + 10).map((row) => ({ id: row.id, fields: { "Current account": false } })));
-      if (!alreadyDone) await patch([{ id: target.id, fields: { Status: "Verified", "Current account": true, "Review notes": notes } }]);
+      if (!alreadyDone) await patch([{ id: target.id, fields: { Status: "Verified", "Current account": true, ...reviewFields } }]);
       // Read the resulting state before confirming approval. Airtable edits outside this service are not locked.
       const confirmed = await list(url, bankFields, `{Partner ID}='${partnerId}'`);
       const current = confirmed.filter((row) => row.fields["Current account"] === true);
       if (current.length !== 1 || current[0].id !== target.id || current[0].fields.Status !== "Verified" || !owner(current[0])) throw new Error("Current account not confirmed");
     } else if (!alreadyDone) {
       if (f["Current account"]) throw new ReviewError("The current account cannot be rejected.");
-      await patch([{ id: target.id, fields: { Status: "Rejected", "Review notes": notes } }]);
+      await patch([{ id: target.id, fields: { Status: "Rejected", ...reviewFields } }]);
     }
     if (!await rpc("complete_banking_review", { p_partner_id: partnerId, p_token: token, p_record_id: target.id, p_action: body.action, p_actor: user.id })) throw new Error("Review audit unconfirmed");
     token = null;

@@ -1,3 +1,4 @@
+import { bankFields, linkedBank, ownsBank } from "./banking.mjs";
 import { adminPayouts } from "./admin.mjs";
 import { findPartnerMembership } from "../_shared/partner-membership.mjs";
 
@@ -7,8 +8,9 @@ const cors = {
   "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
 };
 const recordId = /^rec[A-Za-z0-9]{14}$/;
-const payoutFields = ["Reference", "Partner", "Partner ID", "Client", "Amount", "Currency", "Status", "Paid at", "Notes"];
+const payoutFields = ["Reference", "Partner", "Partner ID", "Client", "Amount", "Currency", "Status", "Paid at", "Notes", "Created at", "Bank Submission ID", "Cancelled at", "Cancellation reason", "Last edited at", "Show notes to partner", "Show cancellation reason to partner"];
 const text = (fields, key) => typeof fields[key] === "string" ? fields[key] : "";
+const timestamp = (value) => value && Number.isFinite(Date.parse(value)) ? new Date(value).toISOString() : "";
 const json = (body, status = 200) => Response.json(body, { status, headers: { ...cors, "Cache-Control": "no-store" } });
 const owns = (record, partnerId) => recordId.test(record.id || "") && record.fields?.["Partner ID"] === partnerId
   && Array.isArray(record.fields.Partner) && record.fields.Partner.length === 1 && record.fields.Partner[0] === partnerId;
@@ -57,9 +59,28 @@ export function createPayoutsHandler({ env, admin = null, fetchImpl = fetch }) {
         if (offset && (typeof offset !== "string" || seen.has(offset))) throw new Error("Invalid pagination");
         if (offset) seen.add(offset);
       } while (offset);
-      const payouts = records.map(({ id, fields: f }) => ({ id, ref: text(f, "Reference"), client: text(f, "Client"),
+      // Resolve historical submissions only for this member's partner; never substitute the current account.
+      const banks = [];
+      if (records.some(row => text(row.fields, "Bank Submission ID"))) {
+        let bankOffset; const bankSeen = new Set();
+        do {
+          const url = new URL(`${base}/${encodeURIComponent(env.AIRTABLE_BANKING_TABLE_ID || "Banking_details_api")}`);
+          url.searchParams.set("filterByFormula", `{Partner ID}='${partnerId}'`);
+          for (const field of bankFields) url.searchParams.append("fields[]", field);
+          if (bankOffset) url.searchParams.set("offset", bankOffset);
+          const response = await fetchImpl(url, { headers: { Authorization: `Bearer ${env.AIRTABLE_TOKEN}` }, signal: AbortSignal.timeout(15000) });
+          if (!response.ok) throw new Error("Payout accounts unavailable");
+          const body = await response.json();
+          if (!Array.isArray(body.records)) throw new Error("Invalid payout accounts");
+          banks.push(...body.records.filter(row => ownsBank(row, partnerId)));
+          bankOffset = body.offset;
+          if (bankOffset && (typeof bankOffset !== "string" || bankSeen.has(bankOffset))) throw new Error("Invalid account pagination");
+          if (bankOffset) bankSeen.add(bankOffset);
+        } while (bankOffset);
+      }
+      const payouts = records.map(({ id, fields: f, createdTime }) => ({ id, ref: text(f, "Reference"), client: text(f, "Client"),
         amount: typeof f.Amount === "number" && Number.isFinite(f.Amount) ? f.Amount : null,
-        currency: text(f, "Currency") || "CAD", status: text(f, "Status") || "Pending", date: text(f, "Paid at"), notes: text(f, "Notes") }))
+        currency: text(f, "Currency") || "CAD", status: text(f, "Status") || "Pending", date: text(f, "Paid at"), createdAt: timestamp(f["Created at"]) || timestamp(createdTime), ...(f["Show notes to partner"] === true ? { notes: text(f, "Notes") } : {}), submissionId: text(f, "Bank Submission ID"), bank: linkedBank(banks, partnerId, text(f, "Bank Submission ID")), cancelledAt: timestamp(f["Cancelled at"]), ...(f["Show cancellation reason to partner"] === true ? { cancellationReason: text(f, "Cancellation reason") } : {}), lastEditedAt: timestamp(f["Last edited at"]) }))
         .sort((a, b) => b.date.localeCompare(a.date));
       return json({ payouts });
     } catch {

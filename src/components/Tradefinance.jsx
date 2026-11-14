@@ -1,3 +1,6 @@
+import SortableHeader from "./SortableHeader";
+import useTableSort from "../lib/useTableSort";
+import ClearFiltersButton from "./ClearFiltersButton";
 import { useState, useMemo, useRef } from "react";
 import { Download, X, Calculator, FileDown, AlertTriangle, Search, Plus, Paperclip, CheckCircle2 } from "lucide-react";
 import NewFinanceRequest from "./NewFinanceRequest";
@@ -49,6 +52,7 @@ function download(name, rows) {
 }
 
 export default function TradeFinance() {
+  const { sort, toggleSort, sortRows } = useTableSort();
   const [tab, setTab] = useState("requests");
   const [status, setStatus] = useState("All");
   const [q, setQ] = useState("");
@@ -66,10 +70,12 @@ export default function TradeFinance() {
   const overdue = REQUESTS.filter((r) => r.status === "Overdue");
   const overdueTotal = overdue.reduce((s, r) => s + owing(r), 0);
 
-  const list = useMemo(() => {
+  const filteredList = useMemo(() => {
     const base = tab === "requests" ? REQUESTS : REQUESTS.filter((r) => ["Funded", "Overdue", "Repaid"].includes(r.status));
     return base.filter((r) => (status === "All" || r.status === status) && (!q || `${r.ref} ${r.supplier} ${r.invoice}`.toLowerCase().includes(q.toLowerCase())));
   }, [tab, status, q, tick]);
+
+  const list = sortRows(filteredList, { amount: { value: r => tab === "requests" ? r.amount : owing(r) || r.repaid, type: "number" }, eventDate: { value: r => tab === "requests" ? r.submitted : r.due, type: "date" } });
 
   const statuses = tab === "requests" ? ["All", "Pending", "Funded", "Overdue", "Repaid", "Rejected"] : ["All", "Funded", "Overdue", "Repaid"];
 
@@ -171,18 +177,19 @@ export default function TradeFinance() {
           <select aria-label="Filter by status" value={status} onChange={(e) => setStatus(e.target.value)} className="text-sm border border-gray-200 rounded-md px-2.5 py-1.5 bg-white">
             {statuses.map((s) => <option key={s}>{s}</option>)}
           </select>
+          <ClearFiltersButton onClick={() => { setQ(""); setStatus("All"); }} />
         </div>
 
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead className="bg-gray-50">
               <tr>
-                <th className={th}>Reference</th>
-                <th className={th}>Supplier</th>
-                <th className={th}>Invoice</th>
-                <th className={`${th} text-right`}>Amount</th>
-                <th className={th}>{tab === "requests" ? "Submitted" : "Due date"}</th>
-                <th className={th}>Status</th>
+                <SortableHeader column="ref" label="Reference" sort={sort} onSort={toggleSort} className={th} />
+                <SortableHeader column="supplier" label="Supplier" sort={sort} onSort={toggleSort} className={th} />
+                <SortableHeader column="invoice" label="Invoice" sort={sort} onSort={toggleSort} className={th} />
+                <SortableHeader column="amount" label="Amount" sort={sort} onSort={toggleSort} className={th} right />
+                <SortableHeader column="eventDate" label={tab === "requests" ? "Submitted" : "Due date"} sort={sort} onSort={toggleSort} className={th} />
+                <SortableHeader column="status" label="Status" sort={sort} onSort={toggleSort} className={th} />
               </tr>
             </thead>
             <tbody>

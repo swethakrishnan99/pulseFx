@@ -1,3 +1,6 @@
+import SortableHeader from "./SortableHeader";
+import useTableSort from "../lib/useTableSort";
+import ClearFiltersButton from "./ClearFiltersButton";
 import { useState, useMemo } from "react";
 import {
   Search, Plus, Send, CheckCircle2, Clock, ChevronDown, ChevronUp, ChevronLeft, ChevronRight,
@@ -84,6 +87,7 @@ const OPTIONAL_COLS = [
 ];
 
 export default function Beneficiaries({ onNavigate }) {
+  const { sort, toggleSort, sortRows } = useTableSort();
   const [beneficiaries, setBeneficiaries] = useState(INITIAL);
   const [query, setQuery] = useState("");
   const [view, setView] = useState("list"); // list | form
@@ -106,9 +110,11 @@ export default function Beneficiaries({ onNavigate }) {
     );
   }, [beneficiaries, query]);
 
+  const sorted = sortRows(filtered, { account: b => maskAccount(b.account) });
+  const changeSort = key => { toggleSort(key); setPage(0); };
   const pages = Math.max(1, Math.ceil(filtered.length / pageSize));
   const safePage = Math.min(page, pages - 1);
-  const visible = filtered.slice(safePage * pageSize, safePage * pageSize + pageSize);
+  const visible = sorted.slice(safePage * pageSize, safePage * pageSize + pageSize);
   const from = filtered.length ? safePage * pageSize + 1 : 0;
   const to = Math.min(filtered.length, (safePage + 1) * pageSize);
 
@@ -185,7 +191,7 @@ export default function Beneficiaries({ onNavigate }) {
   function downloadCsv() {
     const rows = [
       ["Nickname", "Currency", "Bank name", "Bank country", "Account number", "Routing", "Status"],
-      ...filtered.map((b) => [b.nickname, b.currency, b.bank, b.country, maskAccount(b.account), b.routing, b.status]),
+      ...sorted.map((b) => [b.nickname, b.currency, b.bank, b.country, maskAccount(b.account), b.routing, b.status]),
     ].map((r) => r.map((c) => { const t = String(c); const v = /^[=+\-@\t\r]/.test(t) ? `'${t}` : t; return `"${v.replace(/"/g, '""')}"`; }).join(","));
     const url = URL.createObjectURL(new Blob([rows.join("\n")], { type: "text/csv;charset=utf-8;" }));
     const a = document.createElement("a");
@@ -440,6 +446,8 @@ export default function Beneficiaries({ onNavigate }) {
           )}
         </div>
 
+        <ClearFiltersButton onClick={() => { setQuery(""); setPage(0); }} />
+
         <div className="ml-auto flex items-center gap-3 text-xs text-gray-500">
           <span>{from}-{to} of {filtered.length}</span>
           <select
@@ -456,23 +464,13 @@ export default function Beneficiaries({ onNavigate }) {
       {/* Table */}
       <div className="bg-white rounded-xl border border-gray-200/70 p-4 overflow-x-auto">
         <div className="grid gap-3 text-[11px] text-gray-400 border-b border-gray-100 pb-1.5" style={{ gridTemplateColumns: template, minWidth: minW }}>
-          <span>Nickname</span>
-          <span>Currency</span>
-          <span>Bank name</span>
-          {cols.country && <span>Bank country</span>}
-          {cols.account && (
-            <span className="flex items-center gap-1">
-              Account number
-              <Tooltip text="For your security we only show the last 4 characters of each account number." />
-            </span>
-          )}
-          {cols.routing && (
-            <span className="flex items-center gap-1">
-              Routing
-              <Tooltip text="SWIFT/BIC, ABA, sort code or BSB: the code that identifies their bank." />
-            </span>
-          )}
-          <span>Approval status</span>
+<SortableHeader as="div" column="nickname" label="Nickname" sort={sort} onSort={changeSort}  />
+<SortableHeader as="div" column="currency" label="Currency" sort={sort} onSort={changeSort}  />
+<SortableHeader as="div" column="bank" label="Bank name" sort={sort} onSort={changeSort}  />
+{cols.country && <SortableHeader as="div" column="country" label="Bank country" sort={sort} onSort={changeSort}  />}
+{cols.account && <SortableHeader as="div" column="account" label="Account number" sort={sort} onSort={changeSort} extra={<Tooltip text="For your security we only show the last 4 characters of each account number." />} />}
+{cols.routing && <SortableHeader as="div" column="routing" label="Routing" sort={sort} onSort={changeSort} extra={<Tooltip text="SWIFT/BIC, ABA, sort code or BSB: the code that identifies their bank." />} />}
+<SortableHeader as="div" column="status" label="Approval status" sort={sort} onSort={changeSort}  />
           <span />
         </div>
 

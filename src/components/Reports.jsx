@@ -1,3 +1,6 @@
+import SortableHeader from "./SortableHeader";
+import useTableSort from "../lib/useTableSort";
+import ClearFiltersButton from "./ClearFiltersButton";
 import { useState, useMemo } from "react";
 import { Search, Download, FileText, Check } from "lucide-react";
 import Tooltip from "./Tooltip";
@@ -98,6 +101,7 @@ function exportCsv(rows) {
 }
 
 export default function Reports() {
+  const { sort, toggleSort, sortRows } = useTableSort();
   const [tab, setTab] = useState("tracker");
   const [range, setRange] = useState("90");
   const [statusFilter, setStatusFilter] = useState("all");
@@ -107,7 +111,7 @@ export default function Reports() {
   const inProgress = PAYMENTS.filter((p) => p.status !== "completed");
   const completed90 = PAYMENTS.filter((p) => p.status === "completed" && daysAgo(p.date) <= 90).length;
 
-  const rows = useMemo(() => {
+  const filteredRows = useMemo(() => {
     const q = query.trim().toLowerCase();
     return PAYMENTS.filter((p) => {
       if (range !== "all" && daysAgo(p.date) > Number(range)) return false;
@@ -116,6 +120,8 @@ export default function Reports() {
       return true;
     });
   }, [range, statusFilter, query]);
+
+  const rows = sortRows(filteredRows, { date: { type: "date" }, paid: r => r.paid.amt, received: r => r.received.amt, status: r => STATUS[r.status].label });
 
   function showReceiptNotice() {
     setNotice("Demo only: payment confirmations aren't generated in this prototype.");
@@ -239,6 +245,7 @@ export default function Reports() {
                 <option key={k} value={k}>{v.label}</option>
               ))}
             </select>
+            <ClearFiltersButton onClick={() => { setQuery(""); setStatusFilter("all"); setRange("all"); }} />
             <button
               type="button"
               onClick={() => exportCsv(rows)}
@@ -252,16 +259,13 @@ export default function Reports() {
 
           <div className="bg-white rounded-xl border border-gray-200/70 p-4 overflow-x-auto">
             <div className="grid grid-cols-[1fr_0.8fr_1.2fr_1.1fr_1.15fr_1fr_1fr_0.7fr] gap-4 min-w-[980px] text-[11px] text-gray-400 border-b border-gray-100 pb-1.5">
-              <span>Reference</span>
-              <span>Date</span>
-              <span>Paid to</span>
-              <span>You paid</span>
-              <span>They received</span>
-              <span>Paid from</span>
-              <span className="flex items-center gap-1">
-                Status
-                <Tooltip text="Awaiting funds: we haven't received your money yet. In transit: sent and on its way. Completed: the recipient has it." />
-              </span>
+              <SortableHeader as="div" column="ref" label="Reference" sort={sort} onSort={toggleSort}  />
+              <SortableHeader as="div" column="date" label="Date" sort={sort} onSort={toggleSort}  />
+              <SortableHeader as="div" column="to" label="Paid to" sort={sort} onSort={toggleSort}  />
+              <SortableHeader as="div" column="paid" label="You paid" sort={sort} onSort={toggleSort}  />
+              <SortableHeader as="div" column="received" label="They received" sort={sort} onSort={toggleSort}  />
+              <SortableHeader as="div" column="from" label="Paid from" sort={sort} onSort={toggleSort}  />
+<SortableHeader as="div" column="status" label="Status" sort={sort} onSort={toggleSort} extra={<Tooltip text="Awaiting funds: we haven’t received your money yet. In transit: sent and on its way. Completed: the recipient has it." />} />
               <span />
             </div>
 

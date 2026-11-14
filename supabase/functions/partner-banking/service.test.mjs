@@ -10,7 +10,7 @@ const input = (overrides = {}) => ({ submissionId, bank: "Test Bank", holder: "T
 const record = (index, overrides = {}) => ({ id: "rec" + String(index).padStart(14, "0"), createdTime: "2026-11-10T10:00:00.000Z", fields: {
   "Submission ID": `${partnerId}:${submissionId}`, "Partner ID": partnerId, Partner: [partnerId],
   "Institution name": "Test Bank", "Account holder": "Test Partner", "Account number": "00123456789", "Institution code": "001", "Transit number": "12345",
-  Currency: "CAD", Status: "Verified", "Current account": true, "Review notes": "Approved", "Submitted at": "2026-11-10T10:00:00.000Z", ...overrides,
+  Currency: "CAD", Status: "Verified", "Current account": true, "Approval reason": "Approved", "Show approval reason to partner": true, "Submitted at": "2026-11-10T10:00:00.000Z", ...overrides,
 } });
 const req = (method = "GET", body, query = "") => new Request(`https://example.supabase.co/functions/v1/partner-banking${query}`, { method,
   headers: { Authorization: "Bearer session", "Content-Type": "application/json" }, ...(body === undefined ? {} : { body: JSON.stringify(body) }) });
@@ -107,7 +107,7 @@ test("each submission appends a new pending noncurrent record, preserving leadin
   const response = await handler(req("POST", input())); assert.equal(response.status, 201);
   assert.equal(writes.length, 1);
   assert.deepEqual(writes[0].records[0].fields, { "Submission ID": `${partnerId}:${submissionId}`, Partner: [partnerId], "Partner ID": partnerId,
-    "Institution name": "Test Bank", "Account holder": "Test Partner", "Account number": "00123456789", "Institution code": "001", "Transit number": "12345", Currency: "CAD", Status: "Pending verification", "Current account": false });
+    "Institution name": "Test Bank", "Account holder": "Test Partner", "Account number": "00123456789", "Institution code": "001", "Transit number": "12345", Currency: "CAD", Status: "Pending verification", "Current account": false, "Partner Comments": "" });
   const body = await response.json(); assert.equal(body.account.last4, "6789"); assert.equal(body.account.status, "Pending verification");
   assert.equal(body.accounts ? body.accounts[0].account : body.account.account, "00123456789");
 });
@@ -128,7 +128,7 @@ test("server rejects invalid account details and attempts to set partner, curren
 test("malformed and oversized payloads are rejected without writes", async () => {
   const { handler, writes } = setup();
   assert.equal((await handler(new Request("https://example.test",{method:"POST",headers:{Authorization:"Bearer session"},body:"{"}))).status,400);
-  assert.equal((await handler(req("POST",input({ bank: "x".repeat(5000) })))).status,413); assert.equal(writes.length,0);
+  assert.equal((await handler(req("POST",input({ bank: "x".repeat(20001) })))).status,413); assert.equal(writes.length,0);
 });
 test("unconfirmed or wrongly linked write responses never report success", async () => {
   for (const savedFields of [{ Partner: [otherId] }, { Status: "Verified" }, { "Current account": true }, { "Submission ID": "wrong" }, { "Account number": "wrong" }, { "Institution code": "wrong" }, { "Transit number": "wrong" }]) {
@@ -162,4 +162,38 @@ test("pagination retains ownership checks and repeated offsets fail safely", asy
   const { handler } = setup({ page: (url) => url.searchParams.has("offset") ? { records: [record(2)] } : { records: [record(1)], offset: "next" } });
   assert.equal((await (await handler(req())).json()).accounts.length, 2);
   const repeated = setup({ page: () => ({ records: [], offset: "same" }) }); assert.equal((await repeated.handler(req())).status, 502);
+});
+
+test("partner responses omit hidden review notes and never expose reviewer identities", async () => {
+ const f=setup({accounts:[record(1,{"Approval reason":"INTERNAL REVIEW","Show approval reason to partner":false,"Approved by email":"private@pulsefx.test","Approved by user ID":"private-user"}),record(2,{"Approval reason":"Shared review","Show approval reason to partner":true}),record(3,{"Approval reason":"BAD FLAG","Show approval reason to partner":"true"})]});
+ const response=await f.handler(new Request("https://example.test/",{headers:{Authorization:"Bearer session"}}));
+ assert.equal(response.status,200);const body=await response.json();
+ assert.equal(Object.hasOwn(body.accounts.find(r=>r.id===record(1).id),"reviewNotes"),false);
+ assert.equal(body.accounts.find(r=>r.id===record(2).id).reviewNotes,"Shared review");
+ assert.doesNotMatch(JSON.stringify(body),/INTERNAL REVIEW|BAD FLAG|private@pulsefx|private-user/);
+});
+
+test("optional partner comments round-trip without replacing staff review notes", async () => {
+ const f=setup();const response=await f.handler(req("POST",input({comments:"  Please use this account.\nThank you.  "})));
+ assert.equal(response.status,201);const body=await response.json();assert.equal(body.account.comments,"Please use this account.\nThank you.");
+ assert.equal(f.writes[0].records[0].fields["Partner Comments"],body.account.comments);
+ assert.equal(Object.hasOwn(f.writes[0].records[0].fields,"Approval reason"),false);
+ const history=setup({accounts:[record(1,{"Partner Comments":"Partner message","Approval reason":"Staff only","Show approval reason to partner":false})]});
+ const account=(await(await history.handler(req())).json()).accounts[0];assert.equal(account.comments,"Partner message");assert.equal(Object.hasOwn(account,"reviewNotes"),false);
+});
+test("comment validation and retries preserve the original submission", async () => {
+ for(const comments of [42,{},null,"x".repeat(2001)]){const f=setup();assert.equal((await f.handler(req("POST",input({comments})))).status,400);assert.equal(f.writes.length,0);}
+ const existing=record(1,{"Partner Comments":"Original comment"});const f=setup({accounts:[existing]});
+ assert.equal((await f.handler(req("POST",input({comments:"Original comment"})))).status,200);
+ assert.equal((await f.handler(req("POST",input({comments:"Changed comment"})))).status,409);assert.equal(f.writes.length,0);
+});
+
+test("rejection visibility is independent from approval note visibility", async () => {
+ const f=setup({accounts:[record(1,{Status:"Rejected","Approval reason":"OLD REJECT NOTES","Show approval reason to partner":true,"Rejection reason":"Shared rejection","Show rejection reason to partner":true}),record(2,{"Approval reason":"Shared approval","Show approval reason to partner":true,"Rejection reason":"PRIVATE REASON","Show rejection reason to partner":false})]});
+ const body=await(await f.handler(req())).json();assert.equal(body.accounts[0].rejectionReason,"Shared rejection");assert.equal(Object.hasOwn(body.accounts[0],"reviewNotes"),false);assert.equal(body.accounts[1].reviewNotes,"Shared approval");assert.equal(Object.hasOwn(body.accounts[1],"rejectionReason"),false);assert.doesNotMatch(JSON.stringify(body),/OLD REJECT NOTES|PRIVATE REASON/);
+});
+
+test("partner receives decision timestamps without staff attribution",async()=>{
+ const f=setup({accounts:[record(1,{"Approved at":"2026-11-14T14:00:00Z","Approved by email":"private@example.test","Approved by user ID":"private-id"}),record(2,{Status:"Rejected","Rejected at":"2026-11-14T15:00:00Z","Rejected by email":"private@example.test"})]});
+ const body=await(await f.handler(req())).json();assert.equal(body.accounts[0].approvedAt,"2026-11-14T14:00:00Z");assert.equal(body.accounts[1].rejectedAt,"2026-11-14T15:00:00Z");assert.doesNotMatch(JSON.stringify(body),/private@example|private-id/);
 });
