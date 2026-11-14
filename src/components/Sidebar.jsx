@@ -84,9 +84,11 @@ function SidebarContent({ active, onNavigate, items, account, helpKey, portalLab
           name={account?.name ?? "User Name"}
           email={account?.email ?? "info@pulsefx.com"}
           showSettings={account?.showSettings ?? true}
+          showAdmin={account?.showAdmin ?? false}
           disabled={account?.disabled ?? false}
           onSelect={(key) => {
             if (key === "settings") onNavigate("profile"); // opens the Account page (tabs: Profile, Security, Notifications)
+            else if (key === "admin" && account?.showAdmin) onNavigate("admin");
             else if (key === "logout") {
               if (account?.onLogout) account.onLogout();
               else onNavigate("login");

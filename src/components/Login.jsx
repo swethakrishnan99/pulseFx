@@ -22,76 +22,21 @@ const DOT_PATTERN = {
   backgroundSize: "auto, auto, 16px 16px",
 };
 
-function EmailRequestModal({ mode, onClose }) {
+function AccessHelpModal({ mode, onClose }) {
   const isReset = mode === "reset";
-  const [email, setEmail] = useState("");
-  const [error, setError] = useState("");
-  const [done, setDone] = useState(false);
-
-  function submit(e) {
-    e.preventDefault();
-    if (!/^\S+@\S+\.\S+$/.test(email)) {
-      setError("Enter a valid email address.");
-      return;
-    }
-    setDone(true);
-  }
-
-  return (
-    <Modal title={isReset ? "Reset your password" : "Activate your account"} onClose={onClose}>
-      <div className="p-5">
-      {done ? (
-        <div>
-          <p role="status" className="text-sm text-gray-700 mb-4">
-            {isReset
-              ? "If an account exists for this email address, we have sent a link to reset your password."
-              : "If this email address has an invitation, we have sent instructions to activate your account."}
-          </p>
-          <button
-            type="button"
-            onClick={onClose}
-            className="bg-brand text-navy text-sm font-medium px-4 py-2 rounded-md hover:bg-[#009a7d] transition-colors"
-          >
-            Back to sign in
-          </button>
-        </div>
-      ) : (
-        <form onSubmit={submit} noValidate>
-          <p className="text-sm text-gray-600 mb-3">
-            {isReset
-              ? "Enter the email address you use to sign in and we will send you a reset link."
-              : "Enter the email address your administrator used to invite you."}
-          </p>
-          <label htmlFor="lg-modal-email" className="block text-[11px] text-gray-500 mb-1">Email address</label>
-          <input
-            id="lg-modal-email"
-            type="email"
-            value={email}
-            onChange={(e) => {
-              setEmail(e.target.value);
-              setError("");
-            }}
-            autoComplete="email"
-            className="w-full text-sm border border-gray-200 rounded-md px-2.5 py-2 bg-white focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent-100"
-          />
-          {error && <p className="text-[11px] text-danger mt-1" role="alert">{error}</p>}
-          <div className="flex justify-end gap-2 mt-4">
-            <button type="button" onClick={onClose} className="text-sm text-gray-600 px-3 py-2 rounded-md hover:bg-gray-100">
-              Cancel
-            </button>
-            <button
-              type="submit"
-              className="bg-brand text-navy text-sm font-medium px-4 py-2 rounded-md hover:bg-[#009a7d] transition-colors"
-            >
-              {isReset ? "Send reset link" : "Send instructions"}
-            </button>
-          </div>
-          <p className="text-[11px] text-gray-400 mt-3">Demo only. No email is sent.</p>
-        </form>
-      )}
+  const subject = encodeURIComponent(isReset ? "Partner portal password recovery" : "Partner portal activation");
+  return <Modal title={isReset ? "Reset your password" : "Activate your account"} onClose={onClose}>
+    <div className="p-5 space-y-4 text-sm text-gray-600">
+      <p>{isReset ? "Contact the PulseFX partnerships team to request a password reset link." : "Contact the PulseFX partnerships team to request an invitation link."}</p>
+      <p>Include your registered email address and partner name. After verifying your request, the team will share a private link with you.</p>
+      <a href={`mailto:partnerships@pulsefx.com?subject=${subject}`} className="inline-flex items-center gap-2 text-accent font-medium break-all"><Mail className="w-4 h-4 shrink-0" />partnerships@pulsefx.com</a>
+      <p className="text-xs text-gray-500">Never send your password. PulseFX will not ask you to share it.</p>
+      <div className="flex flex-wrap justify-end gap-2 pt-2">
+        <button type="button" onClick={onClose} className="text-sm px-3 py-2 rounded-md hover:bg-gray-100">Back to sign in</button>
+        <a href={`mailto:partnerships@pulsefx.com?subject=${subject}`} className="bg-brand text-navy text-sm font-medium px-4 py-2 rounded-md hover:bg-[#009a7d]">Email PulseFX</a>
       </div>
-    </Modal>
-  );
+    </div>
+  </Modal>;
 }
 
 /** Partner credentials are verified by Supabase before opening the portal. */
@@ -337,7 +282,7 @@ export default function Login({ onSignIn }) {
         PulseFX &copy; 2026 &nbsp;|&nbsp; Regulations &amp; Terms of Use
       </p>
 
-      {modal && <EmailRequestModal mode={modal} onClose={() => setModal(null)} />}
+      {modal && <AccessHelpModal mode={modal} onClose={() => setModal(null)} />}
     </div>
   );
 }

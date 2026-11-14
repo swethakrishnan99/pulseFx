@@ -14,7 +14,9 @@
     "lint:auth": "eslint src/App.jsx src/components/Login.jsx src/components/PartnerSession.jsx src/components/Sidebar.jsx src/components/ProfileMenu.jsx src/lib/supabase.js",
     "lint:referrals": "eslint src/components/PartnerPortal.jsx src/lib/referrals.js",
     "test:auth": "node --test supabase/functions/referrals/membership.test.mjs",
-    "test:referrals": "node --test supabase/functions/referrals/*.test.mjs"
+    "test:referrals": "node --test supabase/functions/referrals/*.test.mjs",
+    "lint:admin": "eslint src/components/ActionButton.jsx src/components/PartnerAdmin.jsx src/components/PartnerAccountConfirmation.jsx src/components/PartnerActivation.jsx src/lib/partnerAdmin.js",
+    "test:admin": "node --test supabase/functions/partner-admin/*.test.mjs supabase/functions/partner-sync/*.test.mjs src/lib/partnerAccess.test.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.119.0",
