@@ -1,3 +1,5 @@
+import { adminSessionValid } from "../_shared/admin-session.mjs";
+
 const recordId = /^rec[A-Za-z0-9]{14}$/;
 const bankFields = ["Submission ID", "Partner", "Partner ID", "Institution name", "Account holder", "Account number", "Institution code", "Transit number", "Currency", "Status", "Current account", "Review notes", "Submitted at", "Last modified"];
 class ReviewError extends Error { constructor(message, status = 409) { super(message); this.status = status; } }
@@ -45,6 +47,7 @@ export async function bankingReview({ request, env, user, admin, fetchImpl, json
   }
   let partnerId, token;
   try {
+    if (!await adminSessionValid(admin, user.id, request.headers.get("authorization")?.replace(/^Bearer\s+/i, "") || "")) return json({ error: "Please sign in again." }, 401);
     if (request.method === "GET") {
       const rows = await list(url, bankFields);
       const ids = [...new Set(rows.filter(owner).map((row) => row.fields["Partner ID"]))];

@@ -32,6 +32,8 @@ jobs:
       - run: npm run test:referrals
       - run: npm run lint:banking
       - run: npm run test:banking
+      - run: npm run lint:payouts
+      - run: npm run test:payouts
       - run: npm run lint:admin
       - run: npm run test:admin
       - name: Check deployment configuration

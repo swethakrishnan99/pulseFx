@@ -13,12 +13,14 @@
     "deploy": "gh-pages -d dist",
     "lint:auth": "eslint src/App.jsx src/components/Login.jsx src/components/PartnerSession.jsx src/components/Sidebar.jsx src/components/ProfileMenu.jsx src/lib/supabase.js",
     "lint:referrals": "eslint src/components/PartnerPortal.jsx src/lib/referrals.js",
-    "test:auth": "node --test supabase/functions/referrals/membership.test.mjs",
-    "test:referrals": "node --test supabase/functions/referrals/*.test.mjs",
-    "lint:admin": "eslint src/components/ActionButton.jsx src/components/PartnerAdmin.jsx src/components/PartnerEdit.jsx src/components/PartnerAccountConfirmation.jsx src/components/PartnerActivation.jsx src/lib/partnerAdmin.js",
-    "test:admin": "node --test supabase/functions/partner-admin/*.test.mjs supabase/functions/partner-sync/*.test.mjs src/lib/partnerAccess.test.mjs",
+    "test:auth": "node --test supabase/functions/_shared/partner-membership.test.mjs",
+    "test:referrals": "node --test supabase/functions/partner-referrals/*.test.mjs supabase/functions/_shared/partner-membership.test.mjs",
+    "lint:admin": "eslint src/components/ActionButton.jsx src/components/PartnerAdmin.jsx src/components/PartnerEdit.jsx src/components/PartnerAccountConfirmation.jsx src/components/PartnerActivation.jsx src/lib/partnerAdmin.js src/lib/pulsefxUserAdmin.js",
+    "test:admin": "node --test supabase/functions/partner-admin/*.test.mjs supabase/functions/pulsefx-user-admin/*.test.mjs supabase/functions/partner-sync/*.test.mjs src/lib/partnerAccess.test.mjs",
     "lint:banking": "eslint src/components/BankingDetails.jsx src/components/BankingApprovals.jsx src/lib/banking.js",
-    "test:banking": "node --test supabase/functions/partner-banking/*.test.mjs"
+    "test:banking": "node --test supabase/functions/partner-banking/*.test.mjs",
+    "lint:payouts": "eslint src/components/PayoutHistory.jsx src/components/AdminPayouts.jsx src/components/SearchableSelect.jsx src/lib/payouts.js",
+    "test:payouts": "node --test supabase/functions/partner-payouts/*.test.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.119.0",

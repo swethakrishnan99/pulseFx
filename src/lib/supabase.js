@@ -1,5 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
-import { findPartnerMembership } from "../../supabase/functions/referrals/membership.mjs";
+import { findPartnerMembership } from "../../supabase/functions/_shared/partner-membership.mjs";
 
 const projectUrl = import.meta.env.VITE_SUPABASE_URL;
 const publishableKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
@@ -26,6 +26,7 @@ export async function requirePartner(session) {
   // Verify the token with Supabase before resolving access with the caller's RLS policy.
   const { data, error } = await supabase.auth.getUser(session.access_token);
   if (error) throw error;
+  if (data.user.banned_until && new Date(data.user.banned_until).getTime() > Date.now()) throw new Error("This account is deactivated.");
 
   // Only trusted server-managed app metadata can grant administration access.
   // user_metadata and email matching must never grant this permission.

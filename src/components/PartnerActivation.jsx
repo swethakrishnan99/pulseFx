@@ -66,7 +66,7 @@ export default function PartnerActivation({ onExit }) {
   return <main className="min-h-screen bg-gray-50 flex items-center justify-center p-5">
     <div className="w-full max-w-md rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
       <div className="flex items-center gap-2 mb-7"><PulseMark className="w-8 h-8" /><span className="font-semibold text-lg text-navy">PulseFX</span></div>
-      {done ? <><CheckCircle2 className="w-8 h-8 text-accent mb-3" /><h1 className="text-xl font-semibold">{recovery ? "Password reset" : "Your account is ready"}</h1><p role="status" className="mt-3 text-sm text-gray-600">{recovery ? "Your password has been updated. Sign in with your email and new password." : "Your password has been saved. Sign in to the Partner portal with your email and password."}</p><button type="button" onClick={onExit} className="mt-5 bg-brand text-navy rounded-lg px-4 py-2.5 text-sm font-medium">Go to sign in</button></> : validation.checking ? <>
+      {done ? <><CheckCircle2 className="w-8 h-8 text-accent mb-3" /><h1 className="text-xl font-semibold">{recovery ? "Password reset" : "Your account is ready"}</h1><p role="status" className="mt-3 text-sm text-gray-600">{recovery ? "Your password has been updated. Sign in with your email and new password." : "Your password has been saved. Sign in to the portal with your email and password."}</p><button type="button" onClick={onExit} className="mt-5 bg-brand text-navy rounded-lg px-4 py-2.5 text-sm font-medium">Go to sign in</button></> : validation.checking ? <>
         <h1 className="text-xl font-semibold">Checking your link</h1>
         <p role="status" className="mt-3 text-sm text-gray-600">Please wait while we verify your access link.</p>
       </> : !valid || !client || !validation.valid ? <>
@@ -78,7 +78,7 @@ export default function PartnerActivation({ onExit }) {
         </div>
       </> : <>
         <h1 className="text-xl font-semibold">{recovery ? "Reset your password" : "Set your password"}</h1>
-        <p className="mt-2 text-sm text-gray-600">{recovery ? "Choose a new password for your PulseFX partner account." : "Choose a password to access your PulseFX partner account."}</p>
+        <p className="mt-2 text-sm text-gray-600">{recovery ? "Choose a new password for your PulseFX account." : "Choose a password to access your PulseFX account."}</p>
         <form onSubmit={submit} className="mt-5 space-y-4">
           <fieldset disabled={busy} className="space-y-4">
             <div><label htmlFor="activation-password" className="block text-xs font-medium mb-1.5">Password</label><input id="activation-password" type="password" autoComplete="new-password" required minLength={8} value={password} onChange={(event) => setPassword(event.target.value)} className="w-full rounded-lg border border-gray-200 px-3 py-2.5 text-sm focus:outline-accent" aria-describedby="password-hint" /><p id="password-hint" className="mt-1.5 text-xs text-gray-500">Use at least 8 characters.</p></div>

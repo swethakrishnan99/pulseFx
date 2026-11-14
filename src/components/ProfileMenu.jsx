@@ -74,7 +74,7 @@ export default function ProfileMenu({ name = "User Name", email = "info@pulsefx.
         disabled={disabled}
         aria-expanded={open}
         aria-label="Account menu"
-        title={name}
+        title={`${name}\n${email}`}
         className={`w-full flex items-center gap-2.5 px-2.5 py-2.5 rounded-lg
                    hover:bg-white/10 transition-colors border-t border-white/10 ${collapsible ? "justify-center lg:justify-start" : ""}`}
       >

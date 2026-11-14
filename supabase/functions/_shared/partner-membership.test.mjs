@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { findPartnerMembership } from "./membership.mjs";
+import { findPartnerMembership } from "./partner-membership.mjs";
 
 const config = {
   projectUrl: "https://example.supabase.co",

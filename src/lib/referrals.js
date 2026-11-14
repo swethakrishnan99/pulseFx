@@ -2,7 +2,7 @@ import { supabase } from "./supabase";
 
 export async function loadPartnerReferrals({ signal } = {}) {
   if (!supabase) throw new Error("Partner sign-in is not configured.");
-  const { data, error } = await supabase.functions.invoke("referrals", { method: "GET", signal });
+  const { data, error } = await supabase.functions.invoke("partner-referrals", { method: "GET", signal });
   if (error) {
     let message = "Unable to load referrals. Please try again.";
     if (error.context instanceof Response) {
@@ -17,7 +17,7 @@ export async function loadPartnerReferrals({ signal } = {}) {
 
 export async function createPartnerReferral(details) {
   if (!supabase) throw new Error("Partner sign-in is not configured.");
-  const { data, error } = await supabase.functions.invoke("referrals", { method: "POST", body: details });
+  const { data, error } = await supabase.functions.invoke("partner-referrals", { method: "POST", body: details });
   if (error) {
     let message = "Unable to confirm the client was saved. Check Referrals before trying again.";
     if (error.context instanceof Response) {

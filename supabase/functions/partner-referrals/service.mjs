@@ -1,4 +1,4 @@
-import { findPartnerMembership } from "./membership.mjs";
+import { findPartnerMembership } from "../_shared/partner-membership.mjs";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",

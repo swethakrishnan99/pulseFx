@@ -12,6 +12,7 @@ function setup(options={}) {
   const writes=[], calls=[], rpcs=[];
   let claimed=false;
   const admin = { rpc: async (name,args) => {
+    if(name==='portal_admin_session_valid') return {data:!options.revokedSession};
     rpcs.push({name,args});
     if(options.rpcFailure===name) return {error:new Error('private error')};
     if(name==='claim_banking_review') {if(options.locked)return {data:false};claimed=true;}
@@ -36,7 +37,7 @@ function setup(options={}) {
     }
     return Response.json({records:rows});
   };
-  const run=(req=request(),user={id:'10000000-0000-4000-8000-000000000001',app_metadata:{role:'partner_admin'}})=>bankingReview({request:req,env,user,admin,fetchImpl,json:(body,status=200)=>Response.json(body,{status})});
+  const run=(req=request(),user={id:'10000000-0000-4000-8000-000000000001',app_metadata:{role:'partner_admin'}})=>{req.headers.set('authorization', `Bearer header.${Buffer.from(JSON.stringify({session_id:'40000000-0000-4000-8000-000000000001'})).toString('base64url')}.signature`);return bankingReview({request:req,env,user,admin,fetchImpl,json:(body,status=200)=>Response.json(body,{status})});};
   return {run,rows,writes,calls,rpcs};
 }
 test('only server-managed admin metadata permits review reads or writes',async()=>{
@@ -96,4 +97,10 @@ test('an audit failure is unconfirmed and a retry completes the audit without re
   assert.equal((await run()).status,502);assert.equal(rows[1].fields.Status,'Verified');assert.equal(rows[1].fields['Current account'],true);
   const previousWrites=writes.length;options.rpcFailure=undefined;
   assert.equal((await run()).status,200);assert.equal(writes.length,previousWrites);
+});
+
+test('revoked administrator sessions cannot read or approve banking data',async()=>{
+ for(const req of [new Request('https://example.test/?view=review'),request()]){
+  const {run,calls,rpcs}=setup({revokedSession:true});assert.equal((await run(req)).status,401);assert.equal(calls.length,0);assert.equal(rpcs.length,0);
+ }
 });

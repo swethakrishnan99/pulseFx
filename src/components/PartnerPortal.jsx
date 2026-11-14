@@ -1,9 +1,11 @@
 import { useEffect, useState, useMemo, useRef } from "react";
-import { Home, Users, Landmark, BookOpen, Headset, Copy, Check, X, ArrowUpDown, Download, UserPlus, ChevronDown, CheckCircle2, Palette, Upload, Phone, MessageSquare, Mail, FileText, Trash2, RefreshCw } from "lucide-react";
+import { Home, Users, DollarSign, Landmark, BookOpen, Headset, Copy, Check, X, ArrowUpDown, Download, UserPlus, ChevronDown, CheckCircle2, Palette, Upload, Phone, MessageSquare, Mail, FileText, Trash2, RefreshCw } from "lucide-react";
 import Sidebar from "./Sidebar";
 import PartnerAdmin from "./PartnerAdmin";
 import BankingDetails from "./BankingDetails";
+import PayoutHistory from "./PayoutHistory";
 import BankingApprovals from "./BankingApprovals";
+import AdminPayouts from "./AdminPayouts";
 import { createPartnerReferral, loadPartnerReferrals, loadPartnerProfile } from "../lib/referrals";
 
 // Partner portal demo for referral partners (for example an accounting firm that refers its clients to PulseFX).
@@ -54,7 +56,7 @@ function Badge({ s }) {
   return <span className={`inline-block text-[11px] font-medium px-2 py-0.5 rounded-full whitespace-nowrap ${STATUS_STYLE[s] || STATUS_STYLE.Invited}`}>{s}</span>;
 }
 
-const NAV = [["home", "Home", Home], ["referrals", "Referrals", Users], ["add", "Add a client", UserPlus], ["banking", "Banking details", Landmark], ["brand", "Brand kit", Palette], ["guide", "Partner guide", BookOpen], ["contact", "Contact", Headset]];
+const NAV = [["home", "Home", Home], ["referrals", "Referrals", Users], ["add", "Add a client", UserPlus], ["banking", "Banking details", Landmark], ["payouts", "Payout history", DollarSign], ["brand", "Brand kit", Palette], ["guide", "Partner guide", BookOpen], ["contact", "Contact", Headset]];
 
 /* ---------------------------------------------------------------- Home */
 function PartnerHome({ go }) {
@@ -202,7 +204,7 @@ function Referrals({ authenticated = false, go }) {
           <button type="button" onClick={clearFilters} className="text-xs font-medium text-accent hover:underline">Clear filters</button>
           <div className="flex items-center gap-3">
             <button type="button" onClick={() => exportReferrals(rows)} disabled={remote.loading || !!remote.error || rows.length === 0} className="inline-flex items-center gap-1.5 rounded-md border border-gray-200 bg-white px-2.5 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50 hover:text-gray-900 disabled:opacity-50 disabled:cursor-not-allowed">
-              <Download className="w-3.5 h-3.5" />Download Excel
+              <Download className="w-3.5 h-3.5" />Download
             </button>
           </div>
         </div>
@@ -514,12 +516,12 @@ const PARTNER_NAV_ITEMS = NAV
     icon,
   }));
 
-const ADMIN_NAV_ITEMS = [{ key: "admin", label: "User management", icon: Users }, { key: "banking-approvals", label: "Banking approvals", icon: Landmark }];
+const ADMIN_NAV_ITEMS = [{ key: "admin", label: "User management", icon: Users }, { key: "banking-approvals", label: "Banking approvals", icon: Landmark }, { key: "admin-payouts", label: "Payouts", icon: DollarSign }];
 
 export default function PartnerPortal({ onExit, user, isAdmin = false, signingOut = false, signOutError = "" }) {
   const canAdmin = !!user && isAdmin;
   const [tab, setTab] = useState(canAdmin ? "admin" : "home");
-  const title = tab === "admin" ? "User management" : tab === "banking-approvals" ? "Banking approvals" : tab === "home" ? "Dashboard" : NAV.find((n) => n[0] === tab)?.[1];
+  const title = tab === "admin" ? "User management" : tab === "banking-approvals" ? "Banking approvals" : tab === "admin-payouts" ? "Payouts" : tab === "home" ? "Dashboard" : NAV.find((n) => n[0] === tab)?.[1];
   const [partnerProfile, setPartnerProfile] = useState(null);
   const userId = user?.id;
   useEffect(() => {
@@ -560,10 +562,12 @@ export default function PartnerPortal({ onExit, user, isAdmin = false, signingOu
         {signOutError && <p role="alert" className="text-sm text-danger mb-4">{signOutError}</p>}
         {tab === "admin" && canAdmin && <PartnerAdmin />}
         {tab === "banking-approvals" && canAdmin && <BankingApprovals />}
+        {tab === "admin-payouts" && canAdmin && <AdminPayouts />}
         {tab === "home" && <PartnerHome go={setTab} />}
         {tab === "referrals" && <Referrals key={user?.id || "demo"} authenticated={!!user} go={setTab} />}
         {tab === "add" && <AddClient go={setTab} authenticated={!!user} />}
         {tab === "banking" && <BankingDetails authenticated={!!user} />}
+        {tab === "payouts" && <PayoutHistory authenticated={!!user} />}
         {tab === "brand" && <BrandKit />}
         {tab === "guide" && <Guide />}
         {tab === "contact" && <Contact />}
