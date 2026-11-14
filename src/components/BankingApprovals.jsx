@@ -27,6 +27,17 @@ function ReviewVisibility({ checked, onChange, disabled, rejection = false }) {
   return <label className="flex items-center gap-2 text-xs text-gray-600"><input type="checkbox" className="accent-accent" checked={checked} disabled={disabled} onChange={event => onChange(event.target.checked)} />{rejection ? "Show rejection reason to partner" : "Show approval reason to partner"}</label>;
 }
 
+function BankComparison({ submission, current }) {
+  const fields = [["Account holder", "holder"], ["Institution code", "institutionCode"], ["Institution name", "bank"], ["Transit number", "transitNumber"], ["Account number", "account"], ["Currency", "currency"]];
+  return <section aria-label="Bank account comparison" className="mt-4 grid gap-4 sm:grid-cols-2">
+    <div className="min-w-0 rounded-xl border border-gray-200 p-4"><h3 className="text-sm font-semibold text-gray-900">Submitted details</h3><dl className="mt-3 space-y-3">{fields.map(([label, key]) => {
+      const changed = !!current && (submission[key] || "") !== (current[key] || "");
+      return <div key={key} className={`rounded-md p-2 ${changed ? "bg-amber-50 ring-1 ring-amber-200" : "bg-gray-50"}`}><dt className="flex flex-wrap items-center justify-between gap-1 text-xs text-gray-500">{label}{changed && <span className="font-medium text-amber-800">Changed</span>}</dt><dd className="mt-1 whitespace-pre-wrap break-all text-sm text-gray-900">{submission[key] || "—"}</dd></div>;
+    })}</dl></div>
+    <div className="min-w-0 rounded-xl border border-gray-200 p-4"><h3 className="text-sm font-semibold text-gray-900">Current verified account</h3>{current ? <dl className="mt-3 space-y-3">{fields.map(([label, key]) => <div key={key} className="rounded-md bg-gray-50 p-2"><dt className="text-xs text-gray-500">{label}</dt><dd className="mt-1 whitespace-pre-wrap break-all text-sm text-gray-900">{current[key] || "—"}</dd></div>)}</dl> : <p className="mt-3 text-sm text-gray-500">No verified payout account yet.</p>}</div>
+  </section>;
+}
+
 function ReviewDialog({ submission, current, onClose, onReview }) {
   const [decision, setDecision] = useState("");
   const [notes, setNotes] = useState(submission.reviewNotes);
@@ -37,17 +48,18 @@ function ReviewDialog({ submission, current, onClose, onReview }) {
   useEffect(() => () => previousFocus.current?.focus?.(), []);
   return decision
     ? <ReviewConfirmation submission={submission} current={current} action={decision} notes={decision === "approve" ? notes : rejectionReason} setNotes={decision === "approve" ? setNotes : setRejectionReason} showNotes={decision === "approve" ? showNotes : showRejectionReason} setShowNotes={decision === "approve" ? setShowNotes : setShowRejectionReason} onBack={() => setDecision("")} onClose={onClose} onReview={onReview} />
-    : <ReviewDetails submission={submission} notes={notes} showNotes={showNotes} onClose={onClose} onDecision={setDecision} />;
+    : <ReviewDetails submission={submission} current={current} notes={notes} showNotes={showNotes} onClose={onClose} onDecision={setDecision} />;
 }
 
-function ReviewDetails({ submission, notes, showNotes, onClose, onDecision }) {
+function ReviewDetails({ submission, current, notes, showNotes, onClose, onDecision }) {
   const dialog = useModal();
   const pending = submission.status === "Pending verification";
-  return <dialog ref={dialog} aria-labelledby="bank-review-title" className="m-auto max-h-[90vh] w-[calc(100%-2rem)] max-w-xl overflow-y-auto rounded-2xl bg-white p-5 text-gray-900 shadow-xl backdrop:bg-navy/50" onCancel={onClose}>
+  return <dialog ref={dialog} aria-labelledby="bank-review-title" className={`m-auto max-h-[90vh] w-[calc(100%-2rem)] ${pending ? "max-w-3xl" : "max-w-xl"} overflow-y-auto rounded-2xl bg-white p-5 text-gray-900 shadow-xl backdrop:bg-navy/50`} onCancel={onClose}>
     <div className="flex items-start justify-between gap-3"><div><h2 id="bank-review-title" className="text-lg font-semibold">{pending ? "Review bank details" : "Bank submission"}</h2><p className="mt-1 text-sm text-gray-600">{submission.partnerName}</p></div><button type="button" aria-label="Close bank review" onClick={onClose} className="rounded-md p-1 text-gray-500 hover:bg-gray-100"><X className="h-5 w-5" /></button></div>
     <div className="mt-3"><Badge status={submission.status} /></div>
     {!submission.validOwnership && <p role="alert" className="mt-3 text-sm text-danger">The partner link is inconsistent. Correct it in Airtable before reviewing.</p>}
-    <dl className="mt-3">{[["Partner contact", submission.contact], ["Email", submission.email], ["Account holder", submission.holder], ["Institution code", submission.institutionCode], ["Institution name", submission.bank], ["Transit number", submission.transitNumber], ["Account number", submission.account], ["Currency", submission.currency], ["Submitted", date(submission.submittedAt)], ["Partner Record ID", submission.partnerId], ...(submission.status === "Verified" || submission.approvedAt ? [["Approved at", date(submission.approvedAt)], ["Approved by user ID", submission.approvedByUserId], ["Approved by email", submission.approvedByEmail]] : []), ...(submission.status === "Rejected" || submission.rejectedAt ? [["Rejected at", date(submission.rejectedAt)], ["Rejected by user ID", submission.rejectedByUserId], ["Rejected by email", submission.rejectedByEmail]] : [])].map(([label, value]) => <div key={label} className="grid grid-cols-[140px_minmax(0,1fr)] gap-3 border-b border-gray-100 py-2 text-sm"><dt className="text-gray-500">{label}</dt><dd className="break-words text-right text-gray-900">{value || "—"}</dd></div>)}</dl>
+    <dl className="mt-3">{[["Partner contact", submission.contact], ["Email", submission.email], ...(!pending ? [["Account holder", submission.holder], ["Institution code", submission.institutionCode], ["Institution name", submission.bank], ["Transit number", submission.transitNumber], ["Account number", submission.account], ["Currency", submission.currency]] : []), ["Submitted", date(submission.submittedAt)], ["Partner Record ID", submission.partnerId], ...(submission.status === "Verified" || submission.approvedAt ? [["Approved at", date(submission.approvedAt)], ["Approved by user ID", submission.approvedByUserId], ["Approved by email", submission.approvedByEmail]] : []), ...(submission.status === "Rejected" || submission.rejectedAt ? [["Rejected at", date(submission.rejectedAt)], ["Rejected by user ID", submission.rejectedByUserId], ["Rejected by email", submission.rejectedByEmail]] : [])].map(([label, value]) => <div key={label} className="grid grid-cols-[140px_minmax(0,1fr)] gap-3 border-b border-gray-100 py-2 text-sm"><dt className="text-gray-500">{label}</dt><dd className="break-words text-right text-gray-900">{value || "—"}</dd></div>)}</dl>
+    {pending && <BankComparison submission={submission} current={current} />}
     {submission.comments && <div className="mt-4 rounded-lg bg-gray-50 p-3"><p className="text-xs font-medium text-gray-500">Partner comments</p><p className="mt-1 whitespace-pre-wrap break-words text-sm text-gray-700">{submission.comments}</p></div>}
     {!pending && submission.status !== "Rejected" && <div className="mt-4"><div className="mb-1 flex flex-wrap items-center justify-between gap-2"><label htmlFor="bank-review-notes" className="text-xs text-gray-600">Approval reason</label><ReviewVisibility checked={showNotes} disabled /></div><textarea id="bank-review-notes" className={input} rows={3} disabled readOnly value={notes} /></div>}
     {submission.status === "Rejected" && <div className="mt-4"><div className="mb-1 flex flex-wrap items-center justify-between gap-2"><label htmlFor="bank-rejection-reason" className="text-xs text-gray-600">Reason for rejection</label><ReviewVisibility checked={submission.showRejectionReasonToPartner === true} disabled rejection /></div><textarea id="bank-rejection-reason" className={input} rows={3} disabled readOnly value={submission.rejectionReason || ""} /></div>}
@@ -68,11 +80,12 @@ function ReviewConfirmation({ submission, current, action, notes, setNotes, show
     catch (failure) { setError(failure.message); }
     finally { submitting.current = false; setBusy(false); }
   }
-  return <dialog ref={dialog} aria-labelledby="bank-confirm-title" className="m-auto max-h-[90vh] w-[calc(100%-2rem)] max-w-md overflow-y-auto rounded-2xl bg-white p-6 text-gray-900 shadow-xl backdrop:bg-navy/50" onCancel={(event) => { if (busy) event.preventDefault(); else onClose(); }}>
+  return <dialog ref={dialog} aria-labelledby="bank-confirm-title" className="m-auto max-h-[90vh] w-[calc(100%-2rem)] max-w-3xl overflow-y-auto rounded-2xl bg-white p-6 text-gray-900 shadow-xl backdrop:bg-navy/50" onCancel={(event) => { if (busy) event.preventDefault(); else onClose(); }}>
     <div className="flex items-start justify-between gap-3"><span className={`rounded-full p-3 ${approving ? "bg-success-100 text-success" : "bg-danger-100 text-danger"}`}>{approving ? <CheckCircle2 className="h-6 w-6" /> : <XCircle className="h-6 w-6" />}</span><button type="button" aria-label="Close confirmation" disabled={busy} onClick={onClose} className="rounded-md p-1 text-gray-500 hover:bg-gray-100"><X className="h-5 w-5" /></button></div>
     <h2 id="bank-confirm-title" className="mt-4 text-lg font-semibold">{approving ? "Approve bank details?" : "Reject bank details?"}</h2>
     <p className="mt-2 text-sm font-medium">{submission.partnerName}</p><p className="mt-1 break-words text-sm text-gray-600">{submission.bank} · {submission.account}</p>
     <p className="mt-4 text-sm text-gray-600">{approving ? current ? `This becomes the current payout account, replacing ${current.bank} · ${current.account}. The previous account stays in history.` : "This becomes the partner's current payout account." : "The submission will be rejected. The current payout account will stay unchanged."}</p>
+    <BankComparison submission={submission} current={current} />
     <form onSubmit={confirm} className="mt-4">
       <div className="mb-1 flex flex-wrap items-center justify-between gap-2"><label htmlFor="bank-confirm-notes" className="text-xs text-gray-600">{approving ? "Approval reason" : "Reason for rejection *"}</label><ReviewVisibility checked={showNotes} onChange={setShowNotes} disabled={busy} rejection={!approving} /></div><textarea id="bank-confirm-notes" required={!approving} disabled={busy} className={input} maxLength={2000} rows={3} value={notes} onChange={(event) => setNotes(event.target.value)} />
       {error && <p role="alert" className="mt-3 text-sm text-danger">{error}</p>}
