@@ -1,3 +1,4 @@
+import ClearFiltersButton from "./ClearFiltersButton";
 import { useMemo, useState } from "react";
 import { Search, ChevronDown, Mail, Phone, Clock, CheckCircle2 } from "lucide-react";
 
@@ -148,6 +149,8 @@ export default function HelpSupport() {
               className="w-full text-sm border border-gray-200 rounded-md pl-9 pr-3 py-2.5 bg-white focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent-100"
             />
           </div>
+
+          <ClearFiltersButton onClick={() => setQuery("")} className="mb-4" />
 
           {groups.length === 0 && (
             <div className={`${CARD} text-center text-sm text-gray-500`} role="status">

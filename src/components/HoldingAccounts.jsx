@@ -1,3 +1,6 @@
+import SortableHeader from "./SortableHeader";
+import useTableSort from "../lib/useTableSort";
+import ClearFiltersButton from "./ClearFiltersButton";
 import { useState, useEffect } from "react";
 import { Landmark, Plus, Trash2, X, Eye, EyeOff, FileText, Copy, Check, Send, ArrowLeftRight, ArrowUpRight, ArrowDownRight, Search, RefreshCw, Download, Printer } from "lucide-react";
 import Tooltip from "./Tooltip";
@@ -129,9 +132,10 @@ function DetailsPanel({ account, onClose }) {
 }
 
 function LinkedAccounts() {
+  const { sort, toggleSort, sortRows } = useTableSort();
   const [, force] = useState(0);
   const refresh = () => force((n) => n + 1);
-  const list = getBankAccounts();
+  const list = sortRows(getBankAccounts(), { status: a => isVerified(a) ? "Verified" : "Pending" });
   const [adding, setAdding] = useState(false);
   const [f, setF] = useState({ currency: "CAD", bank: "", holder: "", account: "", routing: "" });
   const [confirmId, setConfirmId] = useState(null);
@@ -233,11 +237,11 @@ function LinkedAccounts() {
 
       <div className="bg-white rounded-xl border border-gray-200/70 p-4 overflow-x-auto">
         <div className="grid grid-cols-[1.4fr_0.7fr_1fr_1.4fr_1fr_0.5fr] gap-4 min-w-[720px] text-[11px] text-gray-400 border-b border-gray-100 pb-1.5">
-          <span>Bank</span>
-          <span>Currency</span>
-          <span>Account number</span>
-          <span>Account holder</span>
-          <span>Status</span>
+          <SortableHeader as="div" column="bank" label="Bank" sort={sort} onSort={toggleSort}  />
+          <SortableHeader as="div" column="currency" label="Currency" sort={sort} onSort={toggleSort}  />
+          <SortableHeader as="div" column="last4" label="Account number" sort={sort} onSort={toggleSort}  />
+          <SortableHeader as="div" column="holder" label="Account holder" sort={sort} onSort={toggleSort}  />
+          <SortableHeader as="div" column="status" label="Status" sort={sort} onSort={toggleSort}  />
           <span />
         </div>
         {list.length === 0 && <p className="text-sm text-gray-400 text-center py-8">No bank accounts linked yet.</p>}
@@ -280,13 +284,15 @@ function LinkedAccounts() {
 }
 
 export default function HoldingAccounts({ onNavigate }) {
+  const { sort, toggleSort, sortRows } = useTableSort();
   const [selected, setSelected] = useState(null);
   const [query, setQuery] = useState("");
   const [refreshing, setRefreshing] = useState(false);
   const [tab, setTab] = useState(() => takePendingTab() || "holding");
 
   const q = query.trim().toLowerCase();
-  const rows = ACCOUNTS.filter((a) => !q || a.currency.toLowerCase().includes(q) || a.accountId.includes(q));
+  const filteredRows = ACCOUNTS.filter((a) => !q || a.currency.toLowerCase().includes(q) || a.accountId.includes(q));
+  const rows = sortRows(filteredRows);
 
   function refresh() {
     setRefreshing(true);
@@ -367,20 +373,16 @@ export default function HoldingAccounts({ onNavigate }) {
         />
       </div>
 
+      <ClearFiltersButton onClick={() => setQuery("")} className="mb-3.5" />
+
       {/* Accounts table */}
       <div className="bg-white rounded-xl border border-gray-200/70 p-4 overflow-x-auto">
         <div className="grid grid-cols-[0.7fr_1fr_0.9fr_1.3fr_1.2fr_1.8fr] gap-4 min-w-[820px] text-[11px] text-gray-400 border-b border-gray-100 pb-1.5">
-          <span>Currency</span>
-          <span>Account ID</span>
-          <span>Account type</span>
-          <span className="flex items-center gap-1">
-            Current balance
-            <Tooltip text="Money in this account that you can use right now." />
-          </span>
-          <span className="flex items-center gap-1">
-            Last 90 days
-            <Tooltip text="How much this account's balance has gone up or down over the past 90 days." />
-          </span>
+          <SortableHeader as="div" column="currency" label="Currency" sort={sort} onSort={toggleSort}  />
+          <SortableHeader as="div" column="accountId" label="Account ID" sort={sort} onSort={toggleSort}  />
+          <SortableHeader as="div" column="type" label="Account type" sort={sort} onSort={toggleSort}  />
+<SortableHeader as="div" column="balance" label="Current balance" sort={sort} onSort={toggleSort} extra={<Tooltip text="Money in this account that you can use right now." />} />
+<SortableHeader as="div" column="change90" label="Last 90 days" sort={sort} onSort={toggleSort} extra={<Tooltip text="How much this account’s balance has gone up or down over the past 90 days." />} />
           <span />
         </div>
 

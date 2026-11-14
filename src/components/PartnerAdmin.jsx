@@ -1,3 +1,6 @@
+import SortableHeader from "./SortableHeader";
+import useTableSort from "../lib/useTableSort";
+import ClearFiltersButton from "./ClearFiltersButton";
 import { useEffect, useRef, useState } from "react";
 import { Building2, Check, CheckCircle2, Clock3, Copy, Eye, KeyRound, Link2, LoaderCircle, Pencil, Play, Power, RefreshCw, Search, ShieldCheck, Trash2, UserPlus, Users, X } from "lucide-react";
 import { changePartnerAccess, createPartner, deletePartnerUser, editPartnerProfile, generatePartnerInvite, generatePartnerRecovery, listPartners } from "../lib/partnerAdmin";
@@ -224,6 +227,7 @@ function InviteDialog({ partners, onClose, onInvite }) {
 }
 
 export default function PartnerAdmin() {
+  const { sort, toggleSort, sortRows } = useTableSort();
   const [partners, setPartners] = useState([]);
   const [admins, setAdmins] = useState([]);
   const [currentUserId, setCurrentUserId] = useState(null);
@@ -265,8 +269,8 @@ export default function PartnerAdmin() {
   const showingAdmins = activeList === "admins";
   const users = showingAdmins ? admins : partners;
   const normalizedQuery = query.trim().toLowerCase();
-  const filtered = users.filter((partner) => (status === "All statuses" || partner.status === status)
-    && [partner.company, partner.name, partner.email].some((value) => (value || "").toLowerCase().includes(normalizedQuery)));
+  const filtered = sortRows(users.filter((partner) => (status === "All statuses" || partner.status === status)
+    && [partner.company, partner.name, partner.email].some((value) => (value || "").toLowerCase().includes(normalizedQuery))), { identity: (row) => showingAdmins ? row.name : row.company, contact: (row) => showingAdmins ? row.email : row.name });
   const stats = [
     { label: showingAdmins ? "Administrators" : "Partner contacts", value: users.length, icon: showingAdmins ? ShieldCheck : Users },
     { label: "Active accounts", value: users.filter((partner) => partner.status === "Active").length, icon: CheckCircle2 },
@@ -392,15 +396,16 @@ export default function PartnerAdmin() {
       {error && <div role="alert" className="rounded-lg bg-danger-100 p-3 text-sm text-danger flex flex-wrap items-center justify-between gap-3"><p>{error}</p><button type="button" className={secondary} disabled={loading} onClick={refresh}>Try again</button></div>}
       {notice && <div role="status" className="rounded-lg bg-accent-100 p-3 text-sm text-accent flex items-center justify-between gap-3"><p>{notice}</p><button type="button" aria-label="Dismiss notification" onClick={() => setNotice("")}><X className="w-4 h-4" /></button></div>}
       <section aria-label={showingAdmins ? "Administrators" : "Partner contacts"} className="rounded-xl border border-gray-200/70 bg-white overflow-hidden">
-        <div className="p-4 flex flex-wrap gap-3 border-b border-gray-100">
+        <div className="p-4 flex flex-wrap gap-3">
           <div className="flex-1 min-w-0 basis-56"><label htmlFor="admin-search" className="block text-xs text-gray-500 mb-1.5">{showingAdmins ? "Search admin name or email" : "Search partner, name or email"}</label><div className="relative"><Search className="absolute top-3 left-3 w-4 h-4 text-gray-400" /><input id="admin-search" type="search" value={query} onChange={(event) => setQuery(event.target.value)} className={`${input} pl-9`} /></div></div>
           <div><label htmlFor="admin-status" className="block text-xs text-gray-500 mb-1.5">Account status</label><select id="admin-status" aria-label="Filter by account status" value={status} onChange={(event) => setStatus(event.target.value)} className={`${input} sm:w-44`}>
             {(showingAdmins ? ["All statuses", "Active", "Awaiting activation", "Deactivated"] : ["All statuses", "Active", "Awaiting activation", "Setup incomplete", "Deactivated"]).map((value) => <option key={value}>{value}</option>)}
           </select></div>
         </div>
+        <div className="border-b border-gray-100 px-4 pb-4"><ClearFiltersButton onClick={() => { setQuery(""); setStatus("All statuses"); }} /></div>
         <div className="overflow-x-auto"><table className="w-full min-w-[880px] table-fixed text-sm text-left">
           <colgroup><col className="w-[26%]" /><col /><col className="w-[190px]" /><col className="w-[240px]" /></colgroup>
-          <thead className="bg-gray-50 text-[11px] text-gray-500"><tr>{(showingAdmins ? ["Administrator", "Email", "Account status", "Actions"] : ["Partner", "Contact", "Account status", "Actions"]).map((heading) => <th key={heading} scope="col" className="font-medium px-5 py-3 whitespace-nowrap">{heading}</th>)}</tr></thead>
+          <thead className="bg-gray-50 text-[11px] text-gray-500"><tr>{[["identity", showingAdmins ? "Administrator" : "Partner"], ["contact", showingAdmins ? "Email" : "Contact"], ["status", "Account status"]].map(([key, label]) => <SortableHeader key={key} column={key} label={label} sort={sort} onSort={toggleSort} className="font-medium px-5 py-3 whitespace-nowrap" />)}<th scope="col" className="font-medium px-5 py-3 whitespace-nowrap">Actions</th></tr></thead>
           <tbody className="divide-y divide-gray-100">
             {filtered.map((partner) => <tr key={partner.id} className="h-[76px] hover:bg-gray-50/50">
               <td className="px-5 py-4 font-medium text-gray-900"><span className="flex items-center gap-2">{showingAdmins ? <ShieldCheck className="w-4 h-4 text-accent shrink-0" /> : <Building2 className="w-4 h-4 text-gray-400 shrink-0" />}<span className="min-w-0 break-words">{showingAdmins ? partner.name || "Administrator" : partner.company}</span></span></td>
@@ -418,7 +423,7 @@ export default function PartnerAdmin() {
               </td>
 
             </tr>)}
-            {!filtered.length && <tr><td colSpan={4} className="px-5 py-14 text-center"><Users className="w-8 h-8 mx-auto text-gray-300 mb-3" /><p className="font-medium text-gray-700">{loading ? "Loading users…" : error ? "User list unavailable" : users.length ? "No matching users" : showingAdmins ? "No administrators yet" : "No partners yet"}</p><p className="text-xs text-gray-500 mt-1">{loading ? "Please wait." : error ? "Try refreshing the user list." : users.length ? "Try another search or change the status filter." : showingAdmins ? "Add an administrator to generate an invitation link." : "Add your first partner to generate an invitation link."}</p>{!!users.length && <button type="button" className={`${secondary} mt-4`} onClick={() => { setQuery(""); setStatus("All statuses"); }}>Clear filters</button>}</td></tr>}
+            {!filtered.length && <tr><td colSpan={4} className="px-5 py-14 text-center"><Users className="w-8 h-8 mx-auto text-gray-300 mb-3" /><p className="font-medium text-gray-700">{loading ? "Loading users…" : error ? "User list unavailable" : users.length ? "No matching users" : showingAdmins ? "No administrators yet" : "No partners yet"}</p><p className="text-xs text-gray-500 mt-1">{loading ? "Please wait." : error ? "Try refreshing the user list." : users.length ? "Try another search or change the status filter." : showingAdmins ? "Add an administrator to generate an invitation link." : "Add your first partner to generate an invitation link."}</p></td></tr>}
           </tbody>
         </table></div>
         <div className="border-t border-gray-100 px-5 py-3 text-xs text-gray-500">{`${filtered.length} of ${users.length} ${showingAdmins ? "administrators" : "contacts"}`}</div>

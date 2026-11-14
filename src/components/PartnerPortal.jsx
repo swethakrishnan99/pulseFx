@@ -1,5 +1,8 @@
+import SortableHeader from "./SortableHeader";
+import { sortTableRows } from "../lib/tableSort.mjs";
+import ClearFiltersButton from "./ClearFiltersButton";
 import { useEffect, useState, useMemo, useRef } from "react";
-import { Home, Users, DollarSign, Landmark, BookOpen, Headset, Copy, Check, X, ArrowUpDown, Download, UserPlus, ChevronDown, CheckCircle2, Palette, Upload, Phone, MessageSquare, Mail, FileText, Trash2, RefreshCw } from "lucide-react";
+import { Home, Users, DollarSign, Landmark, BookOpen, Headset, Copy, Check, X, Download, UserPlus, ChevronDown, CheckCircle2, Palette, Upload, Phone, MessageSquare, Mail, FileText, Trash2, RefreshCw } from "lucide-react";
 import Sidebar from "./Sidebar";
 import PartnerAdmin from "./PartnerAdmin";
 import BankingDetails from "./BankingDetails";
@@ -128,11 +131,7 @@ function exportReferrals(rows) {
 
 const referralHeader = "text-left text-[11px] font-medium text-gray-500 px-3 py-2.5 whitespace-nowrap";
 function ReferralSortHeader({ column, sort, onSort, children }) {
-  return (
-    <th className={referralHeader} aria-sort={sort.key === column ? (sort.dir === "asc" ? "ascending" : "descending") : "none"}>
-      <button type="button" onClick={() => onSort(column)} className="inline-flex items-center gap-1 hover:text-gray-800">{children}<ArrowUpDown className="w-3 h-3" /></button>
-    </th>
-  );
+  return <SortableHeader column={column} label={children} sort={sort} onSort={onSort} className={referralHeader} />;
 }
 
 function Referrals({ authenticated = false, go }) {
@@ -164,8 +163,7 @@ function Referrals({ authenticated = false, go }) {
       (!f.company || x.company === f.company) && (!f.status || x.status === f.status) &&
       (!f.cFrom || x.created >= f.cFrom) && (!f.cTo || x.created <= f.cTo) &&
       (!f.mFrom || x.modified >= f.mFrom) && (!f.mTo || x.modified <= f.mTo));
-    const k = sort.key;
-    return [...r].sort((a, b) => (a[k] < b[k] ? -1 : a[k] > b[k] ? 1 : 0) * (sort.dir === "asc" ? 1 : -1));
+    return sortTableRows(r, sort, { onboarded: (row) => row.status === "Onboarded", created: { type: "date" }, modified: { type: "date" } });
   }, [f, sort, referrals]);
   const set = (k) => (e) => {
     const value = e.target.value;
@@ -201,7 +199,7 @@ function Referrals({ authenticated = false, go }) {
         </fieldset>
         {(dateBad(f.cFrom, f.cTo) || dateBad(f.mFrom, f.mTo)) && <p role="alert" className="text-[11px] text-danger mt-2">The "from" date must be before the "to" date.</p>}
         <div className="flex items-center justify-between gap-3 mt-3">
-          <button type="button" onClick={clearFilters} className="text-xs font-medium text-accent hover:underline">Clear filters</button>
+          <ClearFiltersButton onClick={clearFilters} />
           <div className="flex items-center gap-3">
             <button type="button" onClick={() => exportReferrals(rows)} disabled={remote.loading || !!remote.error || rows.length === 0} className="inline-flex items-center gap-1.5 rounded-md border border-gray-200 bg-white px-2.5 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50 hover:text-gray-900 disabled:opacity-50 disabled:cursor-not-allowed">
               <Download className="w-3.5 h-3.5" />Download
@@ -216,7 +214,7 @@ function Referrals({ authenticated = false, go }) {
             <ReferralSortHeader column="contact" sort={sort} onSort={sortBy}>Contact</ReferralSortHeader>
             <ReferralSortHeader column="email" sort={sort} onSort={sortBy}>Email</ReferralSortHeader>
             <ReferralSortHeader column="status" sort={sort} onSort={sortBy}>Status</ReferralSortHeader>
-            <th className={referralHeader}>Onboarded</th>
+            <ReferralSortHeader column="onboarded" sort={sort} onSort={sortBy}>Onboarded</ReferralSortHeader>
             <ReferralSortHeader column="created" sort={sort} onSort={sortBy}>Created</ReferralSortHeader>
             <ReferralSortHeader column="modified" sort={sort} onSort={sortBy}>Last modified</ReferralSortHeader>
           </tr></thead>

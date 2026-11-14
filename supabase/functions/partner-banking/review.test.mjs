@@ -6,7 +6,14 @@ import { createBankingHandler } from "./service.mjs";
 const partnerId = 'recAAAAAAAAAAAAAA', oldId = 'rec00000000000001', newId = 'rec00000000000002';
 const env = { AIRTABLE_BASE_ID: 'appTest', AIRTABLE_TOKEN: 'secret-test-token', SUPABASE_URL: 'https://example.supabase.co', SUPABASE_ANON_KEY: 'public-key' };
 const row = (id, overrides={}) => ({ id, fields: { 'Submission ID':id,'Partner ID':partnerId,Partner:[partnerId],'Institution name':'Test Bank','Account holder':'Partner','Institution code':'001','Transit number':'01234','Account number':'0012345678',Currency:'CAD',Status:'Pending verification','Current account':false,'Last modified':'2026-11-14T10:00:00.000Z','Submitted at':'2026-11-14T09:00:00.000Z', ...overrides } });
-const request = (action='approve', overrides={}) => new Request('https://example.test/?view=review',{method:'POST',body:JSON.stringify({ id:newId,action,reviewNotes:action==='reject'?'Wrong bank details':'Checked with partner',expectedModifiedAt:'2026-11-14T10:00:00.000Z',...overrides })});
+const request = (action='approve', overrides={}) => {
+ const values={id:newId,action,reviewNotes:action==='reject'?'Wrong bank details':'Checked with partner',expectedModifiedAt:'2026-11-14T10:00:00.000Z',...overrides};
+ if(action==='reject') {
+  values.rejectionReason=values.reviewNotes;delete values.reviewNotes;
+  if('showReviewNotesToPartner' in values){values.showRejectionReasonToPartner=values.showReviewNotesToPartner;delete values.showReviewNotesToPartner;}
+ }
+ return new Request('https://example.test/?view=review',{method:'POST',body:JSON.stringify(values)});
+};
 function setup(options={}) {
   const rows = structuredClone(options.rows || [row(oldId,{Status:'Verified','Current account':true}),row(newId)]);
   const writes=[], calls=[], rpcs=[];
@@ -37,7 +44,7 @@ function setup(options={}) {
     }
     return Response.json({records:rows});
   };
-  const run=(req=request(),user={id:'10000000-0000-4000-8000-000000000001',app_metadata:{role:'partner_admin'}})=>{req.headers.set('authorization', `Bearer header.${Buffer.from(JSON.stringify({session_id:'40000000-0000-4000-8000-000000000001'})).toString('base64url')}.signature`);return bankingReview({request:req,env,user,admin,fetchImpl,json:(body,status=200)=>Response.json(body,{status})});};
+  const run=(req=request(),user={id:'10000000-0000-4000-8000-000000000001',email:'admin@pulsefx.test',app_metadata:{role:'partner_admin'}})=>{req.headers.set('authorization', `Bearer header.${Buffer.from(JSON.stringify({session_id:'40000000-0000-4000-8000-000000000001'})).toString('base64url')}.signature`);return bankingReview({request:req,env,user,admin,fetchImpl,json:(body,status=200)=>Response.json(body,{status})});};
   return {run,rows,writes,calls,rpcs};
 }
 test('only server-managed admin metadata permits review reads or writes',async()=>{
@@ -54,11 +61,11 @@ test('admin list includes partner names, full numbers, ownership status and subm
 });
 test('approval clears the previous current flag, verifies the new one, retains history and audits the actor',async()=>{
   const {run,rows,writes,rpcs}=setup();const response=await run();assert.equal(response.status,200);assert.deepEqual(await response.json(),{reviewed:true});
-  assert.equal(rows.length,2);assert.equal(rows[0].fields.Status,'Verified');assert.equal(rows[0].fields['Current account'],false);assert.equal(rows[1].fields.Status,'Verified');assert.equal(rows[1].fields['Current account'],true);assert.equal(rows[1].fields['Review notes'],'Checked with partner');
+  assert.equal(rows.length,2);assert.equal(rows[0].fields.Status,'Verified');assert.equal(rows[0].fields['Current account'],false);assert.equal(rows[1].fields.Status,'Verified');assert.equal(rows[1].fields['Current account'],true);assert.equal(rows[1].fields['Approval reason'],'Checked with partner');
   assert.equal(writes[0][0].id,oldId);assert.equal(writes[1][0].id,newId);assert.ok(rpcs.some(r=>r.name==='complete_banking_review'));assert.equal(writes.flat().some(r=>'Account number' in r.fields),false);
 });
 test('rejection records a reason without changing the previous account',async()=>{
-  const {run,rows,writes}=setup();assert.equal((await run(request('reject'))).status,200);assert.equal(rows[0].fields['Current account'],true);assert.equal(rows[1].fields.Status,'Rejected');assert.equal(rows[1].fields['Review notes'],'Wrong bank details');assert.equal(writes.length,1);
+  const {run,rows,writes}=setup();assert.equal((await run(request('reject'))).status,200);assert.equal(rows[0].fields['Current account'],true);assert.equal(rows[1].fields.Status,'Rejected');assert.equal(rows[1].fields['Rejection reason'],'Wrong bank details');assert.equal(writes.length,1);
 });
 test('rejection requires notes; arbitrary IDs, flags and fields cannot be assigned',async()=>{
   for(const overrides of [{action:'delete'},{id:'invalid'},{reviewNotes:'x'.repeat(2001)},{current:true},{partnerId:'recBBBBBBBBBBBBBB'},{reviewNotes:''}]){
@@ -77,7 +84,7 @@ test('inconsistent partner links and invalid bank details cannot be approved',as
   }
 });
 test('already approved retries do not rewrite the reviewed fields',async()=>{
-  const {run,writes}=setup({rows:[row(newId,{Status:'Verified','Current account':true,'Review notes':'Checked with partner'})]});assert.equal((await run()).status,200);assert.equal(writes.length,0);
+  const {run,writes}=setup({rows:[row(newId,{Status:'Verified','Current account':true,'Approval reason':'Checked with partner','Approved at':'2026-11-14T11:00:00Z','Approved by user ID':'10000000-0000-4000-8000-000000000001','Approved by email':'original@pulsefx.test'})]});assert.equal((await run()).status,200);assert.equal(writes.length,0);
 });
 test('historical verified or rejected submissions cannot be approved as a new request',async()=>{
   for(const status of ['Verified','Rejected']){const {run,writes}=setup({rows:[row(newId,{Status:status})]});assert.equal((await run()).status,409);assert.equal(writes.length,0);}
@@ -102,5 +109,49 @@ test('an audit failure is unconfirmed and a retry completes the audit without re
 test('revoked administrator sessions cannot read or approve banking data',async()=>{
  for(const req of [new Request('https://example.test/?view=review'),request()]){
   const {run,calls,rpcs}=setup({revokedSession:true});assert.equal((await run(req)).status,401);assert.equal(calls.length,0);assert.equal(rpcs.length,0);
+ }
+});
+
+test('approval and rejection record verified actor metadata and independent note visibility',async()=>{
+ for(const action of ['approve','reject']){
+  const f=setup();const prefix=action==='approve'?'Approved':'Rejected';
+  const response=await f.run(request(action,{showReviewNotesToPartner:true}));assert.equal(response.status,200);
+  const fields=f.rows.find(r=>r.id===newId).fields;
+  assert.equal(fields[`${prefix} by user ID`],'10000000-0000-4000-8000-000000000001');assert.equal(fields[`${prefix} by email`],'admin@pulsefx.test');assert.ok(Number.isFinite(Date.parse(fields[`${prefix} at`])));assert.equal(fields[action==='approve'?'Show approval reason to partner':'Show rejection reason to partner'],true);
+  const body=await(await f.run(new Request('https://example.test/?view=review'))).json();const record=body.submissions.find(r=>r.id===newId);
+  assert.equal(record[action==='approve'?'approvedByEmail':'rejectedByEmail'],'admin@pulsefx.test');assert.equal(record[action==='approve'?'showReviewNotesToPartner':'showRejectionReasonToPartner'],true);
+ }
+});
+test('reviewer cannot inject audit values or nonboolean visibility',async()=>{
+ for(const patch of [{approvedByEmail:'fake@pulsefx.test'},{rejectedByUserId:'fake'},{showReviewNotesToPartner:'true'}]){
+  const f=setup();assert.equal((await f.run(request('approve',patch))).status,400);assert.equal(f.writes.length,0);
+ }
+ const f=setup();assert.equal((await f.run(request(),{id:'10000000-0000-4000-8000-000000000001',app_metadata:{role:'partner_admin'}})).status,401);assert.equal(f.writes.length,0);
+});
+test('retries preserve original reviewer email, date, notes and visibility',async()=>{
+ const options={rpcFailure:'complete_banking_review'};const f=setup(options);
+ assert.equal((await f.run(request('reject',{showReviewNotesToPartner:true}))).status,502);
+ const original=structuredClone(f.rows.find(r=>r.id===newId).fields);options.rpcFailure=undefined;
+ const actor={id:'10000000-0000-4000-8000-000000000001',email:'changed@pulsefx.test',app_metadata:{role:'partner_admin'}};
+ assert.equal((await f.run(request('reject',{showReviewNotesToPartner:true}),actor)).status,200);
+ assert.deepEqual(f.rows.find(r=>r.id===newId).fields,original);assert.equal(f.writes.length,1);
+ assert.equal((await f.run(request('reject',{showReviewNotesToPartner:false}),actor)).status,409);
+ assert.equal((await f.run(request('reject',{showReviewNotesToPartner:true}),{...actor,id:'20000000-0000-4000-8000-000000000001'})).status,409);
+});
+
+test('admin review displays partner comments and decisions preserve them',async()=>{
+ const f=setup({rows:[row(newId,{'Partner Comments':'Please review my new account.'})]});
+ const body=await(await f.run(new Request('https://example.test/?view=review'))).json();assert.equal(body.submissions[0].comments,'Please review my new account.');
+ assert.equal((await f.run()).status,200);assert.equal(f.rows[0].fields['Partner Comments'],'Please review my new account.');
+ assert.equal(f.writes.flat().some(r=>'Partner Comments' in r.fields),false);
+});
+
+test('approval notes and rejection reasons are stored separately without overwriting the other field',async()=>{
+ for(const action of ['approve','reject']){
+  const f=setup({rows:[row(newId,{'Approval reason':'Preserved approval notes','Rejection reason':'Preserved rejection reason','Show approval reason to partner':true,'Show rejection reason to partner':false})]});
+  assert.equal((await f.run(request(action,{showReviewNotesToPartner:true}))).status,200);
+  const fields=f.rows[0].fields;
+  if(action==='reject') {assert.equal(fields['Approval reason'],'Preserved approval notes');assert.equal(fields['Rejection reason'],'Wrong bank details');assert.equal(fields['Show rejection reason to partner'],true);}
+  else {assert.equal(fields['Approval reason'],'Checked with partner');assert.equal(fields['Rejection reason'],'Preserved rejection reason');assert.equal(fields['Show rejection reason to partner'],false);}
  }
 });

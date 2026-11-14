@@ -1,3 +1,5 @@
+import SortableHeader from "./SortableHeader";
+import useTableSort from "../lib/useTableSort";
 import { useState, useEffect } from "react";
 import { Zap, AlertTriangle, FileText, ArrowLeftRight } from "lucide-react";
 import Tooltip from "./Tooltip";
@@ -26,6 +28,11 @@ const ACTIVITY = [
 ];
 
 export default function Dashboard({ onNavigate }) {
+  const balancesSort = useTableSort();
+  const activitySort = useTableSort();
+  const numericAmount = value => Number(value.replace(/[^0-9.-]/g, ""));
+  const balances = balancesSort.sortRows(BALANCES, Object.fromEntries(["balance", "available", "required", "incoming"].map(key => [key, row => numericAmount(row[key])])));
+  const activity = activitySort.sortRows(ACTIVITY, { pay: row => numericAmount(row.pay), receive: row => numericAmount(row.receive) });
   const fx = useExchangeRate();
   const [payCur, setPayCur] = useState("USD");
   const [recvCur, setRecvCur] = useState("CAD");
@@ -285,18 +292,15 @@ export default function Dashboard({ onNavigate }) {
         </div>
 
         <div className="grid grid-cols-6 gap-2.5 min-w-[640px] text-[11px] text-gray-400 border-b border-gray-100 pb-1.5">
-          <span>Currency</span>
-          <span>Account ID</span>
-          <span>Balance</span>
-          <span>Available</span>
-          <span className="flex items-center gap-1">
-            Required
-            <Tooltip text="The amount you need to have ready for an upcoming payment." />
-          </span>
-          <span>Incoming</span>
+          <SortableHeader as="div" column="currency" label="Currency" sort={balancesSort.sort} onSort={balancesSort.toggleSort} />
+          <SortableHeader as="div" column="accountId" label="Account ID" sort={balancesSort.sort} onSort={balancesSort.toggleSort} />
+          <SortableHeader as="div" column="balance" label="Balance" sort={balancesSort.sort} onSort={balancesSort.toggleSort} />
+          <SortableHeader as="div" column="available" label="Available" sort={balancesSort.sort} onSort={balancesSort.toggleSort} />
+          <SortableHeader as="div" column="required" label="Required" sort={balancesSort.sort} onSort={balancesSort.toggleSort} extra={<Tooltip text="The amount you need to have ready for an upcoming payment." />} />
+          <SortableHeader as="div" column="incoming" label="Incoming" sort={balancesSort.sort} onSort={balancesSort.toggleSort} />
         </div>
 
-        {BALANCES.map((row, i) => (
+        {balances.map((row, i) => (
           <div
             key={row.accountId}
             className={`grid grid-cols-6 gap-2.5 min-w-[640px] text-sm items-center py-2.5 ${
@@ -325,12 +329,12 @@ export default function Dashboard({ onNavigate }) {
       <div className="bg-white rounded-xl border border-gray-200/70 p-4 overflow-x-auto">
         <p className="text-xs text-gray-500 mb-2.5 min-w-[480px]">Payments &amp; trades in progress</p>
         <div className="grid grid-cols-4 gap-2 min-w-[480px] text-[11px] text-gray-400 border-b border-gray-100 pb-1.5">
-          <span>Reference</span>
-          <span>You pay</span>
-          <span>They receive</span>
-          <span>Status</span>
+          <SortableHeader as="div" column="ref" label="Reference" sort={activitySort.sort} onSort={activitySort.toggleSort} />
+          <SortableHeader as="div" column="pay" label="You pay" sort={activitySort.sort} onSort={activitySort.toggleSort} />
+          <SortableHeader as="div" column="receive" label="They receive" sort={activitySort.sort} onSort={activitySort.toggleSort} />
+          <SortableHeader as="div" column="status" label="Status" sort={activitySort.sort} onSort={activitySort.toggleSort} />
         </div>
-        {ACTIVITY.map((row, i) => (
+        {activity.map((row, i) => (
           <div
             key={row.ref}
             className={`grid grid-cols-4 gap-2 min-w-[480px] text-xs items-center py-2.5 ${
