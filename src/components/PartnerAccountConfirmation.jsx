@@ -23,7 +23,7 @@ export default function PartnerAccountConfirmation({ action, partner, onClose, o
     className="m-auto w-[calc(100%-2rem)] max-w-md rounded-2xl bg-white p-5 text-gray-900 shadow-xl backdrop:bg-navy/50">
     <h2 id="account-action-title" className="text-lg font-semibold">{label}?</h2>
     <p className="mt-3 text-sm font-medium break-all">{partner.email}</p>
-    <p className="text-sm text-gray-600 mt-3">{action === "delete" ? "This permanently removes the user's login. Partner records and referral history will be kept." : action === "enable" ? "This user will be able to access their partner account again." : "This user will lose sign-in and partner data access. You can reactivate the account later."}</p>
+    <p className="text-sm text-gray-600 mt-3">{partner.role === "partner_admin" ? (action === "delete" ? "This permanently removes the administrator account and its access to the admin portal." : action === "enable" ? "This administrator will be able to sign in to the admin portal again." : "This administrator will lose access to the admin portal and existing sessions will be revoked. You can reactivate the account later.") : action === "delete" ? "This permanently removes the user's login. Partner records and referral history will be kept." : action === "enable" ? "This user will be able to access their partner account again." : "This user will lose sign-in and partner data access. You can reactivate the account later."}</p>
     {error && <p role="alert" className="text-sm text-danger mt-3">{error}</p>}
     <div className="flex justify-end gap-2 mt-5">
       <button type="button" onClick={onClose} disabled={busy} className="rounded-lg border border-gray-200 px-3 py-2 text-sm hover:bg-gray-50 disabled:opacity-50">Cancel</button>

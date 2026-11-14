@@ -1,5 +1,5 @@
 import { bankingReview } from "./review.mjs";
-import { findPartnerMembership } from "../referrals/membership.mjs";
+import { findPartnerMembership } from "../_shared/partner-membership.mjs";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -9,7 +9,6 @@ const cors = {
 const recordId = /^rec[A-Za-z0-9]{14}$/;
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const bankFields = ["Submission ID", "Partner", "Partner ID", "Institution name", "Account holder", "Account number", "Institution code", "Transit number", "Currency", "Status", "Current account", "Review notes", "Submitted at", "Last modified"];
-const payoutFields = ["Reference", "Partner", "Partner ID", "Client", "Amount", "Currency", "Status", "Paid at", "Notes"];
 const text = (fields, key) => typeof fields[key] === "string" ? fields[key] : "";
 const json = (body, status = 200) => Response.json(body, { status, headers: { ...cors, "Cache-Control": "no-store" } });
 
@@ -60,7 +59,9 @@ export function createBankingHandler({ env, admin = null, fetchImpl = fetch }) {
       if (!auth.ok) throw new Error("Auth failed");
       const user = await auth.json();
       if (!user.id) return json({ error: "Please sign in to manage banking details." }, 401);
-      if (new URL(request.url).searchParams.get("view") === "review") {
+      const view = new URL(request.url).searchParams.get("view") || "accounts";
+      if (!["accounts", "review"].includes(view)) return json({ error: "Invalid banking request." }, 400);
+      if (view === "review") {
         return bankingReview({ request, env, user, admin, fetchImpl, json });
       }
       const partnerId = await findPartnerMembership({ projectUrl: env.SUPABASE_URL, publishableKey: key, accessToken, userId: user.id,
@@ -68,7 +69,6 @@ export function createBankingHandler({ env, admin = null, fetchImpl = fetch }) {
       if (!recordId.test(partnerId || "")) return json({ error: "Your account is not linked to an active partner. Please contact PulseFX." }, 403);
       const base = `https://api.airtable.com/v0/${encodeURIComponent(env.AIRTABLE_BASE_ID)}`;
       const bankTable = env.AIRTABLE_BANKING_TABLE_ID || "Banking_details_api";
-      const payoutTable = env.AIRTABLE_PAYOUTS_TABLE_ID || "Payouts_api";
       const headers = { Authorization: `Bearer ${env.AIRTABLE_TOKEN}`, "Content-Type": "application/json" };
       async function airtable(url, options = {}) {
         const response = await fetchImpl(url, { ...options, headers, signal: AbortSignal.timeout(15000) });
@@ -94,16 +94,6 @@ export function createBankingHandler({ env, admin = null, fetchImpl = fetch }) {
         } while (offset);
         return records;
       }
-      const view = new URL(request.url).searchParams.get("view") || "accounts";
-      if (request.method === "GET" && view === "payouts") {
-        const records = await list(payoutTable, payoutFields);
-        const payouts = records.map(({ id, fields: f }) => ({ id, ref: text(f, "Reference"), client: text(f, "Client"),
-          amount: typeof f.Amount === "number" && Number.isFinite(f.Amount) ? f.Amount : null,
-          currency: text(f, "Currency") || "CAD", status: text(f, "Status") || "Pending", date: text(f, "Paid at"), notes: text(f, "Notes") }))
-          .sort((a, b) => b.date.localeCompare(a.date));
-        return json({ payouts });
-      }
-      if (view !== "accounts") return json({ error: "Invalid request." }, 400);
       let input;
       if (request.method === "POST") {
         const raw = await request.text();

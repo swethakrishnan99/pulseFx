@@ -36,14 +36,13 @@ function setup(options = {}) {
     }
     assert.equal(url.searchParams.get("filterByFormula"), `{Partner ID}='${partnerId}'`);
     assert.ok(url.searchParams.getAll("fields[]").includes("Partner"));
-    if (!url.pathname.endsWith('/Payouts_api')) {
-      const fields = url.searchParams.getAll("fields[]");
-      for (const name of ["Institution name", "Institution code", "Transit number"]) assert.ok(fields.includes(name));
-      assert.equal(fields.includes("Bank name"), false);
-      assert.equal(fields.includes("Institution and transit number"), false);
-    }
+    assert.ok(url.pathname.endsWith('/Banking_details_api'));
+    const fields = url.searchParams.getAll("fields[]");
+    for (const name of ["Institution name", "Institution code", "Transit number"]) assert.ok(fields.includes(name));
+    assert.equal(fields.includes("Bank name"), false);
+    assert.equal(fields.includes("Institution and transit number"), false);
     if (options.page) return Response.json(options.page(url));
-    return Response.json({ records: url.pathname.endsWith('/Payouts_api') ? options.payouts ?? [] : options.accounts ?? [] });
+    return Response.json({ records: options.accounts ?? [] });
   } });
   return { handler, calls, writes };
 }
@@ -143,12 +142,17 @@ test("read/write failures never expose upstream messages or banking numbers", as
     assert.equal(text.includes(env.AIRTABLE_TOKEN), false); assert.equal(text.includes(input().account), false);
   }
 });
-test("payouts are read-only, scoped by actual partner links and include real dates, amount and status", async () => {
-  const paid = record(1, { Reference: "PO-001", Client: "Client", Amount: 125.5, Status: "Paid", "Paid at": "2026-11-12T15:00:00.000Z" });
-  const { handler, writes } = setup({ payouts: [paid, record(2, { Partner: [otherId] })] });
-  const body = await (await handler(req("GET", undefined, "?view=payouts"))).json();
-  assert.equal(body.payouts.length, 1); assert.equal(body.payouts[0].amount, 125.5); assert.equal(body.payouts[0].date, "2026-11-12T15:00:00.000Z");
-  assert.equal((await handler(req("POST", input(), "?view=payouts"))).status, 400); assert.equal(writes.length, 0);
+test("old payout routes are rejected without reading or writing banking data", async () => {
+  for (const view of ["payouts", "admin-payouts"]) {
+    for (const method of ["GET", "POST"]) {
+      const { handler, calls, writes } = setup();
+      const response = await handler(req(method, method === "POST" ? { action: "create" } : undefined, `?view=${view}`));
+      assert.equal(response.status, 400);
+      assert.equal(response.headers.has("location"), false);
+      assert.equal(calls.length, 1);
+      assert.equal(writes.length, 0);
+    }
+  }
 });
 test("query parameters cannot select another partner", async () => {
   const { handler, calls } = setup(); await handler(req("GET", undefined, `?partnerId=${otherId}`));

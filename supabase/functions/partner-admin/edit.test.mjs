@@ -18,7 +18,7 @@ function setup(options={}){
    return options.timeoutAfterAuth?{error:new Error('timeout')}:{data:{user:structuredClone(user)}};
   },
  }};
- const store={
+ const store={verifyAdminSession:async()=>true,
   list:async()=>[{...row,previous_email:pending?.before.email}],claim:async(_,token)=>{row.lock_token=token;return {...row};},release:async()=>events.push(['release']),
   prepareEdit:async(_,token,actor,after,expected)=>{
    events.push(['prepare']);assert.equal(actor,actorId);assert.equal(token,row.lock_token);

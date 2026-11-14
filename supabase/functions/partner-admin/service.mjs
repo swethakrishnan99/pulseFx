@@ -1,3 +1,4 @@
+import { adminSessionValid } from "../_shared/admin-session.mjs";
 import { editPartner } from "./edit.mjs";
 
 const cors = {
@@ -19,6 +20,7 @@ function check(result, message) {
 }
 function account(row) {
   return { id: row.id, company: row.company, name: row.name, email: row.email,
+    supabaseId: row.user_id || null, airtableId: row.partner_id || null, createdAt: row.user_created_at || null,
     profileEditPending: !!row.profile_edit_pending, previousEmail: row.previous_email || null,
     status: row.disabled ? "Deactivated" : row.activated ? "Active" : row.ready ? "Awaiting activation" : "Setup incomplete",
     ...(row.sync_pending ? { airtableSyncPending: true } : {}),
@@ -40,6 +42,7 @@ export function createStore(admin) {
         return { ...row, sync_pending: !!job && job.revision > job.synced_revision, sync_error: !!job?.last_error };
       });
     },
+    async verifyAdminSession(userId, bearer) { return adminSessionValid(admin, userId, bearer); },
     async reserve(values) {
       const result = await table().upsert(values, { onConflict: "email", ignoreDuplicates: true });
       if (result.error?.code === "23505") throw new Failure("This partner name is already registered.", 409);
@@ -136,7 +139,10 @@ export function createPartnerAdminHandler({ env, admin, auth = admin?.auth, stor
       const verification = await auth.getUser(bearer);
       if (verification.error || !verification.data?.user) throw new Failure("Please sign in again.", 401);
       if (verification.data.user.app_metadata?.role !== "partner_admin") throw new Failure("Administrator access is required.", 403);
-      if (request.method === "GET") return json({ partners: (await store.list()).map(account) });
+      if (!await store.verifyAdminSession(verification.data.user.id, bearer)) throw new Failure("Please sign in again.", 401);
+      if (request.method === "GET") {
+        return json({ partners: (await store.list()).map(account) });
+      }
 
       const body = await request.json().catch(() => null);
       if (!body || !["create", "invite", "recovery", "disable", "enable", "delete", "edit"].includes(body.action)) throw new Failure("Invalid request.", 400);
@@ -252,7 +258,7 @@ export function createPartnerAdminHandler({ env, admin, auth = admin?.auth, stor
       if (generated.user?.id !== row.user_id || !generated.properties?.hashed_token) throw new Failure("The invitation link could not be verified.");
       portal.searchParams.set("token_hash", generated.properties.hashed_token);
       portal.searchParams.set("type", type);
-      return json({ partner: account({ ...row, activated: false }), link: portal.toString() });
+      return json({ partner: account({ ...row, user_created_at: user.created_at, activated: false }), link: portal.toString() });
     } catch (error) {
       return json({ error: error instanceof Failure ? error.message : "Unable to complete this request. Refresh the partner list before trying again." }, error instanceof Failure ? error.status : 502);
     } finally {

@@ -22,7 +22,7 @@ const referral = (index, overrides = {}) => ({
     "Last modified": "2026-11-08T19:30:00.000Z", ...overrides,
   },
 });
-const request = (suffix = "", options = {}) => new Request(`https://example.supabase.co/functions/v1/referrals${suffix}`, {
+const request = (suffix = "", options = {}) => new Request(`https://example.supabase.co/functions/v1/partner-referrals${suffix}`, {
   headers: { Authorization: "Bearer user-token" }, ...options,
 });
 

@@ -1,8 +1,9 @@
 import { supabase } from "./supabase";
 
-async function request(method, body, view, signal) {
+async function request(method, body, view, signal, params = {}) {
   if (!supabase) throw new Error("Partner sign-in is not configured.");
-  const { data, error } = await supabase.functions.invoke(`partner-banking${view ? `?view=${view}` : ""}`, { method, body, signal });
+  const query = new URLSearchParams({ ...(view ? { view } : {}), ...params }).toString();
+  const { data, error } = await supabase.functions.invoke(`partner-banking${query ? `?${query}` : ""}`, { method, body, signal });
   if (error) {
     let message = method === "POST" ? "Unable to confirm your details were saved. Refresh banking details before trying again." : "Unable to load banking details. Please try again.";
     if (error.context instanceof Response) {
@@ -23,12 +24,6 @@ export async function submitBanking(details) {
   if (!data?.account?.id) throw new Error("Unable to confirm your details were saved. Refresh before trying again.");
   return data.account;
 }
-export async function loadPayouts(signal) {
-  const data = await request("GET", undefined, "payouts", signal);
-  if (!Array.isArray(data?.payouts)) throw new Error("Unable to load payouts.");
-  return data.payouts;
-}
-
 export async function loadBankingReviews(signal) {
   const data = await request("GET", undefined, "review", signal);
   if (!Array.isArray(data?.submissions)) throw new Error("Unable to load bank submissions.");

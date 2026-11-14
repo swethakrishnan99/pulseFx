@@ -58,6 +58,7 @@ function setup(options = {}) {
     },
   };
   const store = {
+    async verifyAdminSession() { return !options.invalidSession; },
     async list() { events.push("list"); return rows.filter((row) => !row.deleted_at).map((row) => ({ ...row })); },
     async reserve(input) {
       events.push("reserve");
@@ -164,9 +165,9 @@ test("creation returns a private activation link only after Auth, Airtable and m
 });
 
 test("list derives safe account summaries and never returns invitation credentials or internal fields", async () => {
-  const fixture = setup({ row: { id, ...values, activated: true, ready: true, lock_token: "private-lock", user_id: userId } });
+  const fixture = setup({ row: { id, ...values, activated: true, ready: true, lock_token: "private-lock", user_id: userId, partner_id: "rec12345678901234" } });
   const body = await (await fixture.request(undefined, "GET")).json();
-  assert.deepEqual(body.partners, [{ id, ...values, status: "Active", profileEditPending: false, previousEmail: null }]);
+  assert.deepEqual(body.partners, [{ id, ...values, status: "Active", supabaseId: userId, airtableId: "rec12345678901234", createdAt: null, profileEditPending: false, previousEmail: null }]);
 });
 
 test("pending Airtable updates are visible without exposing internal error details", async () => {
@@ -413,5 +414,24 @@ test("unfinished profile edits block invitations, recovery and lifecycle actions
     const fixture = setup({ row: { ...registered, profile_edit_pending: true }, user: activatedUser });
     assert.equal((await fixture.request({ action, id })).status, 409);
     assert.equal(fixture.events.some((event) => ["generate-link", "auth-enable", "auth-disable", "auth-delete"].includes(event)), false);
+  }
+});
+
+
+test("partner listing includes Auth creation time and no internal PulseFX accounts", async () => {
+  const createdAt = "2026-11-14T15:23:00Z";
+  const fixture = setup({ row: { id, ...values, user_id: userId, user_created_at: createdAt } });
+  const response = await fixture.request(undefined, "GET");
+  assert.equal(response.status, 200);
+  const body = await response.json();
+  assert.equal(body.partners[0].createdAt, createdAt);
+  assert.equal(body.admins, undefined);
+});
+
+test("partner-admin no longer accepts internal PulseFX account actions", async () => {
+  for (const action of ["create-admin", "admin-edit", "admin-invite", "admin-recovery", "admin-enable", "admin-disable", "admin-delete"]) {
+    const fixture = setup();
+    assert.equal((await fixture.request({ action, id: userId, ...values })).status, 400);
+    assert.deepEqual(fixture.events, ["verify"]);
   }
 });
