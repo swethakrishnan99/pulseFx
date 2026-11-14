@@ -1,8 +1,8 @@
-import { useEffect, useState, useMemo } from "react";
-import { Home, Users, Landmark, BookOpen, Headset, Copy, Check, X, ArrowUpDown, Download, UserPlus, ChevronDown, CheckCircle2, Palette, Upload, Phone, MessageSquare, Mail, FileText, History, Trash2 } from "lucide-react";
+import { useEffect, useState, useMemo, useRef } from "react";
+import { Home, Users, Landmark, BookOpen, Headset, Copy, Check, X, ArrowUpDown, Download, UserPlus, ChevronDown, CheckCircle2, Palette, Upload, Phone, MessageSquare, Mail, FileText, History, Trash2, RefreshCw } from "lucide-react";
 import Sidebar from "./Sidebar";
 import PartnerAdmin from "./PartnerAdmin";
-import { loadPartnerReferrals } from "../lib/referrals";
+import { createPartnerReferral, loadPartnerReferrals } from "../lib/referrals";
 
 // Partner portal demo for referral partners (for example an accounting firm that refers its clients to PulseFX).
 // The public demo is reached at #partner-demo. Authenticated referrals use Airtable.
@@ -13,6 +13,10 @@ const LINK = `https://partners.pulsefx.example/${PARTNER.slug}/signup`;
 const DAY = 86400000;
 const iso = (off) => { const d = new Date(Date.now() + off * DAY); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; };
 const pretty = (s) => s ? new Date(`${s}T12:00:00`).toLocaleDateString("en-CA", { year: "numeric", month: "short", day: "numeric" }) : "—";
+
+const prettyDateTime = (timestamp, date) => timestamp
+  ? new Date(timestamp).toLocaleString("en-CA", { year: "numeric", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit", timeZoneName: "short" })
+  : pretty(date);
 
 const STEPS = ["Invite sent", "Account created", "Documents submitted", "Under review", "Onboarded"];
 const STATUSES = ["Invited", "Account created", "Documents submitted", "Under review", "Onboarded", "Rejected"];
@@ -97,7 +101,7 @@ function PartnerHome({ go }) {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {[
           ["Referrals", "Track every business you've referred and where they are in onboarding.", "Open referrals", "referrals"],
-          ["Add a new client", "Invite a client yourself by entering their details. We'll send them the sign-up link.", "Add a client", "add"],
+          ["Add a new client", "Register a client's details and track their progress under Referrals.", "Add a client", "add"],
           ["Partner guide", "Answers to common questions about referring and onboarding clients.", "Read the guide", "guide"],
           ["Banking details", "Where we send partner payouts. Keep these up to date.", "View details", "banking"],
         ].map(([t, d, b, k]) => (
@@ -117,8 +121,8 @@ function PartnerHome({ go }) {
 function exportReferrals(rows) {
   const cell = (v) => { const t = String(v); const safe = /^[=+\-@\t\r]/.test(t) ? `'${t}` : t; return `"${safe.replace(/"/g, '""')}"`; };
   const lines = [
-    ["Company", "Contact", "Email", "Country", "Status", "Onboarded", "Created", "Last modified"],
-    ...rows.map((r) => [r.company, r.contact, r.email, r.country, r.status, r.status === "Onboarded" ? "Yes" : "No", r.created, r.modified]),
+    ["Company", "Contact", "Email", "Country", "Expected monthly volume", "Currencies", "Other currency", "Notes", "Status", "Onboarded", "Created", "Last modified"],
+    ...rows.map((r) => [r.company, r.contact, r.email, r.country, r.volume || "", (r.cur || []).join(", "), r.otherCur || "", r.notes || "", r.status, r.status === "Onboarded" ? "Yes" : "No", r.created, r.modified]),
   ].map((r) => r.map(cell).join(","));
   const url = URL.createObjectURL(new Blob(["\ufeff" + lines.join("\r\n")], { type: "text/csv;charset=utf-8;" }));
   const a = document.createElement("a");
@@ -136,8 +140,9 @@ function ReferralSortHeader({ column, sort, onSort, children }) {
   );
 }
 
-function Referrals({ authenticated = false }) {
+function Referrals({ authenticated = false, go }) {
   const [f, setF] = useState({ company: "", status: "", cFrom: "", cTo: "", mFrom: "", mTo: "" });
+  const [filterReset, setFilterReset] = useState(0);
   const [sort, setSort] = useState({ key: "created", dir: "desc" });
   const [open, setOpen] = useState(null);
   const [attempt, setAttempt] = useState(0);
@@ -167,15 +172,29 @@ function Referrals({ authenticated = false }) {
     const k = sort.key;
     return [...r].sort((a, b) => (a[k] < b[k] ? -1 : a[k] > b[k] ? 1 : 0) * (sort.dir === "asc" ? 1 : -1));
   }, [f, sort, referrals]);
-  const set = (k) => (e) => setF({ ...f, [k]: e.target.value });
+  const set = (k) => (e) => {
+    const value = e.target.value;
+    setF((current) => ({ ...current, [k]: value }));
+  };
+  function clearFilters() {
+    setF({ company: "", status: "", cFrom: "", cTo: "", mFrom: "", mTo: "" });
+    // Remount native date inputs to also clear incomplete dates held by the browser.
+    setFilterReset((current) => current + 1);
+  }
   const sortBy = (key) => setSort((s) => ({ key, dir: s.key === key && s.dir === "asc" ? "desc" : "asc" }));
   const td = "px-3 py-3 text-sm text-gray-700 whitespace-nowrap";
   const dateBad = (a, b) => a && b && a > b;
   return (
     <div className={card}>
       <div className="px-4 pt-4">
-        <p className="text-sm text-gray-500">Keep track of your referrals and where each one is in onboarding.</p>
-        <fieldset disabled={remote.loading || !!remote.error} className="grid grid-cols-2 lg:grid-cols-6 gap-3 mt-3 items-end">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <p className="text-sm text-gray-500">Keep track of your referrals and where each one is in onboarding.</p>
+          <div className="flex flex-wrap gap-2">
+            {authenticated && <button type="button" onClick={reload} disabled={remote.loading} className="inline-flex items-center justify-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"><RefreshCw className="w-4 h-4" />Refresh</button>}
+            <button type="button" onClick={() => go("add")} className="inline-flex items-center justify-center gap-2 rounded-lg bg-brand px-4 py-2.5 text-sm font-medium text-navy hover:bg-[#009a7d]"><UserPlus className="w-4 h-4" />Add a client</button>
+          </div>
+        </div>
+        <fieldset key={filterReset} disabled={remote.loading || !!remote.error} className="grid grid-cols-2 lg:grid-cols-6 gap-3 mt-3 items-end">
           <div><label htmlFor="rf-co" className={lab}>Company</label>
             <select id="rf-co" className={field} value={f.company} onChange={set("company")}><option value="">All companies</option>{[...new Set(referrals.map((r) => r.company))].sort().map((company) => <option key={company}>{company}</option>)}</select></div>
           <div><label htmlFor="rf-st" className={lab}>Status</label>
@@ -187,11 +206,10 @@ function Referrals({ authenticated = false }) {
         </fieldset>
         {(dateBad(f.cFrom, f.cTo) || dateBad(f.mFrom, f.mTo)) && <p role="alert" className="text-[11px] text-danger mt-2">The "from" date must be before the "to" date.</p>}
         <div className="flex items-center justify-between gap-3 mt-3">
-          <button type="button" onClick={() => setF({ company: "", status: "", cFrom: "", cTo: "", mFrom: "", mTo: "" })} className="text-xs font-medium text-accent hover:underline">Clear filters</button>
+          <button type="button" onClick={clearFilters} className="text-xs font-medium text-accent hover:underline">Clear filters</button>
           <div className="flex items-center gap-3">
-            {authenticated && <button type="button" onClick={reload} disabled={remote.loading} className="text-xs font-medium text-accent hover:underline disabled:opacity-50">Refresh</button>}
-            <button type="button" onClick={() => exportReferrals(rows)} disabled={remote.loading || !!remote.error || rows.length === 0} className="inline-flex items-center gap-1.5 text-sm font-medium bg-brand text-navy px-4 py-2 rounded-md hover:bg-[#009a7d] disabled:opacity-50 disabled:cursor-not-allowed">
-              <Download className="w-4 h-4" />Download Excel
+            <button type="button" onClick={() => exportReferrals(rows)} disabled={remote.loading || !!remote.error || rows.length === 0} className="inline-flex items-center gap-1.5 rounded-md border border-gray-200 bg-white px-2.5 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50 hover:text-gray-900 disabled:opacity-50 disabled:cursor-not-allowed">
+              <Download className="w-3.5 h-3.5" />Download Excel
             </button>
           </div>
         </div>
@@ -200,6 +218,8 @@ function Referrals({ authenticated = false }) {
         <table className="w-full" aria-busy={remote.loading}>
           <thead className="bg-gray-50"><tr>
             <ReferralSortHeader column="company" sort={sort} onSort={sortBy}>Company</ReferralSortHeader>
+            <ReferralSortHeader column="contact" sort={sort} onSort={sortBy}>Contact</ReferralSortHeader>
+            <ReferralSortHeader column="email" sort={sort} onSort={sortBy}>Email</ReferralSortHeader>
             <ReferralSortHeader column="status" sort={sort} onSort={sortBy}>Status</ReferralSortHeader>
             <th className={referralHeader}>Onboarded</th>
             <ReferralSortHeader column="created" sort={sort} onSort={sortBy}>Created</ReferralSortHeader>
@@ -209,14 +229,16 @@ function Referrals({ authenticated = false }) {
             {rows.map((r) => (
               <tr key={r.id} className="border-t border-gray-100">
                 <td className={td}><button type="button" onClick={() => setOpen(r)} className="text-accent hover:underline font-medium text-left">{r.company}</button></td>
+                <td className={td}>{r.contact || "—"}</td>
+                <td className={td}>{r.email || "—"}</td>
                 <td className={td}><Badge s={r.status} /></td>
                 <td className={td}>{r.status === "Onboarded" ? "Yes" : "No"}</td>
                 <td className={td}>{pretty(r.created)}</td><td className={td}>{pretty(r.modified)}</td>
               </tr>
             ))}
-            {remote.loading && <tr><td colSpan={5} className="px-3 py-8 text-center text-sm text-gray-500"><span role="status">Loading referrals…</span></td></tr>}
-            {remote.error && <tr><td colSpan={5} className="px-3 py-8 text-center text-sm"><p role="alert" className="text-danger">{remote.error}</p><button type="button" onClick={reload} className="mt-3 font-medium text-accent hover:underline">Try again</button></td></tr>}
-            {!remote.loading && !remote.error && rows.length === 0 && <tr><td colSpan={5} className="px-3 py-8 text-center text-sm text-gray-400">{referrals.length === 0 ? "No referrals yet." : "No referrals match those filters."}</td></tr>}
+            {remote.loading && <tr><td colSpan={7} className="px-3 py-8 text-center text-sm text-gray-500"><span role="status">Loading referrals…</span></td></tr>}
+            {remote.error && <tr><td colSpan={7} className="px-3 py-8 text-center text-sm"><p role="alert" className="text-danger">{remote.error}</p><button type="button" onClick={reload} className="mt-3 font-medium text-accent hover:underline">Try again</button></td></tr>}
+            {!remote.loading && !remote.error && rows.length === 0 && <tr><td colSpan={7} className="px-3 py-8 text-center text-sm text-gray-400">{referrals.length === 0 ? "No referrals yet." : "No referrals match those filters."}</td></tr>}
           </tbody>
         </table>
       </div>
@@ -234,7 +256,7 @@ function Detail({ r, onClose }) {
           <div><p className="text-base font-semibold text-gray-900">{r.company}</p><div className="mt-1"><Badge s={r.status} /></div></div>
           <button type="button" aria-label="Close" onClick={onClose} className="p-1 text-gray-400 hover:text-gray-700"><X className="w-4 h-4" /></button>
         </div>
-        {[["Contact", r.contact], ["Email", r.email], ["Country", r.country], ["Created", pretty(r.created)], ["Last modified", pretty(r.modified)], ["Onboarded", r.status === "Onboarded" ? "Yes" : "No"]].map(([k, v]) => (
+        {[["Contact", r.contact], ["Email", r.email], ["Country", r.country], ["Expected monthly volume", r.volume || "—"], ["Currencies", r.cur?.join(", ") || "—"], ["Other currency", r.otherCur || "—"], ["Notes", r.notes || "—"], ["Created", prettyDateTime(r.createdAt, r.created)], ["Last modified", prettyDateTime(r.modifiedAt, r.modified)], ["Onboarded", r.status === "Onboarded" ? "Yes" : "No"]].map(([k, v]) => (
           <div key={k} className="flex justify-between gap-4 py-2 border-b border-gray-100 text-sm"><span className="text-gray-500">{k}</span><span className="text-gray-900 text-right break-all">{v}</span></div>
         ))}
         <p className="text-sm font-medium text-accent mt-5 mb-2">Onboarding progress</p>
@@ -258,50 +280,72 @@ function Detail({ r, onClose }) {
 }
 
 /* ----------------------------------------------------------- Add client */
-function AddClient({ go }) {
+function AddClient({ go, authenticated = false }) {
   const empty = { company: "", contact: "", email: "", country: "", volume: "", cur: [], otherCur: "", notes: "" };
   const [v, setV] = useState(empty);
   const [done, setDone] = useState(null);
-  const dup = REFERRALS.some((r) => r.company.toLowerCase() === v.company.trim().toLowerCase()) && v.company.trim() !== "";
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState("");
+  const submitting = useRef(false);
+  const dup = !authenticated && REFERRALS.some((r) => r.company.toLowerCase() === v.company.trim().toLowerCase()) && v.company.trim() !== "";
   const emailOk = /^\S+@\S+\.\S+$/.test(v.email);
   const otherOk = !v.cur.includes("Other") || v.otherCur.trim() !== "";
-  const ok = !dup && v.contact.trim() && emailOk && v.country && v.volume && v.cur.length > 0 && otherOk;
+  const ok = v.company.trim() && !dup && v.contact.trim() && emailOk && v.country && v.volume && v.cur.length > 0 && otherOk;
   const toggle = (c) => setV((x) => ({ ...x, cur: x.cur.includes(c) ? x.cur.filter((y) => y !== c) : [...x.cur, c] }));
-  function submit(e) {
+  async function submit(e) {
     e.preventDefault();
-    if (!ok) return;
-    REFERRALS.unshift({ id: nextId++, company: v.company.trim() || "Not provided", contact: v.contact.trim(), email: v.email.trim(), country: v.country, status: "Invited", created: iso(0), modified: iso(0) });
-    setDone(v.company.trim() || v.contact.trim()); setV(empty);
+    if (!ok || submitting.current) return;
+    submitting.current = true;
+    setSaving(true);
+    setSaveError("");
+    try {
+      const details = { ...v, company: v.company.trim(), contact: v.contact.trim(), email: v.email.trim(), otherCur: v.cur.includes("Other") ? v.otherCur.trim() : "", notes: v.notes.trim() };
+      if (authenticated) {
+        await createPartnerReferral(details);
+      } else {
+        REFERRALS.unshift({ ...details, id: nextId++, status: "Invited", created: iso(0), modified: iso(0) });
+      }
+      setDone(details.company);
+      setV(empty);
+    } catch (error) {
+      setSaveError(error.message || "Unable to save the client. Please try again.");
+    } finally {
+      submitting.current = false;
+      setSaving(false);
+    }
   }
   if (done) return (
     <div className={`${card} p-6 max-w-xl`}>
       <CheckCircle2 className="w-8 h-8 text-success" />
-      <p className="text-base font-semibold text-gray-900 mt-2">{done} has been invited</p>
-      <p className="text-sm text-gray-500 mt-1">We'll email them the sign-up link. You can follow their progress under Referrals. Demo only: no email is sent.</p>
-      <div className="flex gap-2 mt-4"><button type="button" className={primary} onClick={() => go("referrals")}>View referrals</button><button type="button" className="text-sm font-medium text-gray-500 px-4 py-2 rounded-md hover:bg-gray-100" onClick={() => setDone(null)}>Add another</button></div>
+      <p className="text-base font-semibold text-gray-900 mt-2">{done} has been added</p>
+      <p className="text-sm text-gray-500 mt-1">{authenticated ? "The client has been saved. You can follow their progress under Referrals." : "Client added to this preview only. No invitation has been sent."}</p>
+      <div className="flex flex-wrap gap-2 mt-4"><button type="button" className={primary} onClick={() => go("referrals")}>View referrals</button><button type="button" className="inline-flex items-center gap-2 rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-900 hover:border-gray-400 hover:bg-gray-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent" onClick={() => setDone(null)}><UserPlus className="w-4 h-4" />Add another</button></div>
     </div>
   );
   return (
-    <form onSubmit={submit} noValidate className={`${card} p-5 max-w-xl flex flex-col gap-4`}>
-      <p className="text-sm text-gray-500">Enter your client's details and we'll invite them to open a PulseFX account. They then show under Referrals.</p>
-      <div><label htmlFor="ac-co" className={lab}>Company name</label><input id="ac-co" className={field} value={v.company} onChange={(e) => setV({ ...v, company: e.target.value })} />
-        {dup && <p role="alert" className="text-[11px] text-danger mt-1">You have already referred this company.</p>}</div>
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        <div><label htmlFor="ac-ct" className={lab}>Contact name *</label><input id="ac-ct" className={field} value={v.contact} onChange={(e) => setV({ ...v, contact: e.target.value })} /></div>
-        <div><label htmlFor="ac-em" className={lab}>Contact email *</label><input id="ac-em" type="email" className={field} value={v.email} onChange={(e) => setV({ ...v, email: e.target.value })} aria-invalid={v.email !== "" && !emailOk} />
-          {v.email !== "" && !emailOk && <p role="alert" className="text-[11px] text-danger mt-1">Enter a valid email address.</p>}</div>
-      </div>
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        <div><label htmlFor="ac-cn" className={lab}>Country *</label><select id="ac-cn" className={field} value={v.country} onChange={(e) => setV({ ...v, country: e.target.value })}><option value="">Select</option>{["Canada", "United States"].map((c) => <option key={c}>{c}</option>)}</select></div>
-        <div><label htmlFor="ac-vo" className={lab}>Expected monthly volume *</label><select id="ac-vo" className={field} value={v.volume} onChange={(e) => setV({ ...v, volume: e.target.value })}><option value="">Select</option>{["Under CAD 50,000", "CAD 50,000 to 250,000", "CAD 250,000 to 1,000,000", "Over CAD 1,000,000"].map((c) => <option key={c}>{c}</option>)}</select></div>
-      </div>
-      <fieldset><legend className={lab}>Currencies they will use *</legend>
-        <div className="flex flex-wrap gap-3 text-sm">{["CAD", "USD", "EUR", "GBP", "AUD", "MXN", "Other"].map((c) => <label key={c} className="flex items-center gap-1.5 cursor-pointer"><input type="checkbox" className="accent-accent" checked={v.cur.includes(c)} onChange={() => toggle(c)} />{c}</label>)}</div>
-        {v.cur.includes("Other") && (
-          <div className="mt-2"><label htmlFor="ac-oc" className={lab}>Other currency *</label><input id="ac-oc" className={`${field} sm:max-w-xs`} maxLength={60} placeholder="For example JPY" value={v.otherCur} onChange={(e) => setV({ ...v, otherCur: e.target.value })} /></div>
-        )}</fieldset>
-      <div><label htmlFor="ac-no" className={lab}>Notes (optional)</label><textarea id="ac-no" rows={2} className={field} value={v.notes} onChange={(e) => setV({ ...v, notes: e.target.value })} /></div>
-      <div><button type="submit" disabled={!ok} className={primary}>Send invitation</button></div>
+    <form onSubmit={submit} noValidate aria-busy={saving} className={`${card} p-5 max-w-xl`}>
+      <fieldset disabled={saving} className="flex flex-col gap-4">
+        <p className="text-sm text-gray-500">Enter your client's details to add them to Referrals.</p>
+        <div><label htmlFor="ac-co" className={lab}>Company name *</label><input id="ac-co" maxLength={200} required className={field} value={v.company} onChange={(e) => setV({ ...v, company: e.target.value })} />
+          {dup && <p role="alert" className="text-[11px] text-danger mt-1">You have already referred this company.</p>}</div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div><label htmlFor="ac-ct" className={lab}>Contact name *</label><input id="ac-ct" maxLength={200} required className={field} value={v.contact} onChange={(e) => setV({ ...v, contact: e.target.value })} /></div>
+          <div><label htmlFor="ac-em" className={lab}>Contact email *</label><input id="ac-em" maxLength={254} required type="email" className={field} value={v.email} onChange={(e) => setV({ ...v, email: e.target.value })} aria-invalid={v.email !== "" && !emailOk} />
+            {v.email !== "" && !emailOk && <p role="alert" className="text-[11px] text-danger mt-1">Enter a valid email address.</p>}</div>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div><label htmlFor="ac-cn" className={lab}>Country *</label><select id="ac-cn" className={field} value={v.country} onChange={(e) => setV({ ...v, country: e.target.value })}><option value="">Select</option>{["Canada", "United States"].map((c) => <option key={c}>{c}</option>)}</select></div>
+          <div><label htmlFor="ac-vo" className={lab}>Expected monthly volume *</label><select id="ac-vo" className={field} value={v.volume} onChange={(e) => setV({ ...v, volume: e.target.value })}><option value="">Select</option>{["Under CAD 50,000", "CAD 50,000 to 250,000", "CAD 250,000 to 1,000,000", "Over CAD 1,000,000"].map((c) => <option key={c}>{c}</option>)}</select></div>
+        </div>
+        <fieldset><legend className={lab}>Currencies they will use *</legend>
+          <div className="flex flex-wrap gap-3 text-sm">{["CAD", "USD", "EUR", "GBP", "AUD", "MXN", "Other"].map((c) => <label key={c} className="flex items-center gap-1.5 cursor-pointer"><input type="checkbox" className="accent-accent" checked={v.cur.includes(c)} onChange={() => toggle(c)} />{c}</label>)}</div>
+          {v.cur.includes("Other") && (
+            <div className="mt-2"><label htmlFor="ac-oc" className={lab}>Other currency *</label><input id="ac-oc" className={`${field} sm:max-w-xs`} maxLength={60} placeholder="For example JPY" value={v.otherCur} onChange={(e) => setV({ ...v, otherCur: e.target.value })} /></div>
+          )}</fieldset>
+        <div><label htmlFor="ac-no" className={lab}>Notes (optional)</label><textarea id="ac-no" maxLength={5000} rows={2} className={field} value={v.notes} onChange={(e) => setV({ ...v, notes: e.target.value })} /></div>
+        <div><button type="submit" disabled={!ok || saving} className={primary}>{saving ? "Saving…" : "Add client"}</button></div>
+      </fieldset>
+      {saveError && <p role="alert" className="text-sm text-danger mt-3">{saveError}</p>}
     </form>
   );
 }
@@ -588,13 +632,13 @@ export default function PartnerPortal({ onExit, user, isAdmin = false, signingOu
         {signOutError && <p role="alert" className="text-sm text-danger mb-4">{signOutError}</p>}
         {tab === "admin" && canAdmin && <PartnerAdmin />}
         {tab === "home" && <PartnerHome go={setTab} />}
-        {tab === "referrals" && <Referrals key={user?.id || "demo"} authenticated={!!user} />}
-        {tab === "add" && <AddClient go={setTab} />}
+        {tab === "referrals" && <Referrals key={user?.id || "demo"} authenticated={!!user} go={setTab} />}
+        {tab === "add" && <AddClient go={setTab} authenticated={!!user} />}
         {tab === "banking" && <Banking />}
         {tab === "brand" && <BrandKit />}
         {tab === "guide" && <Guide />}
         {tab === "contact" && <Contact />}
-        {tab !== "admin" && <p className="text-[11px] text-gray-400 mt-4">{user ? "Referrals use your partner account data. Other sections, including Add a client, are demonstrations." : "Portal preview: all names and figures are sample data."}</p>}
+        {tab !== "admin" && !user && <p className="text-[11px] text-gray-400 mt-4">Portal preview: all names and figures are sample data.</p>}
       </main>
     </div>
   );

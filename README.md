@@ -145,7 +145,7 @@ If the administrator keeps legacy branch publishing instead, configure `.env.loc
 - `npm run build` checks the production build. The full `npm run lint` currently reports existing issues in the demo components.
 - Manually check valid partner sign-in, invalid credentials, an account without membership, reload at `#partner`, logout and both public demos.
 
-Client authentication and partner business screens other than Referrals remain demonstrations. Partner administration and manual password recovery are implemented.
+Client authentication and partner business screens other than Referrals and Add a client remain demonstrations. Partner administration and manual password recovery are implemented.
 No Airtable credentials or production referral data are included. Deploy `supabase/functions/referrals` separately to enable authenticated referrals.
 
 ## Partners_api mirror
@@ -173,3 +173,16 @@ The `partner-admin` recovery action revalidates the caller's admin role, acquire
 
 
 Access-link verification is deduplicated per page instance, including React Strict Mode effect replay. The password form is hidden until verification succeeds. A saved password cannot be submitted a second time through the same page flow; password-policy corrections may reuse the verified in-memory session before success. Network failures show a retry option rather than incorrectly reporting expiry. Closing or reloading the page before completing password setup may require a new link because the verification session is intentionally not persisted. This is covered by `src/lib/partnerAccess.test.mjs`.
+
+
+## Add a client
+
+Authenticated partners can save a client through `POST /functions/v1/referrals`. The function validates the Auth session and resolves an enabled partner membership through RLS; partner IDs and status supplied by the browser are rejected. The Airtable token stays in Edge Function secrets. Public preview submissions remain in memory and never call this endpoint.
+
+In `Referrals_api`, retain Company, Partner (single link to Partners_api), Contact, Email, Country, Status, Created and Last modified. Add **Expected monthly volume** (single select: `Under CAD 50,000`, `CAD 50,000 to 250,000`, `CAD 250,000 to 1,000,000`, `Over CAD 1,000,000`), **Currencies** (multiple select: CAD, USD, EUR, GBP, AUD, MXN, Other), **Other currency** (single-line text), and **Notes** (plain long text). Existing records may leave these fields empty. The API writes only these form fields, the verified Partner link and initial status `Invited`; Airtable maintains timestamps. Saving does not send an invitation email or create a client Auth account.
+
+Company/contact are limited to 200 characters, email to 254, Other currency to 60, and notes to 5,000. Other currency is required when Other is selected and discarded when hidden. Server-side validation enforces the supported country/volume/currency choices. The client disables submissions during a save, preserves form values on errors, and shows success only after Airtable confirms creation. Details and Excel export include all saved fields.
+
+Before writing, the endpoint checks the partner's linked referrals for a matching company name (trimmed and case-insensitive). This blocks ordinary repeat submissions; it is not an atomic cross-request uniqueness constraint. If a write times out, check Referrals before retrying because Airtable may have accepted it. Concurrent submissions from separate tabs should not be used to submit the same client.
+
+Deploy the updated `referrals` function after adding the fields. Existing Airtable record read/write permissions are sufficient; schema permissions are not required. `npm run test:referrals` covers POST validation, ownership, duplicate checks and upstream errors as well as read isolation.
