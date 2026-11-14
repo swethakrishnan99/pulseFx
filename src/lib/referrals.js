@@ -29,3 +29,10 @@ export async function createPartnerReferral(details) {
   if (!data?.referral?.id) throw new Error("Unable to confirm the client was saved. Check Referrals before trying again.");
   return data.referral;
 }
+
+export async function loadPartnerProfile(signal) {
+  if (!supabase) throw new Error("Partner sign-in is not configured.");
+  const { data, error } = await supabase.rpc("get_partner_display_profile").abortSignal(signal);
+  if (error || typeof data?.name !== "string" || !data.name.trim()) throw new Error("Unable to load partner profile.");
+  return data;
+}

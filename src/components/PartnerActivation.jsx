@@ -57,7 +57,7 @@ export default function PartnerActivation({ onExit }) {
       } else if (failure.code === "already_completed") {
         setDone(true);
       } else if (failure.code !== "in_progress") {
-        setError(failure.code === "same_password" ? "Choose a password different from your current password." : "Unable to save your password. Check the password requirements and try again.");
+        setError(failure.code === "access_unavailable" ? "Unable to verify your session. Please try again." : failure.code === "same_password" ? "Choose a password different from your current password." : "Unable to save your password. Check the password requirements and try again.");
       }
     }
     finally { setBusy(false); }

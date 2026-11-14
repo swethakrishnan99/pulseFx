@@ -48,3 +48,9 @@ export async function deletePartnerUser(id) {
   const data = await request("POST", { action: "delete", id });
   if (!data?.deleted || data.id !== id) throw new Error("Account deletion could not be confirmed. Refresh the list before trying again.");
 }
+
+export async function editPartnerProfile(details) {
+  const data = await request("POST", { action: "edit", ...details });
+  if (!data?.partner?.id) throw new Error("Unable to confirm the update. Refresh the partner list before trying again.");
+  return data;
+}

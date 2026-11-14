@@ -10,3 +10,7 @@ verify_jwt = false
 [functions.partner-sync]
 # A server-only credential authenticates the durable queue worker. No browser access.
 verify_jwt = false
+
+[functions.partner-banking]
+# Auth and enabled membership are verified inside the handler.
+verify_jwt = false

@@ -5,7 +5,7 @@ import { createPartnerAccessFlow } from "./partnerAccess.mjs";
 function setup(options = {}) {
   const calls = [];
   let checks = 0, saves = 0;
-  const client = { auth: {
+  const client = { async rpc(name) { assert.equal(name, "partner_portal_session_valid"); return { data: !options.revokedSession, error: options.sessionCheckOffline ? new Error("offline") : null }; }, auth: {
     async verifyOtp(input) {
       calls.push(["verify", input.type]);
       checks++;
@@ -75,4 +75,11 @@ test("invitation logout stays local and logout outages do not undo a saved passw
   await flow.savePassword("test-password");
   assert.deepEqual(calls.at(-1), ["logout", "local"]);
   await assert.rejects(flow.savePassword("another-password"), { code: "already_completed" });
+});
+
+test("email-change revoked sessions cannot save a password even if their link was previously verified", async () => {
+  const { flow, calls } = setup({ revokedSession: true });
+  assert.deepEqual(await flow.verify(), { valid: true });
+  await assert.rejects(flow.savePassword("test-password"), { code: "session_expired" });
+  assert.equal(calls.some(([event]) => event === "save"), false);
 });
