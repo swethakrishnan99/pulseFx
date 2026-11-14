@@ -1,9 +1,9 @@
 import { useState, useRef, useEffect } from "react";
-import { Settings, LogOut, ChevronUp, ChevronDown, UserCircle2 } from "lucide-react";
+import { Settings, ShieldCheck, LogOut, ChevronUp, ChevronDown, UserCircle2 } from "lucide-react";
 
 const MENU_ITEMS = [{ key: "settings", label: "User settings", icon: Settings }];
 
-export default function ProfileMenu({ name = "User Name", email = "info@pulsefx.com", onSelect, collapsible = false, showSettings = true, disabled = false }) {
+export default function ProfileMenu({ name = "User Name", email = "info@pulsefx.com", onSelect, collapsible = false, showSettings = true, showAdmin = false, disabled = false }) {
   const wide = collapsible ? "hidden lg:block" : "";
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
@@ -43,7 +43,12 @@ export default function ProfileMenu({ name = "User Name", email = "info@pulsefx.
             </button>
           ))}
 
-          {showSettings && <div className="h-px bg-white/10 my-1" />}
+          {showAdmin && <button type="button" role="menuitem" disabled={disabled}
+            onClick={() => { onSelect?.("admin"); setOpen(false); }}
+            className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-sm text-white/65 hover:bg-white/10 hover:text-white text-left">
+            <ShieldCheck className="w-4 h-4 shrink-0" />Administration
+          </button>}
+          {(showSettings || showAdmin) && <div className="h-px bg-white/10 my-1" />}
 
           <button
             type="button"

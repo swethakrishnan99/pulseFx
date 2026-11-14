@@ -12,13 +12,17 @@ import ForwardsDrawdown from "./components/Forwardsdrawdown";
 import TradeFinance from "./components/Tradefinance";
 import PartnerPortal from "./components/PartnerPortal";
 import PartnerSession from "./components/PartnerSession";
+import PartnerActivation from "./components/PartnerActivation";
 
 
 
 export default function App() {
   const [screen, setScreen] = useState(() => {
+    const query = new URLSearchParams(window.location.search);
+    if (query.has("token_hash")) return "partner-activation";
     if (window.location.hash === "#partner") return "partner";
     if (window.location.hash === "#partner-demo") return "partner-demo";
+    if (["#partner-admin", "#partner-admin-demo"].includes(window.location.hash)) return "partner";
     return "login";
   });
 
@@ -28,6 +32,7 @@ export default function App() {
   }
 
   if (screen === "partner") return <PartnerSession onExit={returnToLogin} />;
+  if (screen === "partner-activation") return <PartnerActivation onExit={returnToLogin} />;
   if (screen === "partner-demo") return <PartnerPortal onExit={returnToLogin} />;
   if (screen === "login") {
     return <Login onSignIn={(role) => {

@@ -73,6 +73,7 @@ export default function PartnerSession({ onExit }) {
     <PartnerPortal
       onExit={signOut}
       user={access.user}
+      isAdmin={access.isAdmin}
       signingOut={signingOut}
       signOutError={signOutError}
     />

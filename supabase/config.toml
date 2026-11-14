@@ -2,3 +2,11 @@
 # Auth is verified through /auth/v1/user inside the handler, supporting current
 # signing keys as well as legacy JWTs. Every data request still requires a user.
 verify_jwt = false
+
+[functions.partner-admin]
+# The handler verifies the caller with Auth and requires a server-managed role.
+verify_jwt = false
+
+[functions.partner-sync]
+# A server-only credential authenticates the durable queue worker. No browser access.
+verify_jwt = false

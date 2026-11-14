@@ -1,6 +1,7 @@
 import { useEffect, useState, useMemo } from "react";
 import { Home, Users, Landmark, BookOpen, Headset, Copy, Check, X, ArrowUpDown, Download, UserPlus, ChevronDown, CheckCircle2, Palette, Upload, Phone, MessageSquare, Mail, FileText, History, Trash2 } from "lucide-react";
 import Sidebar from "./Sidebar";
+import PartnerAdmin from "./PartnerAdmin";
 import { loadPartnerReferrals } from "../lib/referrals";
 
 // Partner portal demo for referral partners (for example an accounting firm that refers its clients to PulseFX).
@@ -556,9 +557,10 @@ const PARTNER_NAV_ITEMS = NAV
     icon,
   }));
 
-export default function PartnerPortal({ onExit, user, signingOut = false, signOutError = "" }) {
-  const [tab, setTab] = useState("home");
-  const title = tab === "home" ? "Dashboard" : NAV.find((n) => n[0] === tab)?.[1];
+export default function PartnerPortal({ onExit, user, isAdmin = false, signingOut = false, signOutError = "" }) {
+  const canAdmin = !!user && isAdmin;
+  const [tab, setTab] = useState(canAdmin ? "admin" : "home");
+  const title = tab === "admin" ? "Administration" : tab === "home" ? "Dashboard" : NAV.find((n) => n[0] === tab)?.[1];
   const username = user?.user_metadata?.full_name || user?.email?.split("@")[0] || PARTNER.name;
 
   return (
@@ -574,6 +576,7 @@ export default function PartnerPortal({ onExit, user, signingOut = false, signOu
           email: user?.email || "partner@pulsefx.example",
           onLogout: onExit,
           showSettings: false,
+          showAdmin: canAdmin,
           disabled: signingOut,
         }}
       />
@@ -583,6 +586,7 @@ export default function PartnerPortal({ onExit, user, signingOut = false, signOu
         </div>
         {tab === "home" && <p className="text-sm text-gray-500 mb-4">Welcome, {username}. Refer clients to PulseFX and track their onboarding.</p>}
         {signOutError && <p role="alert" className="text-sm text-danger mb-4">{signOutError}</p>}
+        {tab === "admin" && canAdmin && <PartnerAdmin />}
         {tab === "home" && <PartnerHome go={setTab} />}
         {tab === "referrals" && <Referrals key={user?.id || "demo"} authenticated={!!user} />}
         {tab === "add" && <AddClient go={setTab} />}
@@ -590,7 +594,7 @@ export default function PartnerPortal({ onExit, user, signingOut = false, signOu
         {tab === "brand" && <BrandKit />}
         {tab === "guide" && <Guide />}
         {tab === "contact" && <Contact />}
-        <p className="text-[11px] text-gray-400 mt-4">{user ? "Referrals use your partner account data. Other sections, including Add a client, are demonstrations." : "Portal preview: all names and figures are sample data."}</p>
+        {tab !== "admin" && <p className="text-[11px] text-gray-400 mt-4">{user ? "Referrals use your partner account data. Other sections, including Add a client, are demonstrations." : "Portal preview: all names and figures are sample data."}</p>}
       </main>
     </div>
   );
