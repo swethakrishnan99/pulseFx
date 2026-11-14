@@ -166,7 +166,7 @@ test("creation returns a private activation link only after Auth, Airtable and m
 test("list derives safe account summaries and never returns invitation credentials or internal fields", async () => {
   const fixture = setup({ row: { id, ...values, activated: true, ready: true, lock_token: "private-lock", user_id: userId } });
   const body = await (await fixture.request(undefined, "GET")).json();
-  assert.deepEqual(body.partners, [{ id, ...values, status: "Active" }]);
+  assert.deepEqual(body.partners, [{ id, ...values, status: "Active", profileEditPending: false, previousEmail: null }]);
 });
 
 test("pending Airtable updates are visible without exposing internal error details", async () => {
@@ -405,5 +405,13 @@ test("failed or mismatched recovery generation cannot return a credential or alt
     assert.ok(!JSON.stringify(body).includes("secret"));
     assert.equal(fixture.rows()[0].activated, true);
     assert.equal(fixture.events.at(-1), "release");
+  }
+});
+
+test("unfinished profile edits block invitations, recovery and lifecycle actions until resumed", async () => {
+  for (const action of ["invite", "recovery", "disable", "enable", "delete"]) {
+    const fixture = setup({ row: { ...registered, profile_edit_pending: true }, user: activatedUser });
+    assert.equal((await fixture.request({ action, id })).status, 409);
+    assert.equal(fixture.events.some((event) => ["generate-link", "auth-enable", "auth-disable", "auth-delete"].includes(event)), false);
   }
 });

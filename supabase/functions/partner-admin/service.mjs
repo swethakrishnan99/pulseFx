@@ -1,3 +1,5 @@
+import { editPartner } from "./edit.mjs";
+
 const cors = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, apikey, x-client-info, content-type",
@@ -17,6 +19,7 @@ function check(result, message) {
 }
 function account(row) {
   return { id: row.id, company: row.company, name: row.name, email: row.email,
+    profileEditPending: !!row.profile_edit_pending, previousEmail: row.previous_email || null,
     status: row.disabled ? "Deactivated" : row.activated ? "Active" : row.ready ? "Awaiting activation" : "Setup incomplete",
     ...(row.sync_pending ? { airtableSyncPending: true } : {}),
     ...(row.sync_error ? { airtableSyncError: true } : {}),
@@ -67,6 +70,21 @@ export function createStore(admin) {
     async setAccess(id, token, enabled) {
       const changed = check(await admin.rpc("set_partner_account_access", { p_id: id, p_token: token, p_enabled: enabled }), "Unable to change account access. Refresh the list and try again.");
       if (!changed) throw new Failure("Account access is already being changed. Please refresh and try again.", 409);
+    },
+    async prepareEdit(id, token, actor, values, expected, confirmEmailChange) {
+      const result = await admin.rpc("prepare_partner_profile_edit", { p_id: id, p_token: token, p_actor: actor,
+        p_company: values.company, p_name: values.name, p_email: values.email, p_expected: expected, p_confirm_email: confirmEmailChange });
+      if (result.error?.code === "23505") throw new Failure("This partner name or email is already registered.", 409);
+      if (result.error?.code === "P0001") throw new Failure(result.error.message, 409);
+      return check(result, "Unable to prepare the profile update.");
+    },
+    async finishEdit(id, token, actor) {
+      const done = check(await admin.rpc("finish_partner_profile_edit", { p_id: id, p_token: token, p_actor: actor }), "The update is pending. Resume it from Edit.");
+      if (!done) throw new Failure("The update is pending. Refresh and resume it from Edit.");
+    },
+    async cancelEdit(id, token, actor) {
+      const done = check(await admin.rpc("cancel_partner_profile_edit", { p_id: id, p_token: token, p_actor: actor }), "The update is pending. Resume it from Edit.");
+      if (!done) throw new Failure("The update is pending. Resume it from Edit.");
     },
     async release(id, token) {
       await table().update({ lock_token: null, locked_until: null }).eq("id", id).eq("lock_token", token);
@@ -121,11 +139,12 @@ export function createPartnerAdminHandler({ env, admin, auth = admin?.auth, stor
       if (request.method === "GET") return json({ partners: (await store.list()).map(account) });
 
       const body = await request.json().catch(() => null);
-      if (!body || !["create", "invite", "recovery", "disable", "enable", "delete"].includes(body.action)) throw new Failure("Invalid request.", 400);
+      if (!body || !["create", "invite", "recovery", "disable", "enable", "delete", "edit"].includes(body.action)) throw new Failure("Invalid request.", 400);
+      const editing = body.action === "edit";
       const lifecycle = ["disable", "enable", "delete"].includes(body.action);
       const recovering = body.action === "recovery";
       let portal;
-      if (!lifecycle) {
+      if (!lifecycle && !editing) {
         if (!env.PORTAL_URL || (!recovering && (!env.AIRTABLE_TOKEN || !env.AIRTABLE_BASE_ID))) throw new Failure("Partner access links are not configured. Contact your administrator.", 503);
         portal = new URL(env.PORTAL_URL);
         if (portal.protocol !== "https:" && !(portal.protocol === "http:" && ["localhost", "127.0.0.1"].includes(portal.hostname))) throw new Failure("The portal address is not configured correctly.", 503);
@@ -146,8 +165,9 @@ export function createPartnerAdminHandler({ env, admin, auth = admin?.auth, stor
         row = (await store.list()).find((value) => value.id === body.id);
         if (!row) throw new Failure("Partner not found.", 404);
       }
-      if (!lifecycle && row.disabled && !row.deleted_at) throw new Failure("Reactivate this account before generating an access link.", 409);
-      if (!lifecycle && !recovering && row.activated) throw new Failure("This account is already activated.", 409);
+      if (row.profile_edit_pending && !editing) throw new Failure("Resume the pending profile update from Edit first.", 409);
+      if (!lifecycle && !editing && row.disabled && !row.deleted_at) throw new Failure("Reactivate this account before generating an access link.", 409);
+      if (!lifecycle && !editing && !recovering && row.activated) throw new Failure("This account is already activated.", 409);
       if (recovering && (!row.activated || !row.ready)) throw new Failure("Only active accounts can receive a password reset link.", 409);
       const token = crypto.randomUUID();
       row = await store.claim(row.id, token);
@@ -155,8 +175,11 @@ export function createPartnerAdminHandler({ env, admin, auth = admin?.auth, stor
       claim = { id: row.id, token };
       // Recheck activation after acquiring the lock, including create retries.
       const current = (await store.list()).find((value) => value.id === row.id);
-      if (!lifecycle && !recovering && current?.activated) throw new Failure("This account is already activated.", 409);
-      if (!lifecycle && !row.deleted_at && (row.disabled || current?.disabled)) throw new Failure("Reactivate this account before generating an access link.", 409);
+      if (!lifecycle && !editing && !recovering && current?.activated) throw new Failure("This account is already activated.", 409);
+      if (!lifecycle && !editing && !row.deleted_at && (row.disabled || current?.disabled)) throw new Failure("Reactivate this account before generating an access link.", 409);
+
+      if (current?.profile_edit_pending && !editing) throw new Failure("Resume the pending profile update from Edit first.", 409);
+      if (editing) return json(await editPartner({ body, row, current, store, auth, actor: verification.data.user, Failure, check, account }));
 
       if (recovering) {
         if (row.deleted_at || !current?.activated || !row.ready || !row.user_id) throw new Failure("Only active accounts can receive a password reset link.", 409);

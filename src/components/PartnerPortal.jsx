@@ -1,8 +1,10 @@
 import { useEffect, useState, useMemo, useRef } from "react";
-import { Home, Users, Landmark, BookOpen, Headset, Copy, Check, X, ArrowUpDown, Download, UserPlus, ChevronDown, CheckCircle2, Palette, Upload, Phone, MessageSquare, Mail, FileText, History, Trash2, RefreshCw } from "lucide-react";
+import { Home, Users, Landmark, BookOpen, Headset, Copy, Check, X, ArrowUpDown, Download, UserPlus, ChevronDown, CheckCircle2, Palette, Upload, Phone, MessageSquare, Mail, FileText, Trash2, RefreshCw } from "lucide-react";
 import Sidebar from "./Sidebar";
 import PartnerAdmin from "./PartnerAdmin";
-import { createPartnerReferral, loadPartnerReferrals } from "../lib/referrals";
+import BankingDetails from "./BankingDetails";
+import BankingApprovals from "./BankingApprovals";
+import { createPartnerReferral, loadPartnerReferrals, loadPartnerProfile } from "../lib/referrals";
 
 // Partner portal demo for referral partners (for example an accounting firm that refers its clients to PulseFX).
 // The public demo is reached at #partner-demo. Authenticated referrals use Airtable.
@@ -47,15 +49,6 @@ const primary = "text-sm font-medium bg-brand text-navy px-4 py-2 rounded-md hov
 const ghost = "inline-flex items-center gap-1.5 text-sm font-medium border border-gray-200 px-3 py-2 rounded-md hover:bg-gray-50";
 const PHONE = { display: "416 848 1028", tel: "+14168481028" };
 const EMAIL = "partnerships@pulsefx.com";
-
-// Download helpers. CSV cells that start with a formula character get a leading ' so Excel won't run them.
-const safeCell = (v) => { let t = String(v ?? ""); if (/^[=+\-@\t\r]/.test(t)) t = `'${t}`; return `"${t.replace(/"/g, '""')}"`; };
-function saveBlob(blob, name) {
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
-}
 
 function Badge({ s }) {
   return <span className={`inline-block text-[11px] font-medium px-2 py-0.5 rounded-full whitespace-nowrap ${STATUS_STYLE[s] || STATUS_STYLE.Invited}`}>{s}</span>;
@@ -350,86 +343,6 @@ function AddClient({ go, authenticated = false }) {
   );
 }
 
-/* ------------------------------------------------------------- Banking */
-let PAYOUT = { bank: "RBC Royal Bank", holder: "ABC Accounting Inc.", last4: "4821", currency: "CAD", status: "Verified" };
-function Banking() {
-  const [p, setP] = useState(PAYOUT);
-  const [edit, setEdit] = useState(false);
-  const [hist, setHist] = useState(false);
-  const [f, setF] = useState({ bank: "", holder: "", account: "", routing: "" });
-  const ok = f.bank.trim() && f.holder.trim() && f.account.length >= 4 && f.routing.length >= 3;
-  function save(e) {
-    e.preventDefault();
-    if (!ok) return;
-    PAYOUT = { bank: f.bank.trim(), holder: f.holder.trim(), last4: f.account.slice(-4), currency: "CAD", status: "Pending verification" };
-    setP(PAYOUT); setEdit(false); setF({ bank: "", holder: "", account: "", routing: "" });
-  }
-  return (
-    <div className="flex flex-col gap-4 max-w-xl">
-      <div className={`${card} p-5`}>
-        <p className="text-sm font-medium text-accent">Payout account</p>
-        <p className="text-xs text-gray-500 mt-0.5">Where PulseFX sends partner payouts.</p>
-        {[["Bank", p.bank], ["Account holder", p.holder], ["Account", `•••• ${p.last4}`], ["Currency", p.currency]].map(([k, val]) => (
-          <div key={k} className="flex justify-between gap-4 py-2 border-b border-gray-100 text-sm"><span className="text-gray-500">{k}</span><span className="text-gray-900">{val}</span></div>
-        ))}
-        <p className="mt-3"><span className={`inline-block text-[11px] font-medium px-2 py-0.5 rounded-full ${p.status === "Verified" ? "bg-success-100 text-success" : "bg-gray-100 text-gray-700"}`}>{p.status}</span></p>
-        {p.status !== "Verified" && <p className="text-xs text-gray-500 mt-2">PulseFX will verify your new details. Payouts go to your previous account until then.</p>}
-        <div className="flex flex-wrap gap-2 mt-4">
-          {!edit && <button type="button" onClick={() => setEdit(true)} className={ghost}>Update bank details</button>}
-          <button type="button" aria-expanded={hist} onClick={() => setHist(!hist)} className={ghost}><History className="w-4 h-4" />Payout history</button>
-        </div>
-      </div>
-      {hist && <PayoutHistory onClose={() => setHist(false)} />}
-      {edit && (
-        <form onSubmit={save} className={`${card} p-5 flex flex-col gap-3`}>
-          <div><label htmlFor="bk-b" className={lab}>Bank name *</label><input id="bk-b" className={field} value={f.bank} onChange={(e) => setF({ ...f, bank: e.target.value })} /></div>
-          <div><label htmlFor="bk-h" className={lab}>Account holder *</label><input id="bk-h" className={field} value={f.holder} onChange={(e) => setF({ ...f, holder: e.target.value })} /></div>
-          <div className="grid grid-cols-2 gap-3">
-            <div><label htmlFor="bk-a" className={lab}>Account number *</label><input id="bk-a" inputMode="numeric" className={`${field} font-mono`} value={f.account} onChange={(e) => setF({ ...f, account: e.target.value.replace(/\D/g, "") })} /></div>
-            <div><label htmlFor="bk-r" className={lab}>Institution and transit number *</label><input id="bk-r" inputMode="numeric" className={`${field} font-mono`} value={f.routing} onChange={(e) => setF({ ...f, routing: e.target.value.replace(/\D/g, "") })} /></div>
-          </div>
-          <div className="flex gap-2"><button type="submit" disabled={!ok} className={primary}>Save</button><button type="button" onClick={() => setEdit(false)} className="text-sm font-medium text-gray-500 px-4 py-2 rounded-md hover:bg-gray-100">Cancel</button></div>
-        </form>
-      )}
-    </div>
-  );
-}
-
-const PAYOUTS = [
-  { ref: "PO-0007", date: iso(-12), client: "Redline Outdoor Gear", amount: 420, status: "Paid" },
-  { ref: "PO-0006", date: iso(-45), client: "Summit Dental Group", amount: 310, status: "Paid" },
-  { ref: "PO-0005", date: iso(-78), client: "Birchwood Furniture", amount: 275, status: "Paid" },
-  { ref: "PO-0004", date: iso(-110), client: "Redline Outdoor Gear", amount: 180, status: "Paid" },
-];
-function PayoutHistory({ onClose }) {
-  const total = PAYOUTS.reduce((a, r) => a + r.amount, 0);
-  const cad = (n) => n.toLocaleString("en-CA", { style: "currency", currency: "CAD" });
-  function csv() {
-    const rows = [["Reference", "Date", "Client", "Amount (CAD)", "Status"], ...PAYOUTS.map((r) => [r.ref, r.date, r.client, r.amount.toFixed(2), r.status])];
-    saveBlob(new Blob(["\uFEFF" + rows.map((r) => r.map(safeCell).join(",")).join("\r\n")], { type: "text/csv;charset=utf-8" }), "payout-history.csv");
-  }
-  return (
-    <div className={`${card} p-5`} role="region" aria-label="Payout history">
-      <div className="flex items-start justify-between gap-3">
-        <div><p className="text-sm font-medium text-accent">Payout history</p><p className="text-xs text-gray-500 mt-0.5">Total paid: {cad(total)}</p></div>
-        <div className="flex gap-2">
-          <button type="button" onClick={csv} className={ghost}><Download className="w-4 h-4" />Download</button>
-          <button type="button" onClick={onClose} aria-label="Close payout history" className="p-2 rounded-md text-gray-500 hover:bg-gray-100"><X className="w-4 h-4" /></button>
-        </div>
-      </div>
-      <div className="overflow-x-auto mt-3">
-        <table className="w-full text-sm min-w-[420px]">
-          <thead><tr className="text-left text-[11px] text-gray-500 border-b border-gray-100"><th className="py-2 font-normal">Date</th><th className="py-2 font-normal">Client</th><th className="py-2 font-normal text-right">Amount</th><th className="py-2 font-normal pl-4">Status</th></tr></thead>
-          <tbody>{PAYOUTS.map((r) => (
-            <tr key={r.ref} className="border-b border-gray-50 last:border-0"><td className="py-2 text-gray-600 whitespace-nowrap">{pretty(r.date)}</td><td className="py-2 text-gray-900">{r.client}</td><td className="py-2 text-right tabular-nums">{cad(r.amount)}</td><td className="py-2 pl-4"><span className="text-[11px] font-medium px-2 py-0.5 rounded-full bg-success-100 text-success">{r.status}</span></td></tr>
-          ))}</tbody>
-        </table>
-      </div>
-      <p className="text-[11px] text-gray-400 mt-3">Demo only: sample payouts. Real amounts will depend on the payout terms PulseFX confirms.</p>
-    </div>
-  );
-}
-
 /* --------------------------------------------------------------- Brand kit */
 
 // Module-level so uploads survive tab switches (reset on reload; nothing is sent anywhere).
@@ -601,26 +514,41 @@ const PARTNER_NAV_ITEMS = NAV
     icon,
   }));
 
+const ADMIN_NAV_ITEMS = [{ key: "admin", label: "User management", icon: Users }, { key: "banking-approvals", label: "Banking approvals", icon: Landmark }];
+
 export default function PartnerPortal({ onExit, user, isAdmin = false, signingOut = false, signOutError = "" }) {
   const canAdmin = !!user && isAdmin;
   const [tab, setTab] = useState(canAdmin ? "admin" : "home");
-  const title = tab === "admin" ? "Administration" : tab === "home" ? "Dashboard" : NAV.find((n) => n[0] === tab)?.[1];
-  const username = user?.user_metadata?.full_name || user?.email?.split("@")[0] || PARTNER.name;
+  const title = tab === "admin" ? "User management" : tab === "banking-approvals" ? "Banking approvals" : tab === "home" ? "Dashboard" : NAV.find((n) => n[0] === tab)?.[1];
+  const [partnerProfile, setPartnerProfile] = useState(null);
+  const userId = user?.id;
+  useEffect(() => {
+    if (!userId || canAdmin) return;
+    let active = true;
+    const controller = new AbortController();
+    loadPartnerProfile(controller.signal).then((profile) => {
+      if (active) setPartnerProfile({ ...profile, userId });
+    }).catch(() => { /* A profile lookup cannot grant or revoke partner access. */ });
+    return () => { active = false; controller.abort(); };
+  }, [userId, canAdmin]);
+  const username = canAdmin
+    ? user?.user_metadata?.full_name || user?.email?.split("@")[0] || "Administrator"
+    : userId ? partnerProfile?.userId === userId ? partnerProfile.name : "Partner" : PARTNER.name;
 
   return (
     <div className="flex min-h-screen bg-gray-50">
       <Sidebar
         active={tab}
         onNavigate={setTab}
-        items={PARTNER_NAV_ITEMS}
+        items={canAdmin ? ADMIN_NAV_ITEMS : PARTNER_NAV_ITEMS}
         helpKey="contact"
-        portalLabel="Partner portal"
+        portalLabel={canAdmin ? "Administration" : "Partner portal"}
         account={{
           name: username,
           email: user?.email || "partner@pulsefx.example",
           onLogout: onExit,
           showSettings: false,
-          showAdmin: canAdmin,
+          showAdmin: false,
           disabled: signingOut,
         }}
       />
@@ -631,10 +559,11 @@ export default function PartnerPortal({ onExit, user, isAdmin = false, signingOu
         {tab === "home" && <p className="text-sm text-gray-500 mb-4">Welcome, {username}. Refer clients to PulseFX and track their onboarding.</p>}
         {signOutError && <p role="alert" className="text-sm text-danger mb-4">{signOutError}</p>}
         {tab === "admin" && canAdmin && <PartnerAdmin />}
+        {tab === "banking-approvals" && canAdmin && <BankingApprovals />}
         {tab === "home" && <PartnerHome go={setTab} />}
         {tab === "referrals" && <Referrals key={user?.id || "demo"} authenticated={!!user} go={setTab} />}
         {tab === "add" && <AddClient go={setTab} authenticated={!!user} />}
-        {tab === "banking" && <Banking />}
+        {tab === "banking" && <BankingDetails authenticated={!!user} />}
         {tab === "brand" && <BrandKit />}
         {tab === "guide" && <Guide />}
         {tab === "contact" && <Contact />}

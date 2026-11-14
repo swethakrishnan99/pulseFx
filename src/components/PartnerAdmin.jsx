@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from "react";
-import { Building2, Check, CheckCircle2, Clock3, Copy, KeyRound, Link2, LoaderCircle, Play, Power, RefreshCw, Search, ShieldCheck, Trash2, UserPlus, Users, X } from "lucide-react";
-import { changePartnerAccess, createPartner, deletePartnerUser, generatePartnerInvite, generatePartnerRecovery, listPartners } from "../lib/partnerAdmin";
+import { Building2, Check, CheckCircle2, Clock3, Copy, KeyRound, Link2, LoaderCircle, Pencil, Play, Power, RefreshCw, Search, ShieldCheck, Trash2, UserPlus, Users, X } from "lucide-react";
+import { changePartnerAccess, createPartner, deletePartnerUser, editPartnerProfile, generatePartnerInvite, generatePartnerRecovery, listPartners } from "../lib/partnerAdmin";
 import PartnerAccountConfirmation from "./PartnerAccountConfirmation";
 import ActionButton from "./ActionButton";
+import PartnerEdit from "./PartnerEdit";
 
 const input = "w-full rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent-100";
 const primary = "inline-flex items-center justify-center gap-2 rounded-lg bg-brand px-4 py-2.5 text-sm font-medium text-navy hover:bg-[#009a7d] disabled:opacity-50 disabled:cursor-not-allowed";
@@ -126,6 +127,7 @@ export default function PartnerAdmin() {
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState("All statuses");
   const [inviting, setInviting] = useState(false);
+  const [editing, setEditing] = useState(null);
   const [invitation, setInvitation] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -149,7 +151,7 @@ export default function PartnerAdmin() {
   async function refresh() {
     setLoading(true);
     setError("");
-    try { setPartners(await listPartners()); }
+    try { const rows = await listPartners(); setPartners(rows); setEditing((previous) => previous ? rows.find((row) => row.id === previous.id) || null : null); }
     catch (failure) { setError(failure.message); }
     finally { setLoading(false); }
   }
@@ -176,6 +178,19 @@ export default function PartnerAdmin() {
     setStatus("All statuses");
     setInviting(false);
     setInvitation(result);
+  }
+
+  async function saveEdit(details) {
+    setBusyId(details.id); setNotice("");
+    try {
+      const result = await editPartnerProfile(details);
+      setPartners((previous) => previous.map((item) => item.id === result.partner.id ? result.partner : item));
+      setEditing(null);
+      setNotice(result.emailChanged ? `Partner updated. The user must sign in with ${result.partner.email}.${result.newInvitationRequired ? " Generate a new invitation link to complete activation." : ""}` : "Partner details updated.");
+    } catch (failure) {
+      await refresh();
+      throw failure;
+    } finally { setBusyId(null); }
   }
 
   async function generate(partner, kind = "invite") {
@@ -257,13 +272,14 @@ export default function PartnerAdmin() {
             {filtered.map((partner) => <tr key={partner.id} className="hover:bg-gray-50/50">
               <td className="px-5 py-4 font-medium text-gray-900"><span className="flex items-center gap-2"><Building2 className="w-4 h-4 text-gray-400 shrink-0" />{partner.company}</span></td>
               <td className="px-5 py-4"><p className="text-gray-900">{partner.name}</p><p className="text-xs text-gray-500 mt-1 break-all">{partner.email}</p></td>
-              <td className="px-5 py-4"><span className={`inline-flex text-xs rounded-full px-2.5 py-1 whitespace-nowrap ${badge[partner.status]}`}>{partner.status}</span>{partner.airtableSyncPending && <p className={`text-[11px] mt-1.5 ${partner.airtableSyncError ? "text-warning" : "text-gray-500"}`}>{partner.airtableSyncError ? "Airtable update pending — retrying" : "Updating Airtable…"}</p>}</td>
+              <td className="px-5 py-4"><span className={`inline-flex text-xs rounded-full px-2.5 py-1 whitespace-nowrap ${badge[partner.status]}`}>{partner.status}</span>{partner.profileEditPending && <p className="mt-1 text-xs text-warning">Update pending</p>}{partner.airtableSyncPending && partner.airtableSyncError && <p className="text-[11px] mt-1.5 text-warning">Airtable update pending — retrying</p>}</td>
               <td className="px-5 py-4">
                 <div className="flex items-center gap-1.5" role="group" aria-label={`Account actions for ${partner.email}`}>
-                  <ActionButton className={`${iconButton} text-accent`} disabled={loading || !!busyId || ["Active", "Deactivated"].includes(partner.status)} tooltip={["Active", "Deactivated"].includes(partner.status) ? "Copy invitation link (available before activation)" : "Copy invitation link"} label={`Copy invitation link for ${partner.email}`} onClick={() => generate(partner)}>{busyId === partner.id && busyLinkKind === "invite" ? <LoaderCircle className="w-3.5 h-3.5 animate-spin" /> : <Link2 className="w-4 h-4" />}</ActionButton>
-                  <ActionButton className={`${iconButton} text-blue-600`} disabled={loading || !!busyId || partner.status !== "Active"} tooltip={partner.status === "Active" ? "Copy password reset link" : "Password recovery (active accounts only)"} label={`Copy password reset link for ${partner.email}`} onClick={() => generate(partner, "recovery")}>{busyId === partner.id && busyLinkKind === "recovery" ? <LoaderCircle className="w-4 h-4 animate-spin" /> : <KeyRound className="w-4 h-4" />}</ActionButton>
-                  <ActionButton className={`${iconButton} ${partner.status === "Deactivated" ? "text-success" : "text-warning"}`} disabled={loading || !!busyId} tooltip={partner.status === "Deactivated" ? "Reactivate user" : "Deactivate user"} label={`${partner.status === "Deactivated" ? "Reactivate" : "Deactivate"} user ${partner.email}`} onClick={() => setConfirmation({ partner, action: partner.status === "Deactivated" ? "enable" : "disable" })}>{partner.status === "Deactivated" ? <Play className="w-4 h-4" /> : <Power className="w-4 h-4" />}</ActionButton>
-                  <ActionButton className={`${iconButton} text-danger`} disabled={loading || !!busyId} tooltip="Delete user" label={`Delete user ${partner.email}`} onClick={() => setConfirmation({ partner, action: "delete" })}><Trash2 className="w-4 h-4" /></ActionButton>
+                  <ActionButton className={`${iconButton} text-blue-600`} disabled={loading || !!busyId || partner.status === "Setup incomplete"} label={`Edit partner ${partner.email}`} tooltip={partner.profileEditPending ? "Resume partner update" : "Edit partner details"} onClick={() => setEditing(partner)}><Pencil className="w-4 h-4" /></ActionButton>
+                  <ActionButton className={`${iconButton} text-accent`} disabled={loading || !!busyId || partner.profileEditPending || ["Active", "Deactivated"].includes(partner.status)} tooltip={["Active", "Deactivated"].includes(partner.status) ? "Copy invitation link (available before activation)" : "Copy invitation link"} label={`Copy invitation link for ${partner.email}`} onClick={() => generate(partner)}>{busyId === partner.id && busyLinkKind === "invite" ? <LoaderCircle className="w-3.5 h-3.5 animate-spin" /> : <Link2 className="w-4 h-4" />}</ActionButton>
+                  <ActionButton className={`${iconButton} text-blue-600`} disabled={loading || !!busyId || partner.profileEditPending || partner.status !== "Active"} tooltip={partner.status === "Active" ? "Copy password reset link" : "Password recovery (active accounts only)"} label={`Copy password reset link for ${partner.email}`} onClick={() => generate(partner, "recovery")}>{busyId === partner.id && busyLinkKind === "recovery" ? <LoaderCircle className="w-4 h-4 animate-spin" /> : <KeyRound className="w-4 h-4" />}</ActionButton>
+                  <ActionButton className={`${iconButton} ${partner.status === "Deactivated" ? "text-success" : "text-warning"}`} disabled={loading || !!busyId || partner.profileEditPending} tooltip={partner.status === "Deactivated" ? "Reactivate user" : "Deactivate user"} label={`${partner.status === "Deactivated" ? "Reactivate" : "Deactivate"} user ${partner.email}`} onClick={() => setConfirmation({ partner, action: partner.status === "Deactivated" ? "enable" : "disable" })}>{partner.status === "Deactivated" ? <Play className="w-4 h-4" /> : <Power className="w-4 h-4" />}</ActionButton>
+                  <ActionButton className={`${iconButton} text-danger`} disabled={loading || !!busyId || partner.profileEditPending} tooltip="Delete user" label={`Delete user ${partner.email}`} onClick={() => setConfirmation({ partner, action: "delete" })}><Trash2 className="w-4 h-4" /></ActionButton>
                 </div>
               </td>
 
@@ -276,6 +292,7 @@ export default function PartnerAdmin() {
       <p className="text-xs text-gray-500 flex items-start gap-2"><ShieldCheck className="w-4 h-4 shrink-0" />Partner contacts can only access their linked partner’s data.</p>
       {confirmation && <PartnerAccountConfirmation {...confirmation} onClose={() => setConfirmation(null)} onConfirm={changeAccount} />}
       {invitation && <InvitationLink result={invitation} onClose={() => setInvitation(null)} />}
+      {editing && <PartnerEdit key={`${editing.id}:${editing.profileEditPending}`} partner={editing} onClose={() => setEditing(null)} onSave={saveEdit} />}
       {inviting && <InviteDialog partners={partners} onClose={() => setInviting(false)} onInvite={invite} />}
     </div>
   );
