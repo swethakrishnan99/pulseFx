@@ -52,7 +52,7 @@ function setup(options = {}) {
     if (options.page) return Response.json(options.page(url));
     return Response.json({ records: options.records ?? [referral(1)] });
   };
-  return { calls, handler: createReferralsHandler({ env: { ...env, ...options.env }, fetchImpl }) };
+  return { calls, fetchImpl, handler: createReferralsHandler({ env: { ...env, ...options.env }, fetchImpl }) };
 }
 
 test("validates the session and membership, then returns normalized partner referrals", async () => {
@@ -63,7 +63,7 @@ test("validates the session and membership, then returns normalized partner refe
   assert.deepEqual(await response.json(), { referrals: [{
     id: referralId(1), company: "Northwind Machining Ltd.", contact: "Ana Costa",
     email: "ana@northwind.example", country: "Canada", status: "Documents submitted",
-    created: "2026-11-07", modified: "2026-11-08",
+    created: "2026-11-07", modified: "2026-11-08", createdAt: "2026-11-07T18:00:00.000Z", modifiedAt: "2026-11-08T19:30:00.000Z", volume: "", cur: [], otherCur: "", notes: "",
   }] });
   assert.equal(calls.length, 4);
   assert.equal(calls[3].url.searchParams.get("filterByFormula"), `OR(RECORD_ID()='${referralId(1)}')`);
@@ -78,9 +78,9 @@ test("preflight succeeds without auth or upstream requests", async () => {
   assert.equal(calls.length, 0);
 });
 
-test("rejects writes and requests without a bearer token before querying upstream", async () => {
+test("rejects unsupported methods and requests without a bearer token before querying upstream", async () => {
   const { handler, calls } = setup();
-  assert.equal((await handler(request("", { method: "POST" }))).status, 405);
+  assert.equal((await handler(request("", { method: "DELETE" }))).status, 405);
   assert.equal((await handler(request("", { headers: {} }))).status, 401);
   assert.equal((await handler(request("", { headers: { Authorization: "Basic user-token" } }))).status, 401);
   assert.equal(calls.length, 0);
@@ -171,6 +171,8 @@ test("missing optional fields and timestamps are handled without inventing statu
   assert.equal(referrals[0].status, "Unknown");
   assert.equal(referrals[0].created, "2026-11-07");
   assert.equal(referrals[0].modified, "2026-11-07");
+  assert.equal(referrals[0].createdAt, "2026-11-07T00:00:00.000Z");
+  assert.equal(referrals[0].modifiedAt, "");
 });
 
 test("missing configuration is reported without using Airtable", async () => {
@@ -191,4 +193,93 @@ test("malformed partner links and repeated pagination offsets fail safely", asyn
   assert.equal((await malformed.handler(request())).status, 502);
   const repeated = setup({ page: () => ({ records: [referral(1)], offset: "same-offset" }) });
   assert.equal((await repeated.handler(request())).status, 502);
+});
+
+const clientDetails = (overrides = {}) => ({
+  company: "New client", contact: "Client Contact", email: "CONTACT@example.com",
+  country: "Canada", volume: "CAD 50,000 to 250,000", cur: ["USD", "Other"],
+  otherCur: "JPY, CHF", notes: "Call in the afternoon", ...overrides,
+});
+function setupWrite(options = {}) {
+  const base = setup({ partner: { id: partnerId, fields: {} }, ...options });
+  const writes = [];
+  const handler = createReferralsHandler({ env, fetchImpl: async (url, init) => {
+    if (init.method === "POST") {
+      writes.push(JSON.parse(init.body));
+      if (options.writeError) return Response.json({ error: env.AIRTABLE_TOKEN }, { status: 422 });
+      const fields = JSON.parse(init.body).records[0].fields;
+      return Response.json({ records: [referral(2, fields)] });
+    }
+    // Reuse the authenticated GET mock's upstream behavior via the exposed fetch implementation.
+    return base.fetchImpl(url, init);
+  } });
+  return { handler, writes, calls: base.calls };
+}
+const post = (body) => request("", { method: "POST", headers: { Authorization: "Bearer user-token", "Content-Type": "application/json" }, body: JSON.stringify(body) });
+
+test("creates a referral with all form fields and the verified partner only", async () => {
+  const { handler, writes } = setupWrite();
+  const response = await handler(post(clientDetails()));
+  assert.equal(response.status, 201);
+  assert.deepEqual(writes[0], { records: [{ fields: {
+    Company: "New client", Contact: "Client Contact", Email: "contact@example.com", Country: "Canada",
+    "Expected monthly volume": "CAD 50,000 to 250,000", Currencies: ["USD", "Other"],
+    "Other currency": "JPY, CHF", Notes: "Call in the afternoon", Partner: [partnerId], Status: "Invited",
+  } }] });
+  const { referral: saved } = await response.json();
+  assert.equal(saved.otherCur, "JPY, CHF");
+  assert.equal(saved.notes, "Call in the afternoon");
+  assert.equal(saved.volume, "CAD 50,000 to 250,000");
+  assert.deepEqual(saved.cur, ["USD", "Other"]);
+  assert.equal(writes[0].records[0].fields.Created, undefined);
+});
+
+test("invalid fields and caller-assigned partner/status never write to Airtable", async () => {
+  for (const overrides of [
+    { company: " " }, { contact: "" }, { email: "invalid" }, { country: "Unknown" },
+    { volume: "Unlimited" }, { cur: [] }, { cur: ["INVALID"] }, { cur: ["CAD", "CAD"] },
+    { otherCur: "" }, { otherCur: "x".repeat(61) }, { notes: "x".repeat(5001) },
+    { partnerId: otherPartnerId }, { status: "Onboarded" }, { company: 1 },
+  ]) {
+    const { handler, writes } = setupWrite();
+    assert.equal((await handler(post(clientDetails(overrides)))).status, 400, JSON.stringify(overrides).slice(0,100));
+    assert.equal(writes.length, 0);
+  }
+});
+
+test("malformed/oversized bodies never write", async () => {
+  const { handler, writes } = setupWrite();
+  assert.equal((await handler(request("", { method: "POST", body: "{" }))).status, 400);
+  assert.equal((await handler(post({ notes: "x".repeat(17000) }))).status, 413);
+  assert.equal(writes.length, 0);
+});
+
+test("unauthenticated, expired, disabled or unlinked users cannot create referrals", async () => {
+  for (const options of [{ authResponse: Response.json({}, { status: 401 }) }, { memberships: [] }, { memberships: [{ partner_id: "invalid" }] }]) {
+    const { handler, writes } = setupWrite(options);
+    assert.ok([401,403].includes((await handler(post(clientDetails()))).status));
+    assert.equal(writes.length, 0);
+  }
+  const { handler, writes } = setupWrite();
+  assert.equal((await handler(request("", { method: "POST", headers: {}, body: "{}" }))).status, 401);
+  assert.equal(writes.length, 0);
+});
+
+test("optional notes can be empty and hidden other-currency text is discarded", async () => {
+  const { handler, writes } = setupWrite();
+  assert.equal((await handler(post(clientDetails({ cur: ["CAD"], notes: "", otherCur: "old hidden text" })))).status, 201);
+  assert.equal(writes[0].records[0].fields["Other currency"], "");
+});
+
+test("duplicate company names are rejected within the authenticated partner", async () => {
+  const { handler, writes } = setupWrite({ partner: { id: partnerId, fields: { Referrals: [referralId(1)] } } });
+  assert.equal((await handler(post(clientDetails({ company: "  NORTHWIND MACHINING LTD. " })))).status, 409);
+  assert.equal(writes.length, 0);
+});
+
+test("write failures return a safe message without claiming a successful save", async () => {
+  const { handler } = setupWrite({ writeError: true });
+  const response = await handler(post(clientDetails()));
+  assert.equal(response.status, 502);
+  assert.deepEqual(await response.json(), { error: "Unable to confirm the client was saved. Check Referrals before trying again." });
 });
