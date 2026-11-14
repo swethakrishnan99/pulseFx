@@ -87,7 +87,7 @@ export default function BankingDetails({ authenticated = false }) {
   const viewed = data.accounts.find((account) => account.id === viewId);
   const valid = form.bank.trim() && form.holder.trim() && /^\d{4,34}$/.test(form.account) && /^\d{3}$/.test(form.institutionCode) && /^\d{5}$/.test(form.transitNumber);
   function begin() {
-    const previous = latest || current;
+    const previous = current || data.accounts.find(account => account.status === "Verified");
     setForm({ ...blank(), bank: previous?.bank || "", holder: previous?.holder || "", account: previous?.account || "", institutionCode: previous?.institutionCode || "", transitNumber: previous?.transitNumber || "" });
     setSaveError(""); setSaved(false); setEdit(true);
   }
