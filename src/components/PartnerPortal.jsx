@@ -1,7 +1,10 @@
 import SortableHeader from "./SortableHeader";
+import TablePager from "./TablePager";
+import { usePagination } from "../lib/usePagination";
 import { sortTableRows } from "../lib/tableSort.mjs";
 import ClearFiltersButton from "./ClearFiltersButton";
 import { useEffect, useState, useMemo, useRef } from "react";
+import { useNavigate, useParams } from "react-router-dom";
 import { Home, Users, DollarSign, Landmark, BookOpen, Headset, Copy, Check, X, Download, UserPlus, ChevronDown, CheckCircle2, Palette, Upload, Phone, MessageSquare, Mail, FileText, Trash2, RefreshCw } from "lucide-react";
 import Sidebar from "./Sidebar";
 import PartnerAdmin from "./PartnerAdmin";
@@ -29,7 +32,7 @@ const STEPS = ["Invite sent", "Account created", "Documents submitted", "Under r
 const STATUSES = ["Invited", "Account created", "Documents submitted", "Under review", "Onboarded", "Rejected"];
 const STATUS_STYLE = {
   Invited: "bg-gray-100 text-gray-700", "Account created": "bg-gray-100 text-gray-700", "Documents submitted": "bg-accent-100 text-accent",
-  "Under review": "bg-warning-100 text-gray-800", Onboarded: "bg-success-100 text-success", Rejected: "bg-danger-100 text-danger",
+  "Under review": "bg-warning-100 text-amber-800", Onboarded: "bg-success-100 text-success", Rejected: "bg-danger-100 text-danger",
 };
 const stepIndex = (s) => (s === "Rejected" ? 3 : STATUSES.indexOf(s));
 
@@ -129,7 +132,7 @@ function exportReferrals(rows) {
   URL.revokeObjectURL(url);
 }
 
-const referralHeader = "text-left text-[11px] font-medium text-gray-500 px-3 py-2.5 whitespace-nowrap";
+const referralHeader = "text-left text-[11px] font-medium text-gray-400 px-3 py-2.5 whitespace-nowrap";
 function ReferralSortHeader({ column, sort, onSort, children }) {
   return <SortableHeader column={column} label={children} sort={sort} onSort={onSort} className={referralHeader} />;
 }
@@ -165,6 +168,7 @@ function Referrals({ authenticated = false, go }) {
       (!f.mFrom || x.modified >= f.mFrom) && (!f.mTo || x.modified <= f.mTo));
     return sortTableRows(r, sort, { onboarded: (row) => row.status === "Onboarded", created: { type: "date" }, modified: { type: "date" } });
   }, [f, sort, referrals]);
+  const pager = usePagination(rows, [JSON.stringify(f), sort?.key, sort?.dir].join("|"));
   const set = (k) => (e) => {
     const value = e.target.value;
     setF((current) => ({ ...current, [k]: value }));
@@ -209,7 +213,7 @@ function Referrals({ authenticated = false, go }) {
       </div>
       <div className="overflow-x-auto mt-2">
         <table className="w-full" aria-busy={remote.loading}>
-          <thead className="bg-gray-50"><tr>
+          <thead className="border-b border-gray-100"><tr>
             <ReferralSortHeader column="company" sort={sort} onSort={sortBy}>Company</ReferralSortHeader>
             <ReferralSortHeader column="contact" sort={sort} onSort={sortBy}>Contact</ReferralSortHeader>
             <ReferralSortHeader column="email" sort={sort} onSort={sortBy}>Email</ReferralSortHeader>
@@ -219,7 +223,7 @@ function Referrals({ authenticated = false, go }) {
             <ReferralSortHeader column="modified" sort={sort} onSort={sortBy}>Last modified</ReferralSortHeader>
           </tr></thead>
           <tbody>
-            {rows.map((r) => (
+            {pager.rows.map((r) => (
               <tr key={r.id} className="border-t border-gray-100">
                 <td className={td}><button type="button" onClick={() => setOpen(r)} className="text-accent hover:underline font-medium text-left">{r.company}</button></td>
                 <td className={td}>{r.contact || "—"}</td>
@@ -235,6 +239,7 @@ function Referrals({ authenticated = false, go }) {
           </tbody>
         </table>
       </div>
+      <TablePager pager={pager} noun="referrals" overall={referrals.length} />
       {open && <Detail r={open} onClose={() => setOpen(null)} />}
     </div>
   );
@@ -516,10 +521,24 @@ const PARTNER_NAV_ITEMS = NAV
 
 const ADMIN_NAV_ITEMS = [{ key: "admin", label: "User management", icon: Users }, { key: "banking-approvals", label: "Banking approvals", icon: Landmark }, { key: "admin-payouts", label: "Payouts", icon: DollarSign }];
 
-export default function PartnerPortal({ onExit, user, isAdmin = false, signingOut = false, signOutError = "" }) {
+export default function PartnerPortal({ onExit, user, isAdmin = false, signingOut = false, signOutError = "", basePath = "/demo" }) {
   const canAdmin = !!user && isAdmin;
-  const [tab, setTab] = useState(canAdmin ? "admin" : "home");
+  // The current page comes from the address (for example /partner/referrals), so back, forward, refresh and bookmarks work.
+  const { page } = useParams();
+  const navigate = useNavigate();
+  const defaultTab = canAdmin ? "admin" : "home";
+  const allowedTabs = canAdmin ? [...ADMIN_NAV_ITEMS.map((item) => item.key), "contact"] : NAV.map((item) => item[0]);
+  const tab = page && allowedTabs.includes(page) ? page : defaultTab;
+  const setTab = (key) => navigate(key === defaultTab ? basePath : `${basePath}/${key}`);
+  useEffect(() => {
+    // An unknown or not-permitted page goes back to the start page.
+    if (page && !allowedTabs.includes(page)) navigate(basePath, { replace: true });
+  }, [page, canAdmin]); // eslint-disable-line react-hooks/exhaustive-deps
   const title = tab === "admin" ? "User management" : tab === "banking-approvals" ? "Banking approvals" : tab === "admin-payouts" ? "Payouts" : tab === "home" ? "Dashboard" : NAV.find((n) => n[0] === tab)?.[1];
+  useEffect(() => {
+    document.title = `${title || "Partner portal"} · PulseFX`;
+    window.scrollTo(0, 0);
+  }, [title]);
   const [partnerProfile, setPartnerProfile] = useState(null);
   const userId = user?.id;
   useEffect(() => {
