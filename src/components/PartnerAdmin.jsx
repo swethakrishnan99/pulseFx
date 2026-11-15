@@ -56,7 +56,7 @@ function PartnerDetails({ partner, onClose }) {
     onClick={(event) => { if (event.target === event.currentTarget) onClose(); }}
     className="m-auto max-h-[90vh] w-[calc(100%-2rem)] max-w-lg overflow-y-auto rounded-2xl bg-white p-5 text-gray-900 shadow-xl backdrop:bg-navy/50">
     <div className="flex items-center justify-between gap-3">
-      <h2 id="partner-details-title" className="flex items-center gap-2 text-lg font-semibold"><Eye className="h-5 w-5 text-accent" />User details</h2>
+      <h2 id="partner-details-title" className="flex items-center gap-2 text-lg font-semibold"><Eye className="h-5 w-5 text-gray-900" />User details</h2>
       <button type="button" onClick={onClose} aria-label="Close user details" className="rounded-md p-1.5 hover:bg-gray-100"><X className="h-5 w-5" /></button>
     </div>
     <dl className="mt-5 divide-y divide-gray-100">
@@ -133,7 +133,7 @@ function AddAdminDialog({ onClose, onCreated }) {
   return <dialog ref={dialog} aria-labelledby="add-admin-title"
     onCancel={(event) => { if (busy) event.preventDefault(); else onClose(); }}
     className="m-auto max-h-[90vh] w-[calc(100%-2rem)] max-w-lg overflow-y-auto rounded-2xl bg-white p-5 text-gray-900 shadow-xl backdrop:bg-navy/50">
-    <div className="flex items-center justify-between gap-3"><h2 id="add-admin-title" className="flex items-center gap-2 text-lg font-semibold"><ShieldCheck className="h-5 w-5 text-accent" />Add admin</h2><button type="button" aria-label="Close add admin" disabled={busy} onClick={onClose} className={iconButton}><X className="h-5 w-5" /></button></div>
+    <div className="flex items-center justify-between gap-3"><h2 id="add-admin-title" className="flex items-center gap-2 text-lg font-semibold"><ShieldCheck className="h-5 w-5 text-gray-900" />Add admin</h2><button type="button" aria-label="Close add admin" disabled={busy} onClick={onClose} className={iconButton}><X className="h-5 w-5" /></button></div>
     <p className="mt-3 text-sm text-gray-600">Create an administrator with access to the admin portal. Share the generated link so they can set their password.</p>
     <form onSubmit={submit} className="mt-5 space-y-4">
       <fieldset disabled={busy} className="space-y-4">
