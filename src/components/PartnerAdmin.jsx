@@ -1,4 +1,6 @@
 import SortableHeader from "./SortableHeader";
+import TablePager from "./TablePager";
+import { usePagination } from "../lib/usePagination";
 import useTableSort from "../lib/useTableSort";
 import ClearFiltersButton from "./ClearFiltersButton";
 import { useEffect, useRef, useState } from "react";
@@ -271,10 +273,11 @@ export default function PartnerAdmin() {
   const normalizedQuery = query.trim().toLowerCase();
   const filtered = sortRows(users.filter((partner) => (status === "All statuses" || partner.status === status)
     && [partner.company, partner.name, partner.email].some((value) => (value || "").toLowerCase().includes(normalizedQuery))), { identity: (row) => showingAdmins ? row.name : row.company, contact: (row) => showingAdmins ? row.email : row.name });
+  const pager = usePagination(filtered, [query, status, showingAdmins, sort?.key, sort?.dir].join("|"));
   const stats = [
-    { label: showingAdmins ? "Administrators" : "Partner contacts", value: users.length, icon: showingAdmins ? ShieldCheck : Users },
-    { label: "Active accounts", value: users.filter((partner) => partner.status === "Active").length, icon: CheckCircle2 },
-    { label: "Pending invitations", value: users.filter((partner) => partner.status === "Awaiting activation").length, icon: Clock3 },
+    { label: showingAdmins ? "Administrators" : "Partner contacts", value: users.length, icon: showingAdmins ? ShieldCheck : Users, tone: "bg-gray-100 text-gray-500" },
+    { label: "Active accounts", value: users.filter((partner) => partner.status === "Active").length, icon: CheckCircle2, tone: "bg-success-100 text-success" },
+    { label: "Pending invitations", value: users.filter((partner) => partner.status === "Awaiting activation").length, icon: Clock3, tone: "bg-warning-100 text-warning" },
   ];
 
   async function invite(partner) {
@@ -373,9 +376,8 @@ export default function PartnerAdmin() {
 
   return (
     <div className="max-w-6xl space-y-5">
-      <p className="text-sm text-gray-500">Generate an invitation link and share it directly with the contact.</p>
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div><p className="text-lg font-semibold text-gray-900">Users &amp; access</p><p className="text-sm text-gray-500 mt-1">Manage partners, administrators and invitations in one place.</p></div>
+        <p className="text-sm text-gray-500">Invite partners and admins, and manage their accounts.</p>
         <div className="flex flex-wrap gap-2"><button type="button" className={secondary} disabled={loading || !!busyId} onClick={refresh}><RefreshCw className="w-4 h-4" />Refresh</button>
         <button type="button" className={primary} disabled={loading || !!busyId} onClick={() => setAddingAdmin(true)}><ShieldCheck className="w-4 h-4" />Add admin</button>
         <button type="button" className={primary} disabled={loading || !!busyId || !!error} onClick={() => setInviting(true)}><UserPlus className="w-4 h-4" />Add partner</button></div>
@@ -388,9 +390,9 @@ export default function PartnerAdmin() {
         </button>)}
       </nav>
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        {stats.map(({ label, value, icon: Icon }) => <div key={label} className="rounded-xl border border-gray-200/70 bg-white p-5 flex items-center justify-between">
+        {stats.map(({ label, value, icon: Icon, tone }) => <div key={label} className="rounded-xl border border-gray-200/70 bg-white p-5 flex items-center justify-between">
           <div><p className="text-xs text-gray-500">{label}</p><p className="text-2xl font-semibold mt-2 text-gray-900">{loading || error ? "—" : value}</p></div>
-          <span className="rounded-xl bg-accent-100/60 p-3"><Icon className="w-5 h-5 text-accent" /></span>
+          <span className={`rounded-xl p-3 ${tone}`}><Icon className="w-5 h-5" /></span>
         </div>)}
       </div>
       {error && <div role="alert" className="rounded-lg bg-danger-100 p-3 text-sm text-danger flex flex-wrap items-center justify-between gap-3"><p>{error}</p><button type="button" className={secondary} disabled={loading} onClick={refresh}>Try again</button></div>}
@@ -405,20 +407,20 @@ export default function PartnerAdmin() {
         <div className="border-b border-gray-100 px-4 pb-4"><ClearFiltersButton onClick={() => { setQuery(""); setStatus("All statuses"); }} /></div>
         <div className="overflow-x-auto"><table className="w-full min-w-[880px] table-fixed text-sm text-left">
           <colgroup><col className="w-[26%]" /><col /><col className="w-[190px]" /><col className="w-[240px]" /></colgroup>
-          <thead className="bg-gray-50 text-[11px] text-gray-500"><tr>{[["identity", showingAdmins ? "Administrator" : "Partner"], ["contact", showingAdmins ? "Email" : "Contact"], ["status", "Account status"]].map(([key, label]) => <SortableHeader key={key} column={key} label={label} sort={sort} onSort={toggleSort} className="font-medium px-5 py-3 whitespace-nowrap" />)}<th scope="col" className="font-medium px-5 py-3 whitespace-nowrap">Actions</th></tr></thead>
-          <tbody className="divide-y divide-gray-100">
-            {filtered.map((partner) => <tr key={partner.id} className="h-[76px] hover:bg-gray-50/50">
+          <thead className="text-[11px] text-gray-400 border-b border-gray-100"><tr>{[["identity", showingAdmins ? "Administrator" : "Partner"], ["contact", showingAdmins ? "Email" : "Contact"], ["status", "Account status"]].map(([key, label]) => <SortableHeader key={key} column={key} label={label} sort={sort} onSort={toggleSort} className="font-medium px-5 py-3 whitespace-nowrap" />)}<th scope="col" className="font-medium px-5 py-3 whitespace-nowrap">Actions</th></tr></thead>
+          <tbody className="divide-y divide-gray-100 text-gray-700">
+            {pager.rows.map((partner) => <tr key={partner.id} className="h-[76px]">
               <td className="px-5 py-4 font-medium text-gray-900"><span className="flex items-center gap-2">{showingAdmins ? <ShieldCheck className="w-4 h-4 text-accent shrink-0" /> : <Building2 className="w-4 h-4 text-gray-400 shrink-0" />}<span className="min-w-0 break-words">{showingAdmins ? partner.name || "Administrator" : partner.company}</span></span></td>
-              <td className="px-5 py-4">{!showingAdmins && <p className="text-gray-900">{partner.name}</p>}<p className={showingAdmins ? "break-all text-gray-900" : "text-xs text-gray-500 mt-1 break-all"}>{partner.email}</p></td>
+              <td className="px-5 py-4">{!showingAdmins && <p className="text-gray-700">{partner.name}</p>}<p className={showingAdmins ? "break-all text-gray-700" : "text-[11px] text-gray-400 mt-1 break-all"}>{partner.email}</p></td>
               <td className="px-5 py-4"><span className={`inline-flex text-xs rounded-full px-2.5 py-1 whitespace-nowrap ${badge[partner.status]}`}>{partner.status}</span>{partner.profileEditPending && <p className="mt-1 text-xs text-warning">Update pending</p>}{partner.airtableSyncPending && partner.airtableSyncError && <p className="text-[11px] mt-1.5 text-warning">Airtable update pending — retrying</p>}</td>
               <td className="px-5 py-4">
                 <div className="flex items-center gap-1.5" role="group" aria-label={`Account actions for ${partner.email}`}>
-                  <ActionButton className={`${iconButton} text-accent`} disabled={loading} label={`View user details for ${partner.email}`} tooltip="View user details" onClick={() => setViewing(partner)}><Eye className="w-4 h-4" /></ActionButton>
-                  <ActionButton className={`${iconButton} text-blue-600`} disabled={loading || !!busyId || partner.status === "Setup incomplete"} label={`Edit ${showingAdmins ? "admin" : "partner"} ${partner.email}`} tooltip={partner.profileEditPending ? "Resume partner update" : showingAdmins ? "Edit administrator details" : "Edit partner details"} onClick={() => setEditing(partner)}><Pencil className="w-4 h-4" /></ActionButton>
-                  <ActionButton className={`${iconButton} text-accent`} disabled={loading || !!busyId || partner.profileEditPending || ["Active", "Deactivated"].includes(partner.status)} tooltip={["Active", "Deactivated"].includes(partner.status) ? "Copy invitation link (available before activation)" : "Copy invitation link"} label={`Copy invitation link for ${partner.email}`} onClick={() => generate(partner)}>{busyId === partner.id && busyLinkKind === "invite" ? <LoaderCircle className="w-3.5 h-3.5 animate-spin" /> : <Link2 className="w-4 h-4" />}</ActionButton>
-                  <ActionButton className={`${iconButton} text-blue-600`} disabled={loading || !!busyId || partner.profileEditPending || partner.status !== "Active"} tooltip={partner.status === "Active" ? "Copy password reset link" : "Password recovery (active accounts only)"} label={`Copy password reset link for ${partner.email}`} onClick={() => generate(partner, "recovery")}>{busyId === partner.id && busyLinkKind === "recovery" ? <LoaderCircle className="w-4 h-4 animate-spin" /> : <KeyRound className="w-4 h-4" />}</ActionButton>
-                  <ActionButton className={`${iconButton} ${partner.status === "Deactivated" ? "text-success" : "text-warning"}`} disabled={loading || !!busyId || partner.profileEditPending || (showingAdmins && (partner.id === currentUserId || (partner.status === "Active" && admins.filter((item) => item.status === "Active").length <= 1)))} tooltip={showingAdmins && partner.id === currentUserId ? "You cannot deactivate your own account" : partner.status === "Deactivated" ? "Reactivate user" : "Deactivate user"} label={`${partner.status === "Deactivated" ? "Reactivate" : "Deactivate"} user ${partner.email}`} onClick={() => setConfirmation({ partner, action: partner.status === "Deactivated" ? "enable" : "disable" })}>{partner.status === "Deactivated" ? <Play className="w-4 h-4" /> : <Power className="w-4 h-4" />}</ActionButton>
-                  <ActionButton className={`${iconButton} text-danger`} disabled={loading || !!busyId || partner.profileEditPending || (showingAdmins && (partner.id === currentUserId || (partner.status === "Active" && admins.filter((item) => item.status === "Active").length <= 1)))} tooltip={showingAdmins && partner.id === currentUserId ? "You cannot delete your own account" : "Delete user"} label={`Delete user ${partner.email}`} onClick={() => setConfirmation({ partner, action: "delete" })}><Trash2 className="w-4 h-4" /></ActionButton>
+                  <ActionButton className={`${iconButton} text-gray-500 enabled:hover:text-accent`} disabled={loading} label={`View user details for ${partner.email}`} tooltip="View user details" onClick={() => setViewing(partner)}><Eye className="w-4 h-4" /></ActionButton>
+                  <ActionButton className={`${iconButton} text-gray-500 enabled:hover:text-accent`} disabled={loading || !!busyId || partner.status === "Setup incomplete"} label={`Edit ${showingAdmins ? "admin" : "partner"} ${partner.email}`} tooltip={partner.profileEditPending ? "Resume partner update" : showingAdmins ? "Edit administrator details" : "Edit partner details"} onClick={() => setEditing(partner)}><Pencil className="w-4 h-4" /></ActionButton>
+                  <ActionButton className={`${iconButton} text-gray-500 enabled:hover:text-accent`} disabled={loading || !!busyId || partner.profileEditPending || ["Active", "Deactivated"].includes(partner.status)} tooltip={["Active", "Deactivated"].includes(partner.status) ? "Copy invitation link (available before activation)" : "Copy invitation link"} label={`Copy invitation link for ${partner.email}`} onClick={() => generate(partner)}>{busyId === partner.id && busyLinkKind === "invite" ? <LoaderCircle className="w-3.5 h-3.5 animate-spin" /> : <Link2 className="w-4 h-4" />}</ActionButton>
+                  <ActionButton className={`${iconButton} text-gray-500 enabled:hover:text-accent`} disabled={loading || !!busyId || partner.profileEditPending || partner.status !== "Active"} tooltip={partner.status === "Active" ? "Copy password reset link" : "Password recovery (active accounts only)"} label={`Copy password reset link for ${partner.email}`} onClick={() => generate(partner, "recovery")}>{busyId === partner.id && busyLinkKind === "recovery" ? <LoaderCircle className="w-4 h-4 animate-spin" /> : <KeyRound className="w-4 h-4" />}</ActionButton>
+                  <ActionButton className={`${iconButton} text-gray-500 ${partner.status === "Deactivated" ? "enabled:hover:text-success" : "enabled:hover:text-warning"}`} disabled={loading || !!busyId || partner.profileEditPending || (showingAdmins && (partner.id === currentUserId || (partner.status === "Active" && admins.filter((item) => item.status === "Active").length <= 1)))} tooltip={showingAdmins && partner.id === currentUserId ? "You cannot deactivate your own account" : partner.status === "Deactivated" ? "Reactivate user" : "Deactivate user"} label={`${partner.status === "Deactivated" ? "Reactivate" : "Deactivate"} user ${partner.email}`} onClick={() => setConfirmation({ partner, action: partner.status === "Deactivated" ? "enable" : "disable" })}>{partner.status === "Deactivated" ? <Play className="w-4 h-4" /> : <Power className="w-4 h-4" />}</ActionButton>
+                  <ActionButton className={`${iconButton} text-gray-500 enabled:hover:text-danger`} disabled={loading || !!busyId || partner.profileEditPending || (showingAdmins && (partner.id === currentUserId || (partner.status === "Active" && admins.filter((item) => item.status === "Active").length <= 1)))} tooltip={showingAdmins && partner.id === currentUserId ? "You cannot delete your own account" : "Delete user"} label={`Delete user ${partner.email}`} onClick={() => setConfirmation({ partner, action: "delete" })}><Trash2 className="w-4 h-4" /></ActionButton>
                 </div>
               </td>
 
@@ -426,7 +428,7 @@ export default function PartnerAdmin() {
             {!filtered.length && <tr><td colSpan={4} className="px-5 py-14 text-center"><Users className="w-8 h-8 mx-auto text-gray-300 mb-3" /><p className="font-medium text-gray-700">{loading ? "Loading users…" : error ? "User list unavailable" : users.length ? "No matching users" : showingAdmins ? "No administrators yet" : "No partners yet"}</p><p className="text-xs text-gray-500 mt-1">{loading ? "Please wait." : error ? "Try refreshing the user list." : users.length ? "Try another search or change the status filter." : showingAdmins ? "Add an administrator to generate an invitation link." : "Add your first partner to generate an invitation link."}</p></td></tr>}
           </tbody>
         </table></div>
-        <div className="border-t border-gray-100 px-5 py-3 text-xs text-gray-500">{`${filtered.length} of ${users.length} ${showingAdmins ? "administrators" : "contacts"}`}</div>
+        <TablePager pager={pager} noun={showingAdmins ? "administrators" : "contacts"} overall={users.length} className="px-5" />
       </section>
       {viewing && <PartnerDetails partner={viewing} onClose={() => setViewing(null)} />}
       {confirmation && <PartnerAccountConfirmation {...confirmation} onClose={() => setConfirmation(null)} onConfirm={changeAccount} />}

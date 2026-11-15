@@ -40,13 +40,13 @@ function AccessHelpModal({ mode, onClose }) {
 }
 
 /** Partner credentials are verified by Supabase before opening the portal. */
-export default function Login({ onSignIn }) {
+export default function Login({ onSignIn, initialPortal = null, onBack }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [show, setShow] = useState(false);
   const [errors, setErrors] = useState({});
   const [busy, setBusy] = useState(false);
-  const [portal, setPortal] = useState(null);
+  const [portal, setPortal] = useState(initialPortal);
   const partner = portal === "partner";
   const [tip, setTip] = useState(0);
   const [modal, setModal] = useState(null); // "reset" | "activate" | null
@@ -205,7 +205,7 @@ export default function Login({ onSignIn }) {
             </div>
           ) : (
           <form onSubmit={submit} noValidate className="flex-1 flex flex-col justify-start p-6 pt-12 md:p-10 w-full max-w-sm mx-auto md:min-h-[520px]">
-            <button type="button" disabled={busy} onClick={() => choosePortal(null)} className="absolute top-[76px] md:top-3 left-6 md:left-10 flex items-center gap-1 text-xs text-gray-500 hover:text-accent disabled:opacity-50">
+            <button type="button" disabled={busy} onClick={() => (onBack ? onBack() : choosePortal(null))} className="absolute top-[76px] md:top-3 left-6 md:left-10 flex items-center gap-1 text-xs text-gray-500 hover:text-accent disabled:opacity-50">
               <ArrowLeft className="w-4 h-4" aria-hidden="true" /> Choose another portal
             </button>
             <h1 className="text-xl font-semibold text-gray-900 mb-1">{partner ? "Partner sign in" : "Client sign in"}</h1>

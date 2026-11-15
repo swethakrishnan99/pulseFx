@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Navigate, useLocation } from "react-router-dom";
 import { supabase, requirePartner } from "../lib/supabase";
 import PartnerPortal from "./PartnerPortal";
 
@@ -6,6 +7,7 @@ export default function PartnerSession({ onExit }) {
   const [access, setAccess] = useState({ loading: true });
   const [signingOut, setSigningOut] = useState(false);
   const [signOutError, setSignOutError] = useState("");
+  const location = useLocation();
 
   useEffect(() => {
     if (!supabase) return;
@@ -19,6 +21,11 @@ export default function PartnerSession({ onExit }) {
       // Auth callbacks finish before starting another Supabase request.
       timer = setTimeout(async () => {
         if (!active) return;
+        if (!session) {
+          // No session: the router sends the visitor to the partner sign-in page.
+          if (current === version) setAccess({ loading: false, signedOut: true });
+          return;
+        }
         setAccess((previous) => session?.user?.id && previous.user?.id === session.user.id
           ? previous
           : { loading: true });
@@ -52,6 +59,10 @@ export default function PartnerSession({ onExit }) {
     onExit();
   }
 
+  if (supabase && access.signedOut) {
+    return signingOut ? null : <Navigate to="/partner/sign-in" replace state={{ from: location.pathname }} />;
+  }
+
   if (!supabase || access.loading || !access.user) {
     return (
       <main className="min-h-screen bg-gray-50 flex items-center justify-center p-6">
@@ -74,6 +85,7 @@ export default function PartnerSession({ onExit }) {
       onExit={signOut}
       user={access.user}
       isAdmin={access.isAdmin}
+      basePath="/partner"
       signingOut={signingOut}
       signOutError={signOutError}
     />

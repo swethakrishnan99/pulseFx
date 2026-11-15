@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex" />
+    <title>PulseFX</title>
+    <script>
+      // GitHub Pages shows this page for any address it doesn't have a file for, such as a refresh on
+      // /pulseFx/partner/referrals. Send the visitor to the app's start page and keep the original
+      // address in the query string; a small script in index.html puts it back before the app starts.
+      //
+      // SETTING: BASE must match `base` in vite.config.js.
+      //   "/pulseFx/"  while the portal lives at https://<user>.github.io/pulseFx/
+      //   "/"          once it moves to its own domain (e.g. partners.pulsefx.com)
+      var BASE = "/pulseFx/";
+
+      var l = location;
+      // Safety stop: never redirect twice (prevents a redirect loop).
+      if (l.search.slice(0, 2) !== "?/") {
+        var rest = l.pathname.indexOf(BASE) === 0 ? l.pathname.slice(BASE.length) : l.pathname.replace(/^\//, "");
+        l.replace(
+          l.origin + BASE + "?/" +
+          rest.replace(/&/g, "~and~") +
+          (l.search ? "&" + l.search.slice(1).replace(/&/g, "~and~") : "") +
+          l.hash
+        );
+      }
+    </script>
+  </head>
+  <body>
+    <noscript>This site needs JavaScript. <a href="./">Go to the PulseFX portal</a>.</noscript>
+  </body>
+</html>
