@@ -1,3 +1,5 @@
+import { loadBrandAssets } from "../lib/brandAssets";
+import { brandKitRequest, encodeBrandFile } from "../lib/brandKit";
 import { airtableFieldValue, formatAirtableDateTime, inAirtableDateRange } from "../lib/airtableDates.mjs";
 import { createSupportRequest } from "../lib/support";
 import SearchFilter from "./SearchFilter";
@@ -12,7 +14,7 @@ import { sortTableRows } from "../lib/tableSort.mjs";
 import ClearFiltersButton from "./ClearFiltersButton";
 import { useEffect, useState, useMemo, useRef } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { Home, Users, DollarSign, Landmark, BookOpen, Headset, Copy, Check, X, Eye, Download, UserPlus, ChevronDown, CheckCircle2, Palette, Upload, Phone, MessageSquare, Mail, FileText, Trash2, RefreshCw } from "lucide-react";
+import { Home, Users, DollarSign, Landmark, BookOpen, Headset, Copy, Check, X, Eye, Download, UserPlus, ChevronDown, CheckCircle2, Palette, ArrowRight, Upload, Phone, MessageSquare, Mail, FileText, RefreshCw } from "lucide-react";
 import Sidebar from "./Sidebar";
 import PartnerAdmin from "./PartnerAdmin";
 import BankingDetails from "./BankingDetails";
@@ -358,85 +360,176 @@ function AddClientForm({ go, authenticated = false, onClose }) {
 
 /* --------------------------------------------------------------- Brand kit */
 
-// Module-level so uploads survive tab switches (reset on reload; nothing is sent anywhere).
-let BRAND = { logo: null, headshot: null, description: "" };
-function Uploader({ id, label, hint, kind, accept, maxMB }) {
-  const [file, setFile] = useState(BRAND[kind]);
+function Uploader({ id, label, hint, kind, accept, maxMB, file, disabled, onUpload }) {
   const [err, setErr] = useState("");
-  function pick(e) {
-    const f = e.target.files?.[0];
-    e.target.value = "";
-    if (!f) return;
-    if (!accept.includes(f.type)) { setErr(`Use a ${accept.map((t) => t.split("/")[1].replace("jpeg", "JPG").replace("svg+xml", "SVG").toUpperCase()).join(", ")} file.`); return; }
-    if (f.size > maxMB * 1024 * 1024) { setErr(`That file is over ${maxMB} MB.`); return; }
-    if (BRAND[kind]?.url) URL.revokeObjectURL(BRAND[kind].url);
-    BRAND[kind] = { name: f.name, size: f.size, url: URL.createObjectURL(f) };
-    setFile(BRAND[kind]); setErr("");
+  const [viewing, setViewing] = useState(false);
+  const [pending, setPending] = useState(null);
+  const [busy, setBusy] = useState(false);
+  useEffect(() => {
+    if (!pending) return;
+    return () => URL.revokeObjectURL(pending.url);
+  }, [pending]);
+  async function upload(f) {
+    setBusy(true); setErr("");
+    try { await onUpload(kind, f); setPending(null); }
+    catch (error) { setErr(error.message); setPending(null); }
+    finally { setBusy(false); }
   }
-  function remove() { if (file?.url) URL.revokeObjectURL(file.url); BRAND[kind] = null; setFile(null); }
-  return (
-    <div className={`${card} p-5`}>
-      <p className="text-sm font-medium text-accent">{label}</p>
-      <p className="text-xs text-gray-500 mt-0.5">{hint}</p>
-      {file && (
-        <div className="flex items-center gap-3 mt-3 p-2 rounded-md bg-gray-50">
-          <img src={file.url} alt={`${label} preview`} className={`w-12 h-12 object-contain bg-white border border-gray-200 ${kind === "headshot" ? "rounded-full object-cover" : "rounded-md"}`} />
-          <div className="min-w-0 flex-1"><p className="text-sm text-gray-900 truncate">{file.name}</p><p className="text-xs text-gray-500">{(file.size / 1024).toFixed(0)} KB</p></div>
-          <button type="button" onClick={remove} aria-label={`Remove ${label}`} className="p-2 rounded-md text-gray-500 hover:bg-gray-100"><Trash2 className="w-4 h-4" /></button>
-        </div>
-      )}
-      <div className="mt-3">
-        <input id={id} type="file" accept={accept.join(",")} onChange={pick} className="sr-only" />
-        <label htmlFor={id} className={`${ghost} cursor-pointer focus-within:ring-2`}><Upload className="w-4 h-4" />{file ? "Replace" : "Upload"}</label>
-      </div>
-      {err && <p role="alert" className="text-xs text-danger mt-2">{err}</p>}
+  function pick(e) {
+    const f = e.target.files?.[0]; e.target.value = "";
+    if (!f) return;
+    if (!accept.includes(f.type)) { setErr("Use a supported image type."); return; }
+    if (!f.size || f.size > maxMB * 1024 * 1024) { setErr(`Use a non-empty file up to ${maxMB} MB.`); return; }
+    setErr("");
+    if (file) setPending({ file: f, url: URL.createObjectURL(f) }); else upload(f);
+  }
+  async function download() {
+    try {
+      setErr("");
+      const response = await fetch(file.url);
+      if (!response.ok) throw new Error("Unable to download. Reload the Brand kit and try again.");
+      const url = URL.createObjectURL(await response.blob());
+      const link = document.createElement("a"); link.href = url; link.download = file.name; link.click();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } catch (error) { setErr(error.message); }
+  }
+  const actionClass = "inline-flex min-w-0 items-center justify-center gap-1 whitespace-nowrap rounded-md border border-gray-200 px-1.5 py-2 text-xs font-medium hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50";
+  return <div className={`${card} min-w-0 p-5`}>
+    <p className="text-sm font-medium text-accent">{label}</p><p className="text-xs text-gray-500 mt-0.5">{hint}</p>
+    {file && <div className="flex items-center gap-3 mt-3 p-2 rounded-md bg-gray-50">
+      <img src={file.url} alt={`${label} preview`} className="w-12 h-12 shrink-0 object-contain rounded-md bg-white border border-gray-200" />
+      <div className="min-w-0"><p className="text-sm truncate">{file.name}</p>{Number.isFinite(file.size) && <p className="text-xs text-gray-500">{Math.round(file.size / 1024)} KB</p>}</div>
+    </div>}
+    <input id={id} type="file" disabled={disabled || busy} accept={accept.join(",")} onChange={pick} className="sr-only" />
+    <div className={`mt-3 ${file ? "grid grid-cols-[0.8fr_1.2fr_1fr] gap-1.5" : "flex"}`}>
+      {file && <><button type="button" onClick={() => setViewing(true)} className={actionClass}><Eye className="w-3.5 h-3.5 shrink-0" />View</button><button type="button" onClick={download} className={actionClass}><Download className="w-3.5 h-3.5 shrink-0" />Download</button></>}
+      <button type="button" disabled={disabled || busy} onClick={() => document.getElementById(id).click()} className={actionClass}><Upload className="w-3.5 h-3.5 shrink-0" />{busy ? "Uploading…" : file ? "Replace" : "Upload"}</button>
     </div>
-  );
+    {err && <p role="alert" className="text-xs text-danger mt-2">{err}</p>}
+    {viewing && file && <PortalDialog title={`${label} preview`} subtitle={file.name} onClose={() => setViewing(false)} icon={<Eye className="h-5 w-5" />} maxWidth="max-w-2xl">
+      <div className="p-6"><div className="flex h-56 sm:h-72 items-center justify-center rounded-xl border border-gray-200 bg-gray-50 p-6"><img src={file.url} alt={label} className="h-full w-full object-contain" /></div>
+        <p className="mt-3 break-all text-xs text-gray-500">{file.name}</p>
+        {err && <p role="alert" className="mt-3 text-sm text-danger">{err}</p>}
+        <div className="mt-4 flex justify-end"><button type="button" onClick={download} className={`inline-flex items-center gap-1.5 ${primary}`}><Download className="h-4 w-4" />Download</button></div>
+      </div>
+    </PortalDialog>}
+    {pending && <PortalDialog title={`Replace ${label.toLowerCase()}?`} onClose={() => { if (!busy) setPending(null); }} icon={<RefreshCw className="w-5 h-5" />} maxWidth="max-w-lg">
+      <div className="p-6" aria-busy={busy}>
+        <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-3 mb-5">
+          <figure className="min-w-0"><figcaption className="text-xs font-medium text-gray-500 mb-2">Current image</figcaption><div className="flex h-28 sm:h-36 items-center justify-center rounded-lg border border-gray-200 bg-gray-50 p-2"><img src={file.url} alt={`Current ${label.toLowerCase()}`} className="h-full w-full object-contain" /></div><p title={file.name} className="mt-2 truncate text-xs text-gray-600">{file.name}</p></figure>
+          <ArrowRight aria-hidden="true" className="h-5 w-5 text-accent" />
+          <figure className="min-w-0"><figcaption className="text-xs font-medium text-accent mb-2">New image</figcaption><div className="flex h-28 sm:h-36 items-center justify-center rounded-lg border border-accent/30 bg-accent-100 p-2"><img src={pending.url} alt={`New ${label.toLowerCase()}`} className="h-full w-full object-contain" /></div><p title={pending.file.name} className="mt-2 truncate text-xs text-gray-600">{pending.file.name}</p></figure>
+        </div>
+        <p className="text-sm text-gray-600">Only the latest file will be kept. The previous file will be removed after the new upload succeeds.</p>
+        <div className="flex justify-end gap-3 mt-5"><button type="button" disabled={busy} onClick={() => setPending(null)} className={ghost}>Cancel</button><button type="button" disabled={busy} onClick={() => upload(pending.file)} className={primary}>{busy ? "Uploading…" : "Replace file"}</button></div>
+      </div>
+    </PortalDialog>}
+  </div>;
 }
 
-const ASSETS = [
-  { name: "PulseFX logo, full colour (PNG)", file: "pulsefx-logo-colour.png" },
-  { name: "PulseFX logo, white text for dark backgrounds (PNG)", file: "pulsefx-logo-white.png" },
-  { name: "PulseFX logo mark on navy circle (SVG)", file: "pulsefx-logo-navy-circle.svg" },
-];
-function BrandKit() {
-  const [desc, setDesc] = useState(BRAND.description);
+function BrandAssets({ authenticated }) {
+  const [assets, setAssets] = useState([]);
+  const [preview, setPreview] = useState(null);
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(authenticated);
+  const [revision, setRevision] = useState(0);
+  useEffect(() => {
+    if (!authenticated) return;
+    let active = true;
+    loadBrandAssets().then(value => { if (active) { setAssets(value); setError(""); } }).catch(error => { if (active) setError(error.message); }).finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
+  }, [authenticated, revision]);
+  async function openPreview(asset) {
+    try {
+      const current = (await loadBrandAssets()).find(item => item.id === asset.id);
+      if (!current) throw new Error("This asset is no longer available.");
+      setPreview(current);
+    } catch (error) { setError(error.message); }
+  }
+  async function download(asset) {
+    try {
+      // Refresh the attachment URL before downloading because Airtable links expire.
+      const current = (await loadBrandAssets()).find(item => item.id === asset.id);
+      if (!current) throw new Error("This asset is no longer available.");
+      const response = await fetch(current.file.url);
+      if (!response.ok) throw new Error("Unable to download this asset. Please try again.");
+      const url = URL.createObjectURL(await response.blob());
+      const link = document.createElement("a"); link.href = url; link.download = current.file.name; link.click();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } catch (error) { setError(error.message); }
+  }
+  return <div className={`${card} p-5`}>
+    <p className="text-sm font-medium text-accent">PulseFX brand assets</p>
+    <p className="text-xs text-gray-500 mt-0.5">Use these when you talk about PulseFX to your clients.</p>
+    {!authenticated ? <p className="mt-3 text-sm text-gray-500">Sign in to download PulseFX brand assets.</p> : loading ? <p className="mt-3 text-sm text-gray-500">Loading assets…</p> : <>
+      {error && <div role="alert" className="mt-3 text-sm text-danger">{error}<button type="button" className={ghost} onClick={() => { setLoading(true); setRevision(value => value + 1); }}>Try again</button></div>}
+      {!error && !assets.length && <p className="mt-3 text-sm text-gray-500">No brand assets are available yet.</p>}
+      <ul className="mt-3 divide-y divide-gray-100">{assets.map(asset => <li key={asset.id} className="flex flex-wrap items-center gap-3 py-3">
+        <button type="button" onClick={() => openPreview(asset)} aria-label={`Preview ${asset.name}`} className={`flex h-16 w-20 shrink-0 items-center justify-center rounded-lg border border-gray-200 p-2 hover:ring-2 hover:ring-accent/30 ${/white/i.test(asset.file.name) ? "bg-navy" : "bg-gray-50"}`}><img src={asset.file.url} alt={asset.name} loading="lazy" className="h-full w-full object-contain" /></button>
+        <span className="min-w-0 flex-1 text-sm text-gray-900">{asset.name}</span>
+        <div className="flex flex-wrap gap-2"><button type="button" onClick={() => openPreview(asset)} aria-label={`View ${asset.name}`} className={ghost}><Eye className="w-4 h-4" />View</button><button type="button" onClick={() => download(asset)} aria-label={`Download ${asset.name}`} className={ghost}><Download className="w-4 h-4" />Download</button></div>
+      </li>)}</ul>
+    </>}
+    {preview && <PortalDialog title="Brand asset preview" subtitle={preview.name} onClose={() => setPreview(null)} icon={<Eye className="h-5 w-5" />} maxWidth="max-w-2xl">
+      <div className="p-6"><div className={`flex h-56 sm:h-72 items-center justify-center rounded-xl border border-gray-200 p-6 ${/white/i.test(preview.file.name) ? "bg-navy" : "bg-gray-50"}`}><img src={preview.file.url} alt={preview.name} className="h-full w-full object-contain" /></div>
+        <p className="mt-3 break-all text-xs text-gray-500">{preview.file.name}</p>
+        <div className="mt-4 flex justify-end"><button type="button" onClick={() => download(preview)} className={`inline-flex items-center gap-1.5 ${primary}`}><Download className="h-4 w-4" />Download</button></div>
+      </div>
+    </PortalDialog>}
+  </div>;
+}
+function BrandKit({ authenticated }) {
+  const [kit, setKit] = useState({ logo: null, headshot: null, description: "" });
+  const [desc, setDesc] = useState("");
+  const [loading, setLoading] = useState(authenticated);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
   const [saved, setSaved] = useState(false);
+  const [revision, setRevision] = useState(0);
+  useEffect(() => {
+    if (!authenticated) return;
+    let active = true;
+    brandKitRequest({ action: "load" }).then(value => { if (active) { setKit(value); setDesc(value.description); setError(""); } }).catch(error => { if (active) setError(error.message); }).finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
+  }, [authenticated, revision]);
   const max = 500;
-  function save(e) { e.preventDefault(); BRAND.description = desc.trim(); setDesc(BRAND.description); setSaved(true); setTimeout(() => setSaved(false), 2000); }
+  async function upload(kind, file) {
+    setBusy(true);
+    try {
+      const value = await brandKitRequest({ action: "upload", kind, filename: file.name, contentType: file.type, file: await encodeBrandFile(file) });
+      setKit(current => ({ ...current, [kind]: value[kind] }));
+    } finally { setBusy(false); }
+  }
+  async function save(e) {
+    e.preventDefault(); setBusy(true); setError(""); setSaved(false);
+    try { const value = await brandKitRequest({ action: "description", description: desc }); setKit(value); setDesc(value.description); setSaved(true); }
+    catch (error) { setError(error.message); }
+    finally { setBusy(false); }
+  }
   return (
     <div className="flex flex-col gap-4 max-w-2xl">
       <div>
         <p className="text-sm font-medium text-accent">Your details for referral pages</p>
-        <p className="text-xs text-gray-500 mt-0.5">Add your own logo, head shot and description. Clients may see these when they sign up through your link.</p>
+        <p className="text-xs text-gray-500 mt-0.5">Add your own logo, headshot and description. Clients may see these when they sign up through your link.</p>
       </div>
+      {!authenticated && <p className="text-sm text-gray-500">Sign in to manage your Brand kit.</p>}
+      {loading && <p role="status">Loading Brand kit…</p>}
+      {error && <div role="alert" className="text-sm text-danger">{error}<button type="button" className={ghost} disabled={busy} onClick={() => { setLoading(true); setRevision(value => value + 1); }}>Reload Brand kit</button></div>}
       <div className="grid sm:grid-cols-2 gap-4">
-        <Uploader id="bk-logo" kind="logo" label="Referral logo" hint="PNG, JPG or SVG, up to 2 MB." accept={["image/png", "image/jpeg", "image/svg+xml"]} maxMB={2} />
-        <Uploader id="bk-head" kind="headshot" label="Head shot" hint="PNG or JPG, up to 5 MB." accept={["image/png", "image/jpeg"]} maxMB={5} />
+        <Uploader file={kit.logo} disabled={!authenticated || loading || busy || !!error} onUpload={upload} id="bk-logo" kind="logo" label="Referral logo" hint="Images only (PNG, JPG or SVG). Maximum file size: 5 MB." accept={["image/png", "image/jpeg", "image/svg+xml"]} maxMB={5} />
+        <Uploader file={kit.headshot} disabled={!authenticated || loading || busy || !!error} onUpload={upload} id="bk-head" kind="headshot" label="Headshot" hint="Images only (PNG or JPG). Maximum file size: 5 MB." accept={["image/png", "image/jpeg"]} maxMB={5} />
       </div>
       <form onSubmit={save} className={`${card} p-5`}>
         <label htmlFor="bk-desc" className="text-sm font-medium text-accent">Description</label>
         <p className="text-xs text-gray-500 mt-0.5">A short introduction to your firm.</p>
-        <textarea id="bk-desc" rows={4} maxLength={max} className={`${field} mt-3`} value={desc} onChange={(e) => { setDesc(e.target.value); setSaved(false); }} />
+        <textarea id="bk-desc" disabled={!authenticated || loading || busy || !!error} rows={4} maxLength={max} className={`${field} mt-3`} value={desc} onChange={(e) => { setDesc(e.target.value); setSaved(false); }} />
         <div className="flex items-center justify-between gap-3 mt-2">
-          <div className="flex items-center gap-3"><button type="submit" className={primary}>Save description</button>{saved && <span role="status" className="text-xs text-success flex items-center gap-1"><CheckCircle2 className="w-3.5 h-3.5" />Saved</span>}</div>
+          <div className="flex items-center gap-3"><button type="submit" disabled={!authenticated || loading || busy || !!error || desc === kit.description} className={primary}>{busy ? "Saving…" : "Save description"}</button>{saved && <span role="status" className="text-xs text-success flex items-center gap-1"><CheckCircle2 className="w-3.5 h-3.5" />Saved</span>}</div>
           <span className="text-xs text-gray-400">{desc.length}/{max}</span>
         </div>
       </form>
 
-      <div className={`${card} p-5`}>
-        <p className="text-sm font-medium text-accent">PulseFX brand assets</p>
-        <p className="text-xs text-gray-500 mt-0.5">Use these when you talk about PulseFX to your clients.</p>
-        <ul className="mt-3 divide-y divide-gray-100">
-          {ASSETS.map((a) => (
-            <li key={a.file} className="flex items-center justify-between gap-3 py-2.5">
-              <span className="flex items-center gap-2 text-sm text-gray-900 min-w-0"><FileText className="w-4 h-4 text-gray-400 shrink-0" /><span className="truncate">{a.name}</span></span>
-              <a href={`${import.meta.env.BASE_URL}Brand/${a.file}`} download={a.file} aria-label={`Download ${a.name}`} className={ghost}><Download className="w-4 h-4" />Download</a>
-            </li>
-          ))}
-        </ul>
-        
-      </div>
+      <BrandAssets authenticated={authenticated} />
     </div>
   );
 }
@@ -610,7 +703,7 @@ export default function PartnerPortal({ onExit, user, isAdmin = false, signingOu
         {tab === "add" && <AddClient go={setTab} authenticated={!!user} />}
         {tab === "banking" && <BankingDetails authenticated={!!user} />}
         {tab === "payouts" && <PayoutHistory authenticated={!!user} showDescription={false} />}
-        {tab === "brand" && <BrandKit />}
+        {tab === "brand" && <BrandKit key={user?.id || "demo"} authenticated={!!user} />}
         {tab === "guide" && <Guide />}
         {tab === "contact" && !canAdmin && <Contact key={user?.id || "demo"} authenticated={!!user} go={setTab} />}
         {tab !== "admin" && tab !== "add" && tab !== "contact" && !user && <p className="text-xs text-gray-400 mt-4">Portal preview: all names and figures are sample data.</p>}
