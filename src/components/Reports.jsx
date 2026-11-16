@@ -1,8 +1,12 @@
+import { airtableDay, inAirtableDateRange } from "../lib/airtableDates.mjs";
+import DateRangeFilter from "./DateRangeFilter";
+import { addDateDays } from "../lib/dateRange.mjs";
+import SearchFilter from "./SearchFilter";
 import SortableHeader from "./SortableHeader";
 import useTableSort from "../lib/useTableSort";
 import ClearFiltersButton from "./ClearFiltersButton";
 import { useState, useMemo } from "react";
-import { Search, Download, FileText, Check } from "lucide-react";
+import { Download, FileText, Check } from "lucide-react";
 import Tooltip from "./Tooltip";
 
 // Fixed "today" so the demo's date filters behave the same every time it's opened
@@ -25,7 +29,6 @@ const STATUS = {
 const STEPS = ["Created", "Funds received", "Sent", "Delivered"];
 const STEPS_DONE = { awaiting: 1, transit: 3, completed: 4 };
 
-const RANGES = { "30": "Last 30 days", "90": "Last 90 days", all: "All time" };
 
 const fmt = (n) => n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const money = ({ cur, amt }) => `${cur} ${fmt(amt)}`;
@@ -38,7 +41,7 @@ function daysAgo(iso) {
 
 function StatusBadge({ status }) {
   const s = STATUS[status];
-  return <span className={`inline-block text-[11px] px-1.5 py-0.5 rounded ${s.className}`}>{s.label}</span>;
+  return <span className={`inline-block text-xs px-1.5 py-0.5 rounded ${s.className}`}>{s.label}</span>;
 }
 
 function Stepper({ status }) {
@@ -56,7 +59,7 @@ function Stepper({ status }) {
               />
             )}
             <span
-              className={`relative z-10 w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-medium border-2 ${
+              className={`relative z-10 w-6 h-6 rounded-full flex items-center justify-center text-xs font-medium border-2 ${
                 isDone
                   ? "bg-brand border-brand text-navy"
                   : isCurrent
@@ -66,7 +69,7 @@ function Stepper({ status }) {
             >
               {isDone ? <Check className="w-3.5 h-3.5" /> : i + 1}
             </span>
-            <span className={`mt-1.5 text-[11px] text-center ${isDone || isCurrent ? "text-gray-700" : "text-gray-400"}`}>
+            <span className={`mt-1.5 text-xs text-center ${isDone || isCurrent ? "text-gray-700" : "text-gray-400"}`}>
               {label}
             </span>
           </li>
@@ -103,7 +106,7 @@ function exportCsv(rows) {
 export default function Reports() {
   const { sort, toggleSort, sortRows } = useTableSort();
   const [tab, setTab] = useState("tracker");
-  const [range, setRange] = useState("90");
+  const [range, setRange] = useState(() => { const to = airtableDay(new Date()); return { from: addDateDays(to, -89), to }; });
   const [statusFilter, setStatusFilter] = useState("all");
   const [query, setQuery] = useState("");
   const [notice, setNotice] = useState("");
@@ -114,7 +117,7 @@ export default function Reports() {
   const filteredRows = useMemo(() => {
     const q = query.trim().toLowerCase();
     return PAYMENTS.filter((p) => {
-      if (range !== "all" && daysAgo(p.date) > Number(range)) return false;
+      if (!inAirtableDateRange(p.date, range.from, range.to)) return false;
       if (statusFilter !== "all" && p.status !== statusFilter) return false;
       if (q && !(p.ref.toLowerCase().includes(q) || p.to.toLowerCase().includes(q))) return false;
       return true;
@@ -132,18 +135,18 @@ export default function Reports() {
     <div className="flex-1 bg-gray-50 p-4 pt-[72px] md:p-6 min-w-0">
       <h1 className="text-xl font-semibold text-gray-900 mb-1">Reports</h1>
       <p className="text-sm text-gray-500 mb-4 max-w-xl">
-        Follow your payments from start to finish, or look back at what you've sent.
+        Track payment progress and review your transaction history.
       </p>
 
       {/* Summary */}
       <div className="grid grid-cols-2 gap-3.5 max-w-lg mb-5">
         <div className="bg-white rounded-xl border border-gray-200/70 p-4">
           <p className="text-xs text-gray-500 mb-1">In progress</p>
-          <p className="text-xl font-semibold text-gray-900">{inProgress.length}</p>
+          <p className="text-2xl font-semibold text-gray-900">{inProgress.length}</p>
         </div>
         <div className="bg-white rounded-xl border border-gray-200/70 p-4">
           <p className="text-xs text-gray-500 mb-1">Completed, last 90 days</p>
-          <p className="text-xl font-semibold text-gray-900">{completed90}</p>
+          <p className="text-2xl font-semibold text-gray-900">{completed90}</p>
         </div>
       </div>
 
@@ -183,22 +186,22 @@ export default function Reports() {
                   <p className="text-base font-medium text-gray-900">{p.to}</p>
                   <p className="text-xs text-gray-600 font-mono mt-0.5">{p.ref} · {niceDate(p.date)}</p>
                 </div>
-                <span className={`text-[11px] font-medium px-2 py-0.5 rounded ${STATUS[p.status].className}`}>
+                <span className={`text-xs font-medium px-2 py-0.5 rounded ${STATUS[p.status].className}`}>
                   {STATUS[p.status].label}
                 </span>
               </div>
 
               <dl className="grid grid-cols-1 sm:grid-cols-3 gap-x-4 gap-y-3 bg-gray-50 rounded-lg px-4 py-3 mb-5">
                 <div>
-                  <dt className="text-[11px] text-gray-500">{p.status === "awaiting" ? "You pay" : "You paid"}</dt>
+                  <dt className="text-xs text-gray-500">{p.status === "awaiting" ? "You pay" : "You paid"}</dt>
                   <dd className="text-sm font-medium text-gray-900 tabular-nums mt-0.5">{money(p.paid)}</dd>
                 </div>
                 <div>
-                  <dt className="text-[11px] text-gray-500">They receive</dt>
+                  <dt className="text-xs text-gray-500">They receive</dt>
                   <dd className="text-sm font-medium text-gray-900 tabular-nums mt-0.5">{money(p.received)}</dd>
                 </div>
                 <div>
-                  <dt className="text-[11px] text-gray-500">{p.status === "awaiting" ? "Paying from" : "Paid from"}</dt>
+                  <dt className="text-xs text-gray-500">{p.status === "awaiting" ? "Paying from" : "Paid from"}</dt>
                   <dd className="text-sm text-gray-900 tabular-nums mt-0.5">{p.from}</dd>
                 </div>
               </dl>
@@ -213,39 +216,14 @@ export default function Reports() {
       {/* HISTORY */}
       {tab === "history" && (
         <>
-          <div className="flex flex-wrap items-center gap-2.5 mb-3.5">
-            <div className="relative">
-              <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
-              <input
-                type="text"
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder="Search reference or name"
-                className="w-56 text-sm border border-gray-200 rounded-md pl-9 pr-3 py-2 bg-white focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent-100"
-              />
-            </div>
-            <select
-              value={range}
-              onChange={(e) => setRange(e.target.value)}
-              aria-label="Date range"
-              className="text-sm border border-gray-200 rounded-md px-2.5 py-2 bg-white"
-            >
-              {Object.entries(RANGES).map(([k, v]) => (
-                <option key={k} value={k}>{v}</option>
-              ))}
-            </select>
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              aria-label="Status"
-              className="text-sm border border-gray-200 rounded-md px-2.5 py-2 bg-white"
-            >
+          <div className="flex flex-wrap items-end gap-2.5 mb-3.5">
+            <SearchFilter id="reports-search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Reference or recipient" />
+            <DateRangeFilter id="reports-date-period" label="Date" from={range.from} to={range.to} onChange={setRange} />
+            <div className="filter-field"><label htmlFor="reports-status" className="mb-1.5 block text-xs text-gray-500">Status</label><select id="reports-status" value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)} className="filter-control w-full rounded-lg border border-gray-200 bg-white px-3 text-sm">
               <option value="all">All statuses</option>
-              {Object.entries(STATUS).map(([k, v]) => (
-                <option key={k} value={k}>{v.label}</option>
-              ))}
-            </select>
-            <ClearFiltersButton onClick={() => { setQuery(""); setStatusFilter("all"); setRange("all"); }} />
+              {Object.entries(STATUS).sort(([, a], [, b]) => a.label.localeCompare(b.label)).map(([key, value]) => <option key={key} value={key}>{value.label}</option>)}
+            </select></div>
+            <ClearFiltersButton onClick={() => { setQuery(""); setStatusFilter("all"); setRange({ from: "", to: "" }); }} />
             <button
               type="button"
               onClick={() => exportCsv(rows)}
@@ -258,7 +236,7 @@ export default function Reports() {
           </div>
 
           <div className="bg-white rounded-xl border border-gray-200/70 p-4 overflow-x-auto">
-            <div className="grid grid-cols-[1fr_0.8fr_1.2fr_1.1fr_1.15fr_1fr_1fr_0.7fr] gap-4 min-w-[980px] text-[11px] text-gray-400 border-b border-gray-100 pb-1.5">
+            <div className="grid grid-cols-[1fr_0.8fr_1.2fr_1.1fr_1.15fr_1fr_1fr_0.7fr] gap-4 min-w-[980px] text-xs text-gray-400 border-b border-gray-100 pb-1.5">
               <SortableHeader as="div" column="ref" label="Reference" sort={sort} onSort={toggleSort}  />
               <SortableHeader as="div" column="date" label="Date" sort={sort} onSort={toggleSort}  />
               <SortableHeader as="div" column="to" label="Paid to" sort={sort} onSort={toggleSort}  />

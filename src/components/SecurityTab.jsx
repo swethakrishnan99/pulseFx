@@ -23,7 +23,7 @@ function PasswordField({ id, label, value, onChange, error, autoComplete }) {
   const [show, setShow] = useState(false);
   return (
     <div>
-      <label htmlFor={id} className="block text-[11px] text-gray-500 mb-1">{label}</label>
+      <label htmlFor={id} className="block text-xs text-gray-500 mb-1">{label}</label>
       <div className="relative">
         <input
           id={id}
@@ -42,7 +42,7 @@ function PasswordField({ id, label, value, onChange, error, autoComplete }) {
           {show ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
         </button>
       </div>
-      {error && <p className="text-[11px] text-danger mt-1" role="alert">{error}</p>}
+      {error && <p className="text-xs text-danger mt-1" role="alert">{error}</p>}
     </div>
   );
 }
@@ -82,7 +82,7 @@ export default function SecurityTab() {
       <div className="grid grid-cols-1 md:grid-cols-2 md:gap-x-4 items-start">
         <div>
       <form onSubmit={updatePassword} noValidate className={CARD} aria-labelledby="sec-pw">
-        <h2 id="sec-pw" className="text-sm font-medium text-gray-900">Password</h2>
+        <h2 id="sec-pw" className="text-base font-medium text-gray-900">Password</h2>
         <p className="text-xs text-gray-500 mb-3">Last changed 3 months ago.</p>
         <div className="grid grid-cols-1 gap-3 max-w-sm">
           <PasswordField id="sec-cur" label="Current password" value={pw.current} onChange={setField("current")} error={pwErr.current} autoComplete="current-password" />
@@ -119,9 +119,9 @@ export default function SecurityTab() {
       <section className={CARD} aria-labelledby="sec-2fa">
         <div className="flex items-start justify-between gap-4">
           <div className="min-w-0">
-            <h2 id="sec-2fa" className="text-sm font-medium text-gray-900 flex items-center gap-2">
+            <h2 id="sec-2fa" className="text-base font-medium text-gray-900 flex items-center gap-2">
               Two-step verification
-              <span className={`text-[11px] font-normal px-1.5 py-0.5 rounded ${twoStep ? "bg-accent-100 text-accent-800" : "bg-gray-100 text-gray-600"}`}>
+              <span className={`text-xs font-normal px-1.5 py-0.5 rounded ${twoStep ? "bg-accent-100 text-accent-800" : "bg-gray-100 text-gray-600"}`}>
                 {twoStep ? "On" : "Off"}
               </span>
             </h2>
@@ -134,7 +134,7 @@ export default function SecurityTab() {
 
         {twoStep && (
           <fieldset className="mt-4 max-w-md">
-            <legend className="text-[11px] text-gray-500 mb-2">Verification method</legend>
+            <legend className="text-xs text-gray-500 mb-2">Verification method</legend>
             {[
               ["app", "Authenticator app", "Use a code from an app such as Microsoft Authenticator or Google Authenticator."],
               ["sms", "Text message", "We send a code to +1 416 555 ••42."],
@@ -160,7 +160,7 @@ export default function SecurityTab() {
         <div>
       <section className={`${CARD} flex items-center justify-between gap-4`} aria-labelledby="sec-alerts">
         <div className="min-w-0">
-          <h2 id="sec-alerts" className="text-sm font-medium text-gray-900">Sign-in alerts</h2>
+          <h2 id="sec-alerts" className="text-base font-medium text-gray-900">Sign-in alerts</h2>
           <p className="text-xs text-gray-500 mt-0.5">Email me when my account is accessed from a new device.</p>
         </div>
         <Toggle checked={alerts} onChange={setAlerts} label="Sign-in alerts" />
@@ -168,7 +168,7 @@ export default function SecurityTab() {
 
       <section className={CARD} aria-labelledby="sec-sessions">
         <div className="flex flex-wrap items-center justify-between gap-2 mb-1">
-          <h2 id="sec-sessions" className="text-sm font-medium text-gray-900">Where you're signed in</h2>
+          <h2 id="sec-sessions" className="text-base font-medium text-gray-900">Where you're signed in</h2>
           <button
             type="button"
             disabled={others.length === 0}
@@ -186,7 +186,7 @@ export default function SecurityTab() {
                 <p className="text-sm text-gray-900 flex flex-wrap items-center gap-2">
                   {device}
                   {current && (
-                    <span className="text-[11px] px-1.5 py-0.5 rounded bg-accent-100 text-accent-800">This device</span>
+                    <span className="text-xs px-1.5 py-0.5 rounded bg-accent-100 text-accent-800">This device</span>
                   )}
                 </p>
                 <p className="text-xs text-gray-500">{place} · {when}</p>
@@ -215,7 +215,7 @@ export default function SecurityTab() {
         </div>
       </div>
 
-      <p className="text-[11px] text-gray-400">Demo only. No changes are sent to a server.</p>
+      <p className="text-xs text-gray-400">Demo only. No changes are sent to a server.</p>
     </div>
   );
 }

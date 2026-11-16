@@ -125,7 +125,7 @@ export default function Dashboard({ onNavigate }) {
           {!quote ? (
             <form onSubmit={getQuote} className="flex-1 flex flex-col">
               <p className="text-sm font-medium text-accent">Get a quote for a currency pair.</p>
-              <p id="qq-help" className="text-[11px] text-gray-500 mb-3">
+              <p id="qq-help" className="text-xs text-gray-500 mb-3">
                 Enter an amount in either field. The other amount appears in your quote.
                 {amountStr !== "" && (
                   <button type="button" onClick={() => setAmountStr("")} className="ml-1.5 text-accent hover:underline">Clear</button>
@@ -134,7 +134,7 @@ export default function Dashboard({ onNavigate }) {
 
               <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto_1fr] gap-2 items-end">
                 <div className="min-w-0">
-                  <label htmlFor="qq-pay" className="block text-[11px] font-medium text-accent mb-1">You pay</label>
+                  <label htmlFor="qq-pay" className="block text-xs font-medium text-accent mb-1">You pay</label>
                   <div className="flex gap-1.5">
                     <select
                       aria-label="You pay currency"
@@ -167,7 +167,7 @@ export default function Dashboard({ onNavigate }) {
                   <ArrowLeftRight className="w-3.5 h-3.5" />
                 </button>
                 <div className="min-w-0">
-                  <label htmlFor="qq-recv" className="block text-[11px] font-medium text-accent mb-1">They receive</label>
+                  <label htmlFor="qq-recv" className="block text-xs font-medium text-accent mb-1">They receive</label>
                   <div className="flex gap-1.5">
                     <select
                       aria-label="They receive currency"
@@ -195,7 +195,7 @@ export default function Dashboard({ onNavigate }) {
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-end mt-3">
                 <div>
-                  <label htmlFor="qq-delivery" className="block text-[11px] font-medium text-accent mb-1">Delivery type</label>
+                  <label htmlFor="qq-delivery" className="block text-xs font-medium text-accent mb-1">Delivery type</label>
                   <select
                     id="qq-delivery"
                     value={delivery}
@@ -213,7 +213,7 @@ export default function Dashboard({ onNavigate }) {
                   Get a quote
                 </button>
               </div>
-              <p className="text-[11px] text-gray-400 mt-auto pt-3">Indicative rate only. The rate is confirmed before you buy.</p>
+              <p className="text-xs text-gray-400 mt-auto pt-3">Indicative rate only. The rate is confirmed before you buy.</p>
             </form>
           ) : (
             <div role="status">
@@ -224,11 +224,11 @@ export default function Dashboard({ onNavigate }) {
                 <span className="text-base font-semibold">{fmtRate(quote.rate)}</span>{" "}
                 <span className="text-xs">{quote.recvCur}</span>
               </div>
-              <p className="text-[11px] text-gray-400 mt-1 text-center">{quote.rateNote.replace(/\.$/, "")}</p>
+              <p className="text-xs text-gray-400 mt-1 text-center">{quote.rateNote.replace(/\.$/, "")}</p>
 
               <div className="flex gap-4 mt-3 items-start">
                 <div className="flex flex-col items-center shrink-0">
-                  <p className="text-[10px] text-gray-500 mb-1">Rate expires in</p>
+                  <p className="text-xs text-gray-500 mb-1">Rate expires in</p>
                   <div className="relative w-16 h-16">
                     <svg viewBox="0 0 64 64" className="w-16 h-16 -rotate-90" aria-hidden="true">
                       <circle cx="32" cy="32" r="28" fill="none" stroke="#e5e7eb" strokeWidth="5" />
@@ -249,7 +249,7 @@ export default function Dashboard({ onNavigate }) {
                   <p className="text-sm tabular-nums">
                     You pay {quote.payCur} <b>{fmt2(quote.payAmt)}</b><br />They receive {quote.recvCur} <b>{fmt2(quote.recvAmt)}</b>
                   </p>
-                  <p className="text-[11px] text-gray-400 mt-0.5">Delivery: {quote.delivery}</p>
+                  <p className="text-xs text-gray-400 mt-0.5">Delivery: {quote.delivery}</p>
                   {expired ? (
                     <p className="text-xs text-danger mt-2">This quote has expired. Please request a new quote.</p>
                   ) : (
@@ -262,14 +262,14 @@ export default function Dashboard({ onNavigate }) {
               </div>
 
               <div className="flex justify-end gap-2 mt-3">
-                <button type="button" onClick={cancelQuote} className="text-xs font-medium text-gray-600 bg-gray-100 rounded-md px-4 py-2 hover:bg-gray-200">
+                <button type="button" onClick={cancelQuote} className="text-sm font-medium text-gray-600 bg-gray-100 rounded-md px-4 py-2 hover:bg-gray-200">
                   {expired ? "New quote" : "Cancel"}
                 </button>
                 <button
                   type="button"
                   onClick={buy}
                   disabled={!agreed || expired}
-                  className="text-xs font-medium bg-brand text-navy rounded-md px-5 py-2 hover:bg-[#009a7d] disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="text-sm font-medium bg-brand text-navy rounded-md px-5 py-2 hover:bg-[#009a7d] disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Buy
                 </button>
@@ -291,7 +291,7 @@ export default function Dashboard({ onNavigate }) {
           </button>
         </div>
 
-        <div className="grid grid-cols-6 gap-2.5 min-w-[640px] text-[11px] text-gray-400 border-b border-gray-100 pb-1.5">
+        <div className="grid grid-cols-6 gap-2.5 min-w-[640px] text-xs text-gray-400 border-b border-gray-100 pb-1.5">
           <SortableHeader as="div" column="currency" label="Currency" sort={balancesSort.sort} onSort={balancesSort.toggleSort} />
           <SortableHeader as="div" column="accountId" label="Account ID" sort={balancesSort.sort} onSort={balancesSort.toggleSort} />
           <SortableHeader as="div" column="balance" label="Balance" sort={balancesSort.sort} onSort={balancesSort.toggleSort} />
@@ -328,7 +328,7 @@ export default function Dashboard({ onNavigate }) {
       {/* Payments & trades in progress */}
       <div className="bg-white rounded-xl border border-gray-200/70 p-4 overflow-x-auto">
         <p className="text-xs text-gray-500 mb-2.5 min-w-[480px]">Payments &amp; trades in progress</p>
-        <div className="grid grid-cols-4 gap-2 min-w-[480px] text-[11px] text-gray-400 border-b border-gray-100 pb-1.5">
+        <div className="grid grid-cols-4 gap-2 min-w-[480px] text-xs text-gray-400 border-b border-gray-100 pb-1.5">
           <SortableHeader as="div" column="ref" label="Reference" sort={activitySort.sort} onSort={activitySort.toggleSort} />
           <SortableHeader as="div" column="pay" label="You pay" sort={activitySort.sort} onSort={activitySort.toggleSort} />
           <SortableHeader as="div" column="receive" label="They receive" sort={activitySort.sort} onSort={activitySort.toggleSort} />
@@ -347,7 +347,7 @@ export default function Dashboard({ onNavigate }) {
             <span className="flex items-center gap-1">
               {row.tone === "warning" && <AlertTriangle className="w-3 h-3 text-warning" />}
               <span
-                className={`text-[11px] px-1.5 py-0.5 rounded ${
+                className={`text-xs px-1.5 py-0.5 rounded ${
                   row.tone === "warning"
                     ? "text-warning bg-warning-100"
                     : "text-success bg-success-100"

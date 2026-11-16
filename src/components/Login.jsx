@@ -128,7 +128,7 @@ export default function Login({ onSignIn, initialPortal = null, onBack }) {
             onFocus={() => setPaused(true)}
             onBlur={() => setPaused(false)}
           >
-            <p className="flex items-center gap-1.5 text-[11px] uppercase tracking-wider text-brand mb-2">
+            <p className="flex items-center gap-1.5 text-xs uppercase tracking-wider text-brand mb-2">
               <ShieldCheck className="w-4 h-4" />
               Security tip
             </p>
@@ -211,7 +211,7 @@ export default function Login({ onSignIn, initialPortal = null, onBack }) {
             <h1 className="text-xl font-semibold text-gray-900 mb-1">{partner ? "Partner sign in" : "Client sign in"}</h1>
             <p className="text-sm text-gray-500 mb-6">{partner ? "Sign in to the PulseFX partner portal to track your referrals." : "Welcome back. Enter your details to continue."}</p>
 
-            <label htmlFor="lg-email" className="block text-[11px] font-medium text-gray-500 mb-1">Email address</label>
+            <label htmlFor="lg-email" className="block text-xs font-medium text-gray-500 mb-1">Email address</label>
             <div className={`${INPUT_WRAP} ${errors.email ? "border-danger" : "border-gray-200"}`}>
               <Mail className="w-4 h-4 text-gray-400 shrink-0" aria-hidden="true" />
               <input
@@ -228,9 +228,9 @@ export default function Login({ onSignIn, initialPortal = null, onBack }) {
                 className="w-full py-2.5 text-sm bg-transparent focus:outline-none"
               />
             </div>
-            {errors.email && <p id="lg-email-err" className="text-[11px] text-danger mt-1" role="alert">{errors.email}</p>}
+            {errors.email && <p id="lg-email-err" className="text-xs text-danger mt-1" role="alert">{errors.email}</p>}
 
-            <label htmlFor="lg-password" className="block text-[11px] font-medium text-gray-500 mb-1 mt-4">Password</label>
+            <label htmlFor="lg-password" className="block text-xs font-medium text-gray-500 mb-1 mt-4">Password</label>
             <div className={`${INPUT_WRAP} ${errors.password ? "border-danger" : "border-gray-200"}`}>
               <Lock className="w-4 h-4 text-gray-400 shrink-0" aria-hidden="true" />
               <input
@@ -255,7 +255,7 @@ export default function Login({ onSignIn, initialPortal = null, onBack }) {
                 {show ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
               </button>
             </div>
-            {errors.password && <p id="lg-pw-err" className="text-[11px] text-danger mt-1" role="alert">{errors.password}</p>}
+            {errors.password && <p id="lg-pw-err" className="text-xs text-danger mt-1" role="alert">{errors.password}</p>}
 
             <div className="flex justify-end mt-2">
               <button type="button" onClick={() => setModal("reset")} className="text-xs font-medium text-accent hover:underline">
@@ -278,7 +278,7 @@ export default function Login({ onSignIn, initialPortal = null, onBack }) {
         </section>
       </div>
 
-      <p className="text-[11px] text-gray-400 mt-4 text-center">
+      <p className="text-xs text-gray-400 mt-4 text-center">
         PulseFX &copy; 2026 &nbsp;|&nbsp; Regulations &amp; Terms of Use
       </p>
 

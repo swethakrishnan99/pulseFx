@@ -314,7 +314,7 @@ export default function SendPayment({ onNavigate }) {
           <Row label={q.convert ? "Conversion date" : "Payment date"} value={prettyDate(q.payDate)} />
           <Row label={q.convert ? "Reason for conversion" : "Reason for payment"} value={q.reason} />
           {q.reference && <Row label={q.convert ? "Reference" : "Payment reference"} value={q.reference} />}
-          {!q.sameCur && <p className="text-[11px] text-gray-400 mt-2">{q.rateNote}</p>}
+          {!q.sameCur && <p className="text-xs text-gray-400 mt-2">{q.rateNote}</p>}
         </div>
 
         <div className={`${q.convert && !q.useDebit ? "hidden" : ""} bg-white rounded-xl border border-gray-200/70 p-4 max-w-xl mb-4`}>
@@ -365,7 +365,7 @@ export default function SendPayment({ onNavigate }) {
             {q.convert ? "Confirm conversion" : "Confirm payment"}
           </button>
         </div>
-        <p className="text-[11px] text-gray-400 mt-3 max-w-xl">Demo only: no money is moved.</p>
+        <p className="text-xs text-gray-400 mt-3 max-w-xl">Demo only: no money is moved.</p>
       </div>
     );
   }
@@ -410,7 +410,7 @@ export default function SendPayment({ onNavigate }) {
 
           <div className="flex items-center justify-between bg-gray-50 rounded-md px-3.5 py-2.5 mb-4">
             <div>
-              <p className="text-[11px] text-gray-400">Reference</p>
+              <p className="text-xs text-gray-400">Reference</p>
               <p className="font-mono text-sm text-gray-900">{result.reference}</p>
             </div>
             <button
@@ -434,7 +434,7 @@ export default function SendPayment({ onNavigate }) {
           <ol className="flex flex-col gap-2 mb-6">
             {nextSteps.map((text, i) => (
               <li key={text} className="flex gap-2.5 text-sm text-gray-600">
-                <span className="w-5 h-5 shrink-0 rounded-full bg-accent-100 text-accent-800 text-[11px] font-medium flex items-center justify-center">
+                <span className="w-5 h-5 shrink-0 rounded-full bg-accent-100 text-accent-800 text-xs font-medium flex items-center justify-center">
                   {i + 1}
                 </span>
                 {text}
@@ -465,7 +465,7 @@ export default function SendPayment({ onNavigate }) {
               {q.convert ? "Convert more" : "Send another payment"}
             </button>
           </div>
-          <p className="text-[11px] text-gray-400 mt-4">{q.convert ? "Demo only: balances won't change." : "Demo only: this payment won't appear in Reports."}</p>
+          <p className="text-xs text-gray-400 mt-4">{q.convert ? "Demo only: balances won't change." : "Demo only: this payment won't appear in Reports."}</p>
         </div>
       </div>
     );
@@ -507,7 +507,7 @@ export default function SendPayment({ onNavigate }) {
       <div className="bg-white rounded-xl border border-gray-200/70 p-4 max-w-xl mb-4">
         <div className="grid grid-cols-1 sm:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] gap-2.5 items-end mb-4">
           <div>
-            <label htmlFor="pay-amount" className="block text-[11px] text-gray-500 mb-1">{convert ? "You convert" : "You pay"}</label>
+            <label htmlFor="pay-amount" className="block text-xs text-gray-500 mb-1">{convert ? "You convert" : "You pay"}</label>
             <div className="flex gap-1.5">
               <select
                 aria-label="Currency you pay"
@@ -546,7 +546,7 @@ export default function SendPayment({ onNavigate }) {
           </button>
 
           <div>
-            <label htmlFor="recv-amount" className="block text-[11px] text-gray-500 mb-1">{convert ? "You receive" : "They receive"}</label>
+            <label htmlFor="recv-amount" className="block text-xs text-gray-500 mb-1">{convert ? "You receive" : "They receive"}</label>
             <div className="flex gap-1.5">
               <select
                 aria-label="Currency they receive"
@@ -579,7 +579,7 @@ export default function SendPayment({ onNavigate }) {
         {sameCur && !convert && (
           <div className="rounded-md px-3 py-2.5 mb-4 border-l-4 bg-gray-50 border-gray-300">
             <p className="text-sm font-semibold text-gray-700">No currency conversion</p>
-            <p className="text-[11px] text-gray-500 mt-0.5">
+            <p className="text-xs text-gray-500 mt-0.5">
               You are paying and receiving in {payCur}, so the amounts are the same.
             </p>
           </div>
@@ -599,7 +599,7 @@ export default function SendPayment({ onNavigate }) {
               1 {payCur} = {fmtRate(rate)} {recvCur}
               <Tooltip text="A market rate to help you plan. The rate you get is shown on the next step, before you confirm." />
             </p>
-            <p className={`text-[11px] mt-0.5 ${rateIsWarning ? "text-danger" : "text-[#7a4e0b]/85"}`}>{rateStatusNote}</p>
+            <p className={`text-xs mt-0.5 ${rateIsWarning ? "text-danger" : "text-[#7a4e0b]/85"}`}>{rateStatusNote}</p>
           </div>
           <button
             type="button"
@@ -613,7 +613,7 @@ export default function SendPayment({ onNavigate }) {
 
         {(
           <fieldset className="mb-4">
-            <legend className="block text-[11px] text-gray-500 mb-1.5">How will you fund this?</legend>
+            <legend className="block text-xs text-gray-500 mb-1.5">How will you fund this?</legend>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               {[
                 { id: "holding", title: "Holding account", desc: "Use money you already hold with PulseFX" },
@@ -634,7 +634,7 @@ export default function SendPayment({ onNavigate }) {
                   />
                   <div>
                     <p className="text-sm font-medium">{o.title}</p>
-                    <p className="text-[11px] text-gray-500 mt-0.5">{o.desc}</p>
+                    <p className="text-xs text-gray-500 mt-0.5">{o.desc}</p>
                   </div>
                 </label>
               ))}
@@ -646,7 +646,7 @@ export default function SendPayment({ onNavigate }) {
           <div className="mb-4">
             {debitOptions.length > 1 ? (
               <>
-                <label htmlFor="debit-account" className="block text-[11px] text-gray-500 mb-1">Debit which bank account?</label>
+                <label htmlFor="debit-account" className="block text-xs text-gray-500 mb-1">Debit which bank account?</label>
                 <select
                   id="debit-account"
                   value={debitAcct ? debitAcct.id : ""}
@@ -662,14 +662,14 @@ export default function SendPayment({ onNavigate }) {
               </>
             ) : debitAcct ? (
               <>
-                <p className="block text-[11px] text-gray-500 mb-1">Debit from</p>
+                <p className="block text-xs text-gray-500 mb-1">Debit from</p>
                 <div className="flex gap-3 border border-gray-200 rounded-lg px-3 py-2.5">
                   <Landmark className="w-5 h-5 text-accent shrink-0 mt-0.5" />
                   <div>
                     <p className="text-sm text-gray-900">
                       {FLAGS[debitAcct.currency]} {debitAcct.currency} bank account · {acctLabel(debitAcct)}
                     </p>
-                    <p className="text-[11px] text-gray-500 mt-0.5">This is your only linked {payCur} bank account.</p>
+                    <p className="text-xs text-gray-500 mt-0.5">This is your only linked {payCur} bank account.</p>
                   </div>
                 </div>
               </>
@@ -692,7 +692,7 @@ export default function SendPayment({ onNavigate }) {
                 </button>
               </div>
             )}
-            <p className="text-[11px] text-gray-400 mt-1.5">
+            <p className="text-xs text-gray-400 mt-1.5">
               We collect the money from your bank, which usually takes 1 to 3 business days. {convert ? "We convert it once it arrives." : "We send the payment once it arrives."}
             </p>
           </div>
@@ -700,7 +700,7 @@ export default function SendPayment({ onNavigate }) {
           <>
         {fromOptions.length > 1 ? (
           <div className="mb-4">
-            <label htmlFor="pay-from" className="block text-[11px] text-gray-500 mb-1">
+            <label htmlFor="pay-from" className="block text-xs text-gray-500 mb-1">
               {convert ? "Convert from" : "Pay from"}
             </label>
             <select
@@ -715,20 +715,20 @@ export default function SendPayment({ onNavigate }) {
                 </option>
               ))}
             </select>
-            <p className="text-[11px] text-gray-400 mt-1.5">
+            <p className="text-xs text-gray-400 mt-1.5">
               You have {fromOptions.length} {payCur} holding accounts. Choose the one to {convert ? "convert" : "pay"} from.
             </p>
           </div>
         ) : fromAcct ? (
           <div className="mb-4">
-          <p className="block text-[11px] text-gray-500 mb-1">{convert ? "Convert from" : "Pay from"}</p>
+          <p className="block text-xs text-gray-500 mb-1">{convert ? "Convert from" : "Pay from"}</p>
           <div className="flex gap-3 border border-gray-200 rounded-lg px-3 py-2.5 mb-4">
             <Wallet className="w-5 h-5 text-accent shrink-0 mt-0.5" />
             <div>
               <p className="text-sm text-gray-900">
                 {FLAGS[fromAcct.currency]} {fromAcct.currency} holding account · {acctLabel(fromAcct)}
               </p>
-              <p className="text-[11px] text-gray-500 mt-0.5">
+              <p className="text-xs text-gray-500 mt-0.5">
                 {money(payCur, balance)} available. This is your only {payCur} holding account.
               </p>
             </div>
@@ -765,7 +765,7 @@ export default function SendPayment({ onNavigate }) {
             )}
             {toOptions.length > 1 ? (
               <div className="mb-1">
-                <label htmlFor="recv-into" className="block text-[11px] text-gray-500 mb-1">Receive into</label>
+                <label htmlFor="recv-into" className="block text-xs text-gray-500 mb-1">Receive into</label>
                 <select
                   id="recv-into"
                   value={toAcct ? toAcct.id : ""}
@@ -778,20 +778,20 @@ export default function SendPayment({ onNavigate }) {
                     </option>
                   ))}
                 </select>
-                <p className="text-[11px] text-gray-400 mt-1.5">
+                <p className="text-xs text-gray-400 mt-1.5">
                   You have {toOptions.length} {recvCur} holding accounts. Choose the one to receive into.
                 </p>
               </div>
             ) : toAcct ? (
               <div className="mb-1">
-                <p className="block text-[11px] text-gray-500 mb-1">Receive into</p>
+                <p className="block text-xs text-gray-500 mb-1">Receive into</p>
                 <div className="flex gap-3 border border-gray-200 rounded-lg px-3 py-2.5">
                   <Wallet className="w-5 h-5 text-accent shrink-0 mt-0.5" />
                   <div>
                     <p className="text-sm text-gray-900">
                       {FLAGS[toAcct.currency]} {toAcct.currency} holding account · {acctLabel(toAcct)}
                     </p>
-                    <p className="text-[11px] text-gray-500 mt-0.5">This is your only {recvCur} holding account.</p>
+                    <p className="text-xs text-gray-500 mt-0.5">This is your only {recvCur} holding account.</p>
                   </div>
                 </div>
               </div>
@@ -803,7 +803,7 @@ export default function SendPayment({ onNavigate }) {
           </>
         ) : (
           <>
-        <label htmlFor="pay-to" className="block text-[11px] text-gray-500 mb-1">Pay to</label>
+        <label htmlFor="pay-to" className="block text-xs text-gray-500 mb-1">Pay to</label>
         <select
           id="pay-to"
           value={beneficiary ? beneficiary.id : ""}
@@ -821,7 +821,7 @@ export default function SendPayment({ onNavigate }) {
           ))}
         </select>
         {locked ? (
-          <p className="text-[11px] text-gray-400 mt-1.5">
+          <p className="text-xs text-gray-400 mt-1.5">
             Chosen from your Beneficiaries, so the {recvCur} currency is set.{" "}
             <button
               type="button"
@@ -832,7 +832,7 @@ export default function SendPayment({ onNavigate }) {
             </button>
           </p>
         ) : (
-        <p className="text-[11px] text-gray-400 mt-1.5">
+        <p className="text-xs text-gray-400 mt-1.5">
           Showing approved {recvCur} beneficiaries.{" "}
           <button type="button" onClick={() => onNavigate("beneficiaries")} className="text-accent hover:underline">
             Add a beneficiary
@@ -845,7 +845,7 @@ export default function SendPayment({ onNavigate }) {
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-4">
           <div>
-            <label htmlFor="pay-date" className="block text-[11px] text-gray-500 mb-1">{convert ? "Conversion date" : "Payment date"}</label>
+            <label htmlFor="pay-date" className="block text-xs text-gray-500 mb-1">{convert ? "Conversion date" : "Payment date"}</label>
             <input
               id="pay-date"
               type="date"
@@ -856,13 +856,13 @@ export default function SendPayment({ onNavigate }) {
               className="w-full text-sm border border-gray-200 rounded-md px-2.5 py-2 bg-white"
             />
             {!dateOk && (
-              <p className="text-[11px] text-danger mt-1" role="alert">
+              <p className="text-xs text-danger mt-1" role="alert">
                 Choose today or a future business day (not a weekend).
               </p>
             )}
           </div>
           <div>
-            <label htmlFor="pay-reason" className="block text-[11px] text-gray-500 mb-1">{convert ? "Reason for conversion" : "Reason for payment"}</label>
+            <label htmlFor="pay-reason" className="block text-xs text-gray-500 mb-1">{convert ? "Reason for conversion" : "Reason for payment"}</label>
             <select
               id="pay-reason"
               value={reason}
@@ -879,11 +879,11 @@ export default function SendPayment({ onNavigate }) {
 
         <div className="mt-3">
           <div className="flex items-center justify-between mb-1">
-            <label htmlFor="pay-ref" className="flex items-center gap-1.5 text-[11px] text-gray-500">
+            <label htmlFor="pay-ref" className="flex items-center gap-1.5 text-xs text-gray-500">
               {convert ? "Reference" : "Payment reference"}
               <Tooltip text={convert ? "A note for your own records." : "A note your beneficiary sees with the payment, such as an invoice number."} />
             </label>
-            <span className="text-[11px] text-gray-400">Optional</span>
+            <span className="text-xs text-gray-400">Optional</span>
           </div>
           <input
             id="pay-ref"
@@ -894,7 +894,7 @@ export default function SendPayment({ onNavigate }) {
             placeholder={convert ? "Your own reference" : "Custom reference for the beneficiary"}
             className="w-full text-sm border border-gray-200 rounded-md px-2.5 py-2 bg-white"
           />
-          <p className="text-[11px] text-gray-400 mt-1 text-right">{reference.length}/35</p>
+          <p className="text-xs text-gray-400 mt-1 text-right">{reference.length}/35</p>
         </div>
 
 

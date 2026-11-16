@@ -34,7 +34,7 @@ function SidebarContent({ active, onNavigate, items, account, helpKey, portalLab
         <PulseMark className="w-8 h-8" />
         <div className={lbl}>
           <p className="text-white text-lg font-medium tracking-tight">PulseFX</p>
-          <p className="text-[11px] text-white/55">{portalLabel}</p>
+          <p className="text-xs text-white/55">{portalLabel}</p>
         </div>
       </div>
 
@@ -63,7 +63,7 @@ function SidebarContent({ active, onNavigate, items, account, helpKey, portalLab
       </nav>
 
       <div className="mt-auto flex flex-col gap-1">
-        <button
+        {helpKey && <button
           type="button"
           onClick={() => onNavigate(helpKey)}
           title="Help & support"
@@ -77,7 +77,7 @@ function SidebarContent({ active, onNavigate, items, account, helpKey, portalLab
         >
           <HelpCircle className={`w-4 h-4 ${active === helpKey ? "text-brand" : ""}`} />
           <span className={lbl}>Help &amp; support</span>
-        </button>
+        </button>}
 
         <ProfileMenu
           collapsible={collapsible}
@@ -136,7 +136,7 @@ export default function Sidebar({ active, onNavigate, items = NAV_ITEMS, account
         <PulseMark className="w-7 h-7" />
         <div>
           <p className="text-white text-base font-medium tracking-tight">PulseFX</p>
-          <p className="text-[11px] text-white/55">{portalLabel}</p>
+          <p className="text-xs text-white/55">{portalLabel}</p>
         </div>
       </header>
 

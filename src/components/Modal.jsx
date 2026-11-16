@@ -34,7 +34,7 @@ export default function Modal({ title, onClose, children, maxWidth = "max-w-md" 
         className={`bg-white rounded-xl shadow-xl w-full ${maxWidth} max-h-[90vh] overflow-y-auto focus:outline-none`}
       >
         <div className="flex items-center justify-between px-5 pt-4 pb-3 border-b border-gray-100">
-          <h2 id={titleId} className="text-base font-semibold text-gray-900">{title}</h2>
+          <h2 id={titleId} className="text-lg font-semibold text-gray-900">{title}</h2>
           <button
             type="button"
             data-close

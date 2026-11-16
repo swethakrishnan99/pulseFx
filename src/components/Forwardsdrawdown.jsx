@@ -1,8 +1,9 @@
+import SearchFilter from "./SearchFilter";
 import SortableHeader from "./SortableHeader";
 import useTableSort from "../lib/useTableSort";
 import ClearFiltersButton from "./ClearFiltersButton";
 import { useState, useEffect } from "react";
-import { Check, Plus, Trash2, CalendarClock, Wallet, ArrowDownToLine, CheckCircle2, AlertTriangle, RefreshCw, FileText, FileSpreadsheet, Printer, Search, SlidersHorizontal, ChevronDown, Info, Download, X } from "lucide-react";
+import { Check, Plus, Trash2, CalendarClock, Wallet, ArrowDownToLine, CheckCircle2, AlertTriangle, RefreshCw, FileText, FileSpreadsheet, Printer, SlidersHorizontal, ChevronDown, Info, Download, X } from "lucide-react";
 import { FLAGS } from "../lib/currencies";
 import { PURPOSES } from "../lib/reasons";
 
@@ -66,7 +67,7 @@ function StepHeader({ step }) {
         return (
           <li key={label} className="flex items-center gap-2">
             <span
-              className={`w-5 h-5 rounded-full border flex items-center justify-center text-[11px] ${
+              className={`w-5 h-5 rounded-full border flex items-center justify-center text-xs ${
                 done ? "bg-brand border-brand text-navy" : cur ? "border-gray-900 text-gray-900 font-semibold" : "border-gray-300 text-gray-400"
               }`}
             >
@@ -82,7 +83,7 @@ function StepHeader({ step }) {
 }
 
 const field = "w-full text-sm border border-gray-200 rounded-md px-2.5 py-2 bg-white focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent-100";
-const lab = "block text-[11px] text-gray-500 mb-1";
+const lab = "block text-xs text-gray-500 mb-1";
 
 function DrawdownForm({ onNavigate, initialFwd = "", onBack }) {
   const [step, setStep] = useState(1);
@@ -162,11 +163,11 @@ function DrawdownForm({ onNavigate, initialFwd = "", onBack }) {
         <div className="bg-white rounded-xl border border-gray-200/70 p-6 max-w-xl">
           <div className="flex flex-col items-center text-center mb-5">
             <CheckCircle2 className="w-12 h-12 text-success mb-2" />
-            <h1 className="text-lg font-semibold text-gray-900">Drawdown booked</h1>
+            <h1 className="text-xl font-semibold text-gray-900">Drawdown booked</h1>
             <p className="text-sm text-gray-500">We've sent you a confirmation notification.</p>
           </div>
           <div className="bg-gray-50 rounded-lg px-4 py-2.5 mb-4">
-            <p className="text-[11px] text-gray-400">Reference</p>
+            <p className="text-xs text-gray-400">Reference</p>
             <p className="font-mono text-sm text-gray-900">{d.ref}</p>
           </div>
           {[
@@ -194,7 +195,7 @@ function DrawdownForm({ onNavigate, initialFwd = "", onBack }) {
             <button type="button" onClick={() => onNavigate("dashboard")} className="text-sm font-medium border border-gray-200 text-gray-700 px-4 py-2 rounded-md hover:bg-gray-50">Back to dashboard</button>
             <button type="button" onClick={onBack} className="text-sm font-medium text-accent px-3 py-2 hover:underline">Back to forwards</button>
           </div>
-          <p className="text-[11px] text-gray-400 mt-4">Demo only: no drawdown is created and balances won't change.</p>
+          <p className="text-xs text-gray-400 mt-4">Demo only: no drawdown is created and balances won't change.</p>
         </div>
       </div>
     );
@@ -228,7 +229,7 @@ function DrawdownForm({ onNavigate, initialFwd = "", onBack }) {
                   </option>
                 ))}
               </select>
-              {fwd && <p className="text-[11px] text-gray-500 mt-1">Matures {pretty(fwd.maturity)}.</p>}
+              {fwd && <p className="text-xs text-gray-500 mt-1">Matures {pretty(fwd.maturity)}.</p>}
             </div>
 
             {fwd && (
@@ -243,7 +244,7 @@ function DrawdownForm({ onNavigate, initialFwd = "", onBack }) {
                     <input id="dd-buy" inputMode="decimal" className={field} value={buyText} onChange={(e) => changeBuy(e.target.value)} placeholder="0.00" />
                   </div>
                 </div>
-                <p className="text-[11px] text-gray-400 mb-4">Enter either amount. The other fills in at the forward rate.</p>
+                <p className="text-xs text-gray-400 mb-4">Enter either amount. The other fills in at the forward rate.</p>
                 {tooMuch && (
                   <p role="alert" className="text-xs text-[#7a4e0b] bg-warning-100 border-l-4 border-warning rounded-md px-3 py-2 mb-4">
                     That is more than the {money(fwd.sell, fwd.remaining)} left on this forward.
@@ -253,7 +254,7 @@ function DrawdownForm({ onNavigate, initialFwd = "", onBack }) {
                   <div>
                     <label htmlFor="dd-date" className={lab}>Drawdown date</label>
                     <input id="dd-date" type="date" className={field} value={date} min={todayIso()} max={fwd.maturity} onChange={(e) => setDate(e.target.value)} />
-                    <p className={`text-[11px] mt-1 ${dateMsg ? "text-danger" : "text-gray-400"}`} role={dateMsg ? "alert" : undefined}>{dateMsg || `Business days between today and ${pretty(fwd.maturity)}.`}</p>
+                    <p className={`text-xs mt-1 ${dateMsg ? "text-danger" : "text-gray-400"}`} role={dateMsg ? "alert" : undefined}>{dateMsg || `Business days between today and ${pretty(fwd.maturity)}.`}</p>
                   </div>
                   <div>
                     <label htmlFor="dd-reason" className={lab}>Reason for the trade</label>
@@ -336,7 +337,7 @@ function DrawdownForm({ onNavigate, initialFwd = "", onBack }) {
                       <input type="radio" name="fund" checked={funding === o.id} disabled={o.id === "deposit" && depositAvail <= 0} onChange={() => setFunding(o.id)} className="mt-1 accent-accent" />
                       <div>
                         <p className="text-sm text-gray-900 flex items-center gap-1.5"><Icon className="w-4 h-4 text-accent" />{o.title}</p>
-                        <p className="text-[11px] text-gray-500 mt-0.5">{o.desc}</p>
+                        <p className="text-xs text-gray-500 mt-0.5">{o.desc}</p>
                       </div>
                     </label>
                   );
@@ -351,7 +352,7 @@ function DrawdownForm({ onNavigate, initialFwd = "", onBack }) {
                   <span className="text-gray-500">You send</span>
                   <span className={sendAmt > 0 ? "font-medium text-gray-900" : "text-gray-900"}>{sendAmt > 0 ? money(fwd.sell, sendAmt) : "Nothing, the deposit covers it"}</span>
                 </div>
-                {sendAmt > 0 && <p className="text-[11px] text-gray-500 mt-1">Your deposit doesn't cover the full {money(fwd.sell, sellAmt)}, so you send the remaining {money(fwd.sell, sendAmt)}.</p>}
+                {sendAmt > 0 && <p className="text-xs text-gray-500 mt-1">Your deposit doesn't cover the full {money(fwd.sell, sellAmt)}, so you send the remaining {money(fwd.sell, sendAmt)}.</p>}
               </div>
             )}
 
@@ -362,7 +363,7 @@ function DrawdownForm({ onNavigate, initialFwd = "", onBack }) {
                   <Wallet className="w-4 h-4 text-accent mt-0.5 shrink-0" />
                   <div>
                     <p className="text-sm text-gray-900">From your {fwd.sell} holding account {HOLDING_ID[fwd.sell] ?? ""}</p>
-                    <p className="text-[11px] text-gray-600 mt-0.5">Balance {money(fwd.sell, holdBal)}</p>
+                    <p className="text-xs text-gray-600 mt-0.5">Balance {money(fwd.sell, holdBal)}</p>
                   </div>
                 </div>
                 {holdingTooLow && (
@@ -396,7 +397,7 @@ function DrawdownForm({ onNavigate, initialFwd = "", onBack }) {
               <button type="button" onClick={() => setStep(1)} className="text-sm font-medium text-gray-500 px-4 py-2 rounded-md hover:bg-gray-100">Back</button>
               <button type="button" disabled={!fundOk} onClick={confirm} className="ml-auto text-sm font-medium bg-brand text-navy px-5 py-2 rounded-md hover:bg-[#009a7d] disabled:opacity-50 disabled:cursor-not-allowed">Confirm</button>
             </div>
-            <p className="text-[11px] text-gray-400 mt-3 flex items-center gap-1"><CalendarClock className="w-3 h-3" />Demo only: no drawdown is created.</p>
+            <p className="text-xs text-gray-400 mt-3 flex items-center gap-1"><CalendarClock className="w-3 h-3" />Demo only: no drawdown is created.</p>
           </>
         )}
       </div>
@@ -415,7 +416,7 @@ const STATUS_TIP = {
 const COLUMNS = [
   { key: "deal", label: "Deal #", on: true, locked: true, cell: (f) => <span className="font-mono text-xs text-accent">{f.ref}</span> },
   { key: "status", label: "Status", tip: "Open forwards can still be drawn down. Closed forwards have nothing left.", on: true,
-    cell: (f) => <span title={STATUS_TIP[statusOf(f)]} className={`inline-block text-[11px] font-medium px-2 py-0.5 rounded-full ${statusOf(f) === "Open" ? "bg-accent-100 text-accent" : "bg-gray-100 text-gray-500"}`}>{statusOf(f)}</span> },
+    cell: (f) => <span title={STATUS_TIP[statusOf(f)]} className={`inline-block text-xs font-medium px-2 py-0.5 rounded-full ${statusOf(f) === "Open" ? "bg-accent-100 text-accent" : "bg-gray-100 text-gray-500"}`}>{statusOf(f)}</span> },
   { key: "pair", label: "Pair", on: true, cell: (f) => <span>{FLAGS[f.sell]} {f.sell} <span className="text-gray-400">&rarr;</span> {FLAGS[f.buy]} {f.buy}</span> },
   { key: "rate", label: "Exchange rate", on: true, right: true, cell: (f) => f.rate },
   { key: "value", label: "Value date", on: true, cell: (f) => pretty(f.maturity) },
@@ -462,7 +463,7 @@ export default function Forwards({ onNavigate }) {
         <div>
           <h1 className="text-xl font-semibold text-gray-900 mb-2">Forwards</h1>
           <p className="text-sm text-gray-600 max-w-md">
-            View your forward activity below. Choose Drawdown on a forward to use money from it.
+            Review your forward contracts and available drawdown balances.
           </p>
         </div>
         <div className="hidden sm:flex items-center gap-1">
@@ -475,17 +476,14 @@ export default function Forwards({ onNavigate }) {
       {note && <p role="status" className="text-xs text-gray-500 mt-2">{note}</p>}
 
       <div className="bg-white rounded-xl border border-gray-200/70 mt-5">
-        <div className="relative flex flex-wrap items-center gap-2 px-4 py-3">
-          <div className="relative">
-            <Search className="w-3.5 h-3.5 text-gray-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
-            <input aria-label="Deal number" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Enter deal number" className="text-sm border border-gray-200 rounded-full pl-8 pr-3 py-1.5 w-56 focus:outline-none focus:border-accent" />
-          </div>
+        <div className="relative flex flex-wrap items-end gap-2 px-4 py-3">
+          <SearchFilter id="forwards-search" value={q} onChange={(event) => setQ(event.target.value)} placeholder="Deal number" />
           <button
             type="button"
             aria-label="Choose columns and filters"
             aria-expanded={showPanel}
             onClick={() => setShowPanel((v) => !v)}
-            className={`inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1.5 rounded-md border ${showPanel || changed ? "border-accent text-accent bg-accent-100" : "border-gray-200 text-gray-500 hover:text-accent"}`}
+            className={`inline-flex h-11 items-center gap-1.5 text-xs font-medium px-2.5 py-1.5 rounded-md border ${showPanel || changed ? "border-accent text-accent bg-accent-100" : "border-gray-200 text-gray-500 hover:text-accent"}`}
           >
             <SlidersHorizontal className="w-3.5 h-3.5" />
             Columns
@@ -516,9 +514,9 @@ export default function Forwards({ onNavigate }) {
                 </li>
               </ul>
               <div className="border-t border-gray-100 mt-3 pt-3">
-                <label htmlFor="fw-status" className="block text-[11px] text-gray-500 mb-1">Status</label>
-                <select id="fw-status" value={status} onChange={(e) => setStatus(e.target.value)} className="w-full text-sm border border-gray-200 rounded-md px-2.5 py-1.5 bg-white">
-                  {["All", "Open", "Closed"].map((st) => <option key={st}>{st}</option>)}
+                <label htmlFor="fw-status" className="block text-xs text-gray-500 mb-1">Status</label>
+                <select id="fw-status" value={status} onChange={(e) => setStatus(e.target.value)} className="filter-control filter-field text-sm border border-gray-200 rounded-md px-2.5 py-1.5 bg-white">
+                  {["All", "Open", "Closed"].sort().map((st) => <option key={st}>{st}</option>)}
                 </select>
               </div>
               <button type="button" onClick={() => { setCols(DEFAULT_COLS); setStatus("All"); }} className="text-xs font-medium text-accent hover:underline mt-3">Reset to default</button>
@@ -528,12 +526,12 @@ export default function Forwards({ onNavigate }) {
 
         <div className="overflow-x-auto">
           <table className="w-full">
-            <thead className="bg-gray-50">
+            <thead className="bg-gray-50 text-xs">
               <tr>
                 {shown.map((c) => (
-                  <SortableHeader key={c.key} column={c.key} label={c.label} sort={sort} onSort={toggleSort} right={c.right} className="text-[11px] font-medium text-gray-500 px-3 py-2.5 leading-tight" extra={c.tip && <span title={c.tip}><Info className="w-3 h-3 text-gray-400" aria-label={c.tip} /></span>} />
+                  <SortableHeader key={c.key} column={c.key} label={c.label} sort={sort} onSort={toggleSort} right={c.right} className="text-xs font-medium text-gray-500 px-3 py-2.5 leading-tight" extra={c.tip && <span title={c.tip}><Info className="w-3 h-3 text-gray-400" aria-label={c.tip} /></span>} />
                 ))}
-                {showConfirm && <th className="text-[11px] font-medium text-gray-500 px-3 py-2.5 text-right">Confirmation</th>}
+                {showConfirm && <th className="text-xs font-medium text-gray-500 px-3 py-2.5 text-right">Confirmation</th>}
                 <th className="w-px sticky right-0 bg-gray-50" aria-label="Actions" />
               </tr>
             </thead>
@@ -568,7 +566,7 @@ export default function Forwards({ onNavigate }) {
           )}
         </div>
       </div>
-      <p className="text-[11px] text-gray-400 mt-3">Demo only: forwards are sample data.</p>
+      <p className="text-xs text-gray-400 mt-3">Demo only: forwards are sample data.</p>
     </div>
   );
 }

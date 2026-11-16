@@ -17,7 +17,7 @@ In the existing "Banking_details_api" table, add or reuse these exact fields:
 10. "Rejected by user ID" — Single line text, for the reviewer's Supabase Auth UUID.
 11. "Rejected by email" — Email.
 
-Keep approval and rejection text and visibility independent. The backend fills reviewer identity from verified Supabase Auth and event time from the server. Do not use collaborator fields, formulas, defaults, or automations for audit metadata. Display date/time in America/Toronto if supported; API timestamps are UTC.
+Keep approval and rejection text and visibility independent. The backend fills reviewer identity from verified Supabase Auth and event time from the server. Do not use collaborator fields, formulas, defaults, or automations for audit metadata. Display date/time in America/Toronto, including automatic daylight saving time, to match portal filters. API timestamps remain UTC.
 
 MIGRATION, ONLY IF NOT ALREADY COMPLETED:
 For existing Rejected records, copy legacy Review notes (now Approval reason) into Rejection reason only if the destination is blank. Copy the associated legacy visibility setting for those copied reasons. Preserve the original text and audit metadata.

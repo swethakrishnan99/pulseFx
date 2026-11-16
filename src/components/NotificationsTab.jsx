@@ -45,7 +45,7 @@ export default function NotificationsTab() {
     <div>
       <div className="grid grid-cols-1 md:grid-cols-2 md:gap-x-4 items-start">
       <section className={CARD} aria-labelledby="nt-what">
-        <h2 id="nt-what" className="text-sm font-medium text-gray-900 mb-1">What you are notified about</h2>
+        <h2 id="nt-what" className="text-base font-medium text-gray-900 mb-1">What you are notified about</h2>
         <ul className="divide-y divide-gray-100">
           {ROWS.map(([key, title, hint]) => (
             <li key={key} className="flex items-center justify-between gap-4 py-3">
@@ -60,7 +60,7 @@ export default function NotificationsTab() {
       </section>
 
       <section className={CARD} aria-labelledby="nt-how">
-        <h2 id="nt-how" className="text-sm font-medium text-gray-900 mb-3">How you are notified</h2>
+        <h2 id="nt-how" className="text-base font-medium text-gray-900 mb-3">How you are notified</h2>
         <fieldset className="max-w-md">
           <legend className="sr-only">Delivery method</legend>
           {[
@@ -101,7 +101,7 @@ export default function NotificationsTab() {
           </p>
         )}
       </div>
-      <p className="text-[11px] text-gray-400 mt-3">Demo only. No notifications are sent.</p>
+      <p className="text-xs text-gray-400 mt-3">Demo only. No notifications are sent.</p>
     </div>
   );
 }

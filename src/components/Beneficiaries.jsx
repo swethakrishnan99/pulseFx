@@ -1,9 +1,10 @@
+import SearchFilter from "./SearchFilter";
 import SortableHeader from "./SortableHeader";
 import useTableSort from "../lib/useTableSort";
 import ClearFiltersButton from "./ClearFiltersButton";
 import { useState, useMemo } from "react";
 import {
-  Search, Plus, Send, CheckCircle2, Clock, ChevronDown, ChevronUp, ChevronLeft, ChevronRight,
+  Plus, Send, CheckCircle2, Clock, ChevronDown, ChevronUp, ChevronLeft, ChevronRight,
   Pencil, Trash2, RefreshCw, Download, Printer, SlidersHorizontal, ArrowLeft, Check,
 } from "lucide-react";
 import Tooltip from "./Tooltip";
@@ -56,7 +57,7 @@ const EMPTY_FORM = {
 };
 
 const input = "w-full text-sm border border-gray-200 rounded-md px-2.5 py-2 bg-white focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent-100";
-const label = "block text-[11px] text-gray-500 mb-1";
+const label = "block text-xs text-gray-500 mb-1";
 
 function Field({ text, required, hint, children }) {
   return (
@@ -66,7 +67,7 @@ function Field({ text, required, hint, children }) {
         {required && <span className="text-danger"> *</span>}
       </label>
       {children}
-      {hint && <p className="text-[11px] text-gray-400 mt-1">{hint}</p>}
+      {hint && <p className="text-xs text-gray-400 mt-1">{hint}</p>}
     </div>
   );
 }
@@ -228,8 +229,8 @@ export default function Beneficiaries({ onNavigate }) {
         >
           <div className="bg-white rounded-xl border border-gray-200/70 p-5">
             <div className="flex items-baseline justify-between border-b border-gray-100 pb-2 mb-4">
-              <h2 className="text-sm font-semibold text-gray-900">Beneficiary information</h2>
-              <span className="text-[11px] text-gray-400"><span className="text-danger">*</span> Required</span>
+              <h2 className="text-base font-semibold text-gray-900">Beneficiary information</h2>
+              <span className="text-xs text-gray-400"><span className="text-danger">*</span> Required</span>
             </div>
             <div className="flex flex-col gap-3.5">
               <Field text="Currency they receive" required>
@@ -301,8 +302,8 @@ export default function Beneficiaries({ onNavigate }) {
 
           <div className="bg-white rounded-xl border border-gray-200/70 p-5 self-start">
             <div className="flex items-baseline justify-between border-b border-gray-100 pb-2 mb-4">
-              <h2 className="text-sm font-semibold text-gray-900">Bank information</h2>
-              <span className="text-[11px] text-gray-400"><span className="text-danger">*</span> Required</span>
+              <h2 className="text-base font-semibold text-gray-900">Bank information</h2>
+              <span className="text-xs text-gray-400"><span className="text-danger">*</span> Required</span>
             </div>
             {!showBank ? (
               <p className="text-xs font-medium text-danger">Select a currency and a country first.</p>
@@ -382,7 +383,7 @@ export default function Beneficiaries({ onNavigate }) {
         </div>
       </div>
       <p className="text-sm text-gray-500 mb-4 max-w-xl">
-        The people and companies you pay. New beneficiaries are reviewed by our team before you can send to them.
+        Manage recipients and check their approval status.
       </p>
 
       {notice && (
@@ -401,18 +402,8 @@ export default function Beneficiaries({ onNavigate }) {
         Add beneficiary
       </button>
 
-      <div className="flex flex-wrap items-center gap-2 mb-3.5">
-        <div className="relative w-full max-w-xs">
-          <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
-          <input
-            type="text"
-            value={query}
-            onChange={(e) => { setQuery(e.target.value); setPage(0); }}
-            placeholder="Search by name, bank or currency"
-            aria-label="Search beneficiaries"
-            className="w-full text-sm border border-gray-200 rounded-md pl-9 pr-3 py-2 bg-white focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent-100"
-          />
-        </div>
+      <div className="flex flex-wrap items-end gap-2 mb-3.5">
+        <SearchFilter id="beneficiaries-search" value={query} onChange={(event) => { setQuery(event.target.value); setPage(0); }} placeholder="Name, bank or currency" />
 
         <div className="relative">
           <button
@@ -421,7 +412,7 @@ export default function Beneficiaries({ onNavigate }) {
             aria-label="Choose columns"
             aria-expanded={chooser}
             title="Choose columns"
-            className={`${iconBtn} border-gray-200 bg-white`}
+            className={`${iconBtn} h-11 w-11 justify-center border-gray-200 bg-white`}
           >
             <SlidersHorizontal className="w-4 h-4" />
           </button>
@@ -429,7 +420,7 @@ export default function Beneficiaries({ onNavigate }) {
             <>
               <button type="button" aria-label="Close column chooser" className="fixed inset-0 z-10 cursor-default" onClick={() => setChooser(false)} />
               <div className="absolute left-0 top-full mt-1 z-20 bg-white border border-gray-200 rounded-lg shadow-lg p-2 w-48">
-                <p className="text-[11px] text-gray-400 px-2 pb-1">Show columns</p>
+                <p className="text-xs text-gray-400 px-2 pb-1">Show columns</p>
                 {OPTIONAL_COLS.map((c) => (
                   <label key={c.key} className="flex items-center gap-2 text-sm text-gray-700 px-2 py-1.5 rounded hover:bg-gray-50 cursor-pointer">
                     <input
@@ -454,7 +445,7 @@ export default function Beneficiaries({ onNavigate }) {
             value={pageSize}
             onChange={(e) => { setPageSize(Number(e.target.value)); setPage(0); }}
             aria-label="Rows per page"
-            className="text-sm border border-gray-200 rounded-md px-2 py-1.5 bg-white"
+            className="filter-control filter-control-compact text-xs border border-gray-200 rounded-md px-2 py-1.5 bg-white"
           >
             {[5, 10, 25].map((n) => <option key={n} value={n}>{n} per page</option>)}
           </select>
@@ -463,7 +454,7 @@ export default function Beneficiaries({ onNavigate }) {
 
       {/* Table */}
       <div className="bg-white rounded-xl border border-gray-200/70 p-4 overflow-x-auto">
-        <div className="grid gap-3 text-[11px] text-gray-400 border-b border-gray-100 pb-1.5" style={{ gridTemplateColumns: template, minWidth: minW }}>
+        <div className="grid gap-3 text-xs text-gray-400 border-b border-gray-100 pb-1.5" style={{ gridTemplateColumns: template, minWidth: minW }}>
 <SortableHeader as="div" column="nickname" label="Nickname" sort={sort} onSort={changeSort}  />
 <SortableHeader as="div" column="currency" label="Currency" sort={sort} onSort={changeSort}  />
 <SortableHeader as="div" column="bank" label="Bank name" sort={sort} onSort={changeSort}  />
@@ -491,13 +482,13 @@ export default function Beneficiaries({ onNavigate }) {
                 <span className="text-gray-700">{b.currency}</span>
                 <span className="text-gray-700">
                   {b.bank}
-                  {!cols.country && <span className="block text-[11px] text-gray-400">{b.country}</span>}
+                  {!cols.country && <span className="block text-xs text-gray-400">{b.country}</span>}
                 </span>
                 {cols.country && <span className="text-gray-700">{b.country}</span>}
                 {cols.account && <span className="font-mono text-gray-500">{maskAccount(b.account)}</span>}
                 {cols.routing && <span className="font-mono text-gray-700">{b.routing}</span>}
                 <span>
-                  <span className={`inline-flex items-center gap-1 text-[11px] px-1.5 py-0.5 rounded ${status.className}`}>
+                  <span className={`inline-flex items-center gap-1 text-xs px-1.5 py-0.5 rounded ${status.className}`}>
                     <StatusIcon className="w-3 h-3" />
                     {status.label}
                   </span>
@@ -558,7 +549,7 @@ export default function Beneficiaries({ onNavigate }) {
               {open && (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-gray-50 rounded-lg p-4 mb-3" style={{ minWidth: 0 }}>
                   <div>
-                    <p className="text-[11px] font-medium text-gray-400 uppercase tracking-wide border-b border-gray-200 pb-1.5 mb-1">Beneficiary details</p>
+                    <p className="text-xs font-medium text-gray-400 uppercase tracking-wide border-b border-gray-200 pb-1.5 mb-1">Beneficiary details</p>
                     <DetailLine k="Name" v={b.name} />
                     <DetailLine k="Email" v={b.email} />
                     <DetailLine k="Email notification" v={b.notify ? "On" : "Off"} />
@@ -568,7 +559,7 @@ export default function Beneficiaries({ onNavigate }) {
                     <DetailLine k="Purpose" v={b.purpose} />
                   </div>
                   <div>
-                    <p className="text-[11px] font-medium text-gray-400 uppercase tracking-wide border-b border-gray-200 pb-1.5 mb-1">Bank details</p>
+                    <p className="text-xs font-medium text-gray-400 uppercase tracking-wide border-b border-gray-200 pb-1.5 mb-1">Bank details</p>
                     <DetailLine k="Account name" v={b.name} />
                     <DetailLine k="Bank name" v={b.bank} />
                     <DetailLine k="Account number" v={maskAccount(b.account)} mono />

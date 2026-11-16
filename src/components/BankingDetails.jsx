@@ -1,3 +1,4 @@
+import { formatAirtableDateTime } from "../lib/airtableDates.mjs";
 import { latestBankingDecision, latestPendingBanking } from "../lib/pendingBanking.mjs";
 import { useEffect, useRef, useState } from "react";
 import { CheckCircle2, ChevronDown, Clock3, Eye, History, Landmark, X, XCircle } from "lucide-react";
@@ -10,7 +11,7 @@ const primary = "inline-flex items-center justify-center gap-2 rounded-lg bg-bra
 const field = "w-full rounded-md border border-gray-200 bg-white px-2.5 py-2 text-sm focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent-100";
 const label = "mb-1 block text-xs text-gray-600";
 const blank = () => ({ submissionId: crypto.randomUUID(), bank: "", holder: "", account: "", institutionCode: "", transitNumber: "", currency: "CAD", comments: "" });
-const date = (value) => value && Number.isFinite(Date.parse(value)) ? new Date(value).toLocaleString("en-CA", { year: "numeric", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit", timeZoneName: "short" }) : "—";
+const date = formatAirtableDateTime;
 const styles = { Verified: "bg-success-100 text-success", "Pending verification": "bg-warning-100 text-amber-800", Rejected: "bg-danger-100 text-danger" };
 const demoAccount = { id: "demo", bank: "RBC Royal Bank", holder: "ABC Accounting Inc.", account: "12344821", last4: "4821", currency: "CAD", status: "Verified", current: true, submittedAt: "", reviewNotes: "", comments: "" };
 
@@ -115,7 +116,7 @@ export default function BankingDetails({ authenticated = false }) {
   return <div className="flex max-w-3xl flex-col gap-4">
     <section className={card} aria-label="Payout account">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div><h2 className="text-base font-semibold text-accent">Payout account</h2><p className="mt-1 text-sm text-gray-500">Manage where PulseFX sends your partner payouts.</p></div>
+        <div><h2 className="text-base font-semibold text-accent">Payout account</h2><p className="mt-1 text-sm text-gray-500">Manage the bank account used to receive your payouts.</p></div>
       </div>
       {loading ? <p role="status" className="mt-5 text-sm text-gray-500">Loading banking details…</p> : error ? <div role="alert" className="mt-4 text-sm text-danger"><p>{error}</p><button type="button" onClick={refresh} className={`${secondary} mt-3`}>Try again</button></div> : <>
         {data.currentIssue && <p role="alert" className="mt-4 rounded-lg bg-warning-100 p-3 text-sm text-gray-800">PulseFX needs to review which verified account is current. Please contact your partner manager.</p>}

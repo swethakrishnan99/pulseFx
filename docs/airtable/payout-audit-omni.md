@@ -35,7 +35,7 @@ CLIENT VISIBILITY
 13. "Show cancellation reason to partner" — Checkbox.
 Leave both unchecked by default, including on existing records. The portal manages these flags. Only explicitly checked fields may be shared with the client. Preserve the original Notes and Cancellation reason text even when hidden.
 
-For date/time fields, display America/Toronto if supported; otherwise keep UTC. The API sends timestamps in UTC.
+Display date/time fields in America/Toronto, including automatic daylight saving time, to match portal filters and timestamps. Keep the underlying API timestamps in UTC.
 
 The portal backend will populate all author, edit and cancellation fields from the authenticated user and server time. Only "Created at" is maintained automatically by Airtable.
 Do not use automatic Last modified time fields, Airtable collaborator fields, linked partner records, formulas, default values or automations for this audit metadata.

@@ -10,7 +10,7 @@ export default function TablePager({ pager, noun = "rows", overall, className = 
       <span>{total ? `${from}-${to} of ${total} ${noun}${filteredNote}` : `0 of ${overall ?? 0} ${noun}`}</span>
       <div className="flex items-center gap-3">
         <select value={size} onChange={(event) => setSize(Number(event.target.value))} aria-label="Rows per page"
-          className="rounded-md border border-gray-200 bg-white px-2 py-1.5 text-sm text-gray-700">
+          className="filter-control filter-control-compact rounded-md border border-gray-200 bg-white px-2 py-1.5 text-xs text-gray-500">
           {SIZES.map((n) => <option key={n} value={n}>{n} per page</option>)}
         </select>
         <div className="flex items-center gap-2">
