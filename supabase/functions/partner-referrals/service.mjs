@@ -164,11 +164,12 @@ export function createReferralsHandler({ env, fetchImpl = fetch }) {
       return json({ error: "Partner access is not configured." }, 503);
     }
 
+    let stage = "session";
     try {
       // Validate with Auth, never trust a decoded JWT or a client-supplied partner ID.
       const authResponse = await fetchImpl(new URL("/auth/v1/user", env.SUPABASE_URL), {
         headers: { apikey: publishableKey, Authorization: `Bearer ${accessToken}` },
-        signal: AbortSignal.timeout(10000),
+        signal: AbortSignal.timeout(30000),
       });
       if (authResponse.status === 401 || authResponse.status === 403) {
         return json({ error: "Your session has expired. Please sign in again." }, 401);
@@ -176,9 +177,10 @@ export function createReferralsHandler({ env, fetchImpl = fetch }) {
       if (!authResponse.ok) throw new Error("Auth request failed");
       const user = await authResponse.json();
       if (!user.id) return json({ error: "Please sign in to view your referrals." }, 401);
+      stage = "membership";
       const partnerId = await findPartnerMembership({
         projectUrl: env.SUPABASE_URL, publishableKey, accessToken, userId: user.id,
-        fetchImpl: (url, options) => fetchImpl(url, { ...options, signal: AbortSignal.timeout(10000) }),
+        fetchImpl: (url, options) => fetchImpl(url, { ...options, signal: AbortSignal.timeout(30000) }),
       });
       if (!partnerId || !recordId.test(partnerId)) {
         return json({ error: "Your account is not linked to an Airtable partner. Please contact PulseFX." }, 403);
@@ -193,16 +195,28 @@ export function createReferralsHandler({ env, fetchImpl = fetch }) {
         try { input = validateReferral(JSON.parse(raw)); } catch { /* Invalid JSON is a validation error. */ }
         if (!input) return json({ error: "Please check all required client details and field limits." }, 400);
       }
+      stage = "read-referrals";
       const referrals = await readReferrals({ env, partnerId, fetchImpl });
       if (input) {
         if (referrals.some((row) => row.company.trim().toLowerCase() === input.company.toLowerCase())) {
           return json({ error: "You have already referred this company." }, 409);
         }
+        stage = "write-referral";
         const referral = await writeReferral({ env, partnerId, input, fetchImpl });
         return json({ referral }, 201);
       }
       return json({ referrals });
-    } catch {
+    } catch (error) {
+      // Log only the operation and a fixed error category, never upstream data or credentials.
+      const timeout = error?.name === "TimeoutError" || error?.name === "AbortError";
+      console.error(JSON.stringify({ operation: "partner-referrals", stage, category: timeout ? "timeout" : "upstream-failure" }));
+      if (request.method === "POST" && (stage === "session" || stage === "membership")) {
+        return json({ error: "Unable to verify your session right now. Your client has not been saved. Please try again." }, 503);
+      }
+      if (request.method === "POST" && stage === "read-referrals") {
+        return json({ error: "Unable to check existing referrals right now. Your client has not been saved. Please try again." }, 503);
+      }
+      // A write may have succeeded even when its response was lost.
       // Do not expose upstream responses, contact details or credentials in errors.
       return json({ error: request.method === "POST" ? "Unable to confirm the client was saved. Check Referrals before trying again." : "Unable to load referrals. Please try again." }, 502);
     }

@@ -283,3 +283,25 @@ test("write failures return a safe message without claiming a successful save", 
   assert.equal(response.status, 502);
   assert.deepEqual(await response.json(), { error: "Unable to confirm the client was saved. Check Referrals before trying again." });
 });
+
+
+test("session and membership outages report no save and never attempt a write", async () => {
+  for (const options of [
+    { authResponse: Response.json({}, { status: 500 }) },
+    { membershipResponse: Response.json({}, { status: 500 }) },
+  ]) {
+    const { handler, writes } = setupWrite(options);
+    const response = await handler(post(clientDetails()));
+    assert.equal(response.status, 503);
+    assert.match((await response.json()).error, /Your client has not been saved/);
+    assert.equal(writes.length, 0);
+  }
+});
+
+test("Airtable lookup outages do not claim a write was attempted", async () => {
+  const { handler, writes } = setupWrite({ airtableError: 503 });
+  const response = await handler(post(clientDetails()));
+  assert.equal(response.status, 503);
+  assert.match((await response.json()).error, /Unable to check existing referrals/);
+  assert.equal(writes.length, 0);
+});
