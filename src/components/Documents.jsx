@@ -15,9 +15,9 @@ const primary = dialogPrimary;
 const input = dialogInput;
 const actionClass = "inline-flex shrink-0 items-center justify-center rounded-md p-1.5 hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent";
 const sections = [["brand", "Brand assets", "Logos and brand materials for partners to use when representing PulseFX."], ["guide", "Partner guide", "Product overviews and service guides for partners to share with clients."]];
-function AuditDetails({ label, value }) {
+function AuditDetails({ label, value, showActor = true }) {
   return <section className="rounded-lg border border-gray-100 p-4"><h3 className="text-sm font-semibold text-gray-900">{label}</h3><dl className="mt-3 space-y-3">
-    {[["Date and time", value.at ? formatAirtableDateTime(value.at) : "—"], ["Email", value.email || "—"], ["Supabase user ID", value.userId || "—"]].map(([title, detail]) => <div key={title}><dt className="text-xs text-gray-500">{title}</dt><dd className={`mt-1 break-all text-sm ${title === "Supabase user ID" ? "font-mono text-xs" : ""}`}>{detail}</dd></div>)}
+    {[["Date and time", value.at ? formatAirtableDateTime(value.at) : "—"], ...(showActor ? [["Email", value.email || "—"], ["Supabase user ID", value.userId || "—"]] : [])].map(([title, detail]) => <div key={title}><dt className="text-xs text-gray-500">{title}</dt><dd className={`mt-1 break-all text-sm ${title === "Supabase user ID" ? "font-mono text-xs" : ""}`}>{detail}</dd></div>)}
   </dl></section>;
 }
 function DocumentSection({ section, label, description, showDeleted }) {
@@ -136,8 +136,9 @@ function DocumentSection({ section, label, description, showDeleted }) {
     </PortalDialog>}
     {information && <PortalDialog title="Document information" subtitle={information.name} icon={<Info className="h-5 w-5" />} maxWidth="max-w-xl" onClose={() => setInformationId(null)}>
       <div className="space-y-4 p-6">
-        <dl className="space-y-3 rounded-lg bg-gray-50 p-4">{[["File name", information.file?.name || "—"], ["Visible to partner", information.visible && !information.deleted ? "Yes" : "No"], ["Last updated", information.updatedAt ? formatAirtableDateTime(information.updatedAt) : "—"]].map(([title, value]) => <div key={title}><dt className="text-xs text-gray-500">{title}</dt><dd className="mt-1 break-words text-sm">{value}</dd></div>)}</dl>
+        <dl className="space-y-3 rounded-lg bg-gray-50 p-4">{[["File name", information.file?.name || "—"], ["Visible to partner", information.visible && !information.deleted ? "Yes" : "No"]].map(([title, value]) => <div key={title}><dt className="text-xs text-gray-500">{title}</dt><dd className="mt-1 break-words text-sm">{value}</dd></div>)}</dl>
         <AuditDetails label="Created" value={information.created} />
+        <AuditDetails label="Last updated" value={{ at: information.updatedAt }} showActor={false} />
         <AuditDetails label="Last replaced" value={information.replaced} />
         {(information.deleted || information.deletedAudit.at) && <AuditDetails label="Deleted" value={information.deletedAudit} />}
         <div className="flex justify-end"><button className={button} type="button" onClick={() => setInformationId(null)}>Close</button></div>
