@@ -1,3 +1,5 @@
+import PortalDialog from "./PortalDialog";
+import { dialogDanger, dialogInput, dialogPrimary, dialogSecondary } from "../lib/dialogStyles";
 import { airtableDay, formatAirtableDateTime, inAirtableDateRange } from "../lib/airtableDates.mjs";
 import DateRangeFilter from "./DateRangeFilter";
 import SearchFilter from "./SearchFilter";
@@ -36,7 +38,8 @@ function ClientCell({ value }) {
 function Status({ value }) { return <span className={`inline-flex whitespace-nowrap rounded-full px-2.5 py-1 text-xs ${styles[value] || "bg-gray-100 text-gray-600"}`}>{value}</span>; }
 
 function PayoutDialog({ mode, payout, partners, onClose, onSave }) {
-  const dialog = useRef(null), submitting = useRef(false), requestId = useRef(crypto.randomUUID());
+  const input = dialogInput, primary = dialogPrimary, secondary = dialogSecondary;
+  const submitting = useRef(false), requestId = useRef(crypto.randomUUID());
   const [referrals, setReferrals] = useState({ partnerId: "", rows: [], error: "", loading: false });
   const [referralAttempt, setReferralAttempt] = useState(0);
   const [showCancellationReasonToClient, setShowCancellationReasonToClient] = useState(false);
@@ -67,11 +70,6 @@ function PayoutDialog({ mode, payout, partners, onClose, onSave }) {
     return () => controller.abort();
   }, [form.partnerId, viewing, cancelling, referralAttempt]);
   const valid = /^[A-Za-z0-9][A-Za-z0-9 _./-]{0,79}$/.test(form.ref.trim()) && partner && (!form.client || selectedClientId || (editing && form.client === payout.client)) && /^\d{1,9}(\.\d{1,2})?$/.test(form.amount) && Number(form.amount) > 0 && (form.status !== "Paid" || (form.date && partner.bank?.submissionId));
-  useEffect(() => {
-    const element = dialog.current, previous = document.activeElement;
-    element.showModal();
-    return () => { element.close(); previous?.focus?.(); };
-  }, []);
   function change(key, value) {
     if (submitting.current) return;
     requestId.current = crypto.randomUUID();
@@ -94,14 +92,13 @@ function PayoutDialog({ mode, payout, partners, onClose, onSave }) {
     finally { submitting.current = false; setBusy(false); }
   }
   const title = viewing ? "Payout details" : cancelling ? "Cancel payout?" : editing ? "Edit payout" : "Add payout";
-  return <dialog ref={dialog} aria-labelledby="payout-dialog-title" onCancel={(event) => { event.preventDefault(); if (!submitting.current) onClose(); }}
-    className="m-auto max-h-[90vh] w-[calc(100%-2rem)] max-w-xl overflow-y-auto rounded-2xl bg-white p-5 text-gray-900 shadow-xl backdrop:bg-navy/50">
-    <div className="flex items-center justify-between gap-3"><h2 id="payout-dialog-title" className="flex items-center gap-2 text-lg font-semibold">{title}</h2><button type="button" aria-label="Close payout" disabled={busy} onClick={onClose} className={iconButton}><X className="h-5 w-5" /></button></div>
+  return <PortalDialog title={title} subtitle={viewing || editing || cancelling ? payout.ref : "Record a partner payout and its payment details."} icon={<DollarSign className="h-5 w-5" />} maxWidth="max-w-xl" busy={busy} onClose={() => { if (!submitting.current) onClose(); }}>
+    <div className="p-6">
     {viewing ? <>
-      <dl className="mt-4 divide-y divide-gray-100">{[["Reference", payout.ref], ["Partner", payout.partnerName], ["Client", payout.client], ["Amount (CAD)", money(payout.amount, payout.currency)], ["Status", payout.status], ["Paid at", date(payout.date)], ...(payout.bank ? [["Paid to account holder", payout.bank.holder], ["Paid to institution", payout.bank.name], ["Paid to account number", payout.bank.account], ["Institution code", payout.bank.institutionCode], ["Transit number", payout.bank.transitNumber], ["Account currency", payout.bank.currency]] : []), ["Created at", creationDate(payout.createdAt)], ["Created by user ID", payout.createdByUserId], ["Created by email", payout.createdByEmail], ["Last edited at", creationDate(payout.lastEditedAt)], ["Last edited by email", payout.lastEditedByEmail], ["Last edited by user ID", payout.lastEditedByUserId], ...(payout.status === "Cancelled" || payout.cancelledAt ? [["Cancelled at", creationDate(payout.cancelledAt)], ["Cancelled by email", payout.cancelledByEmail], ["Cancelled by user ID", payout.cancelledByUserId]] : []), ["Notes", payout.notes], ["Notes visible to partner", payout.showNotesToClient ? "Yes" : "No"], ...(payout.status === "Cancelled" || payout.cancelledAt ? [["Cancellation reason", payout.cancellationReason], ["Cancellation reason visible to partner", payout.showCancellationReasonToClient ? "Yes" : "No"]] : [])].map(([label, value]) => <div key={label} className="py-3"><dt className="text-xs text-gray-500">{label}</dt><dd className="mt-1 whitespace-pre-wrap break-words text-sm">{value || "—"}</dd></div>)}</dl>
+      <dl className="divide-y divide-gray-100">{[["Reference", payout.ref], ["Partner", payout.partnerName], ["Client", payout.client], ["Amount (CAD)", money(payout.amount, payout.currency)], ["Status", payout.status], ["Paid at", date(payout.date)], ...(payout.bank ? [["Paid to account holder", payout.bank.holder], ["Paid to institution", payout.bank.name], ["Paid to account number", payout.bank.account], ["Institution code", payout.bank.institutionCode], ["Transit number", payout.bank.transitNumber], ["Account currency", payout.bank.currency]] : []), ["Created at", creationDate(payout.createdAt)], ["Created by user ID", payout.createdByUserId], ["Created by email", payout.createdByEmail], ["Last edited at", creationDate(payout.lastEditedAt)], ["Last edited by email", payout.lastEditedByEmail], ["Last edited by user ID", payout.lastEditedByUserId], ...(payout.status === "Cancelled" || payout.cancelledAt ? [["Cancelled at", creationDate(payout.cancelledAt)], ["Cancelled by email", payout.cancelledByEmail], ["Cancelled by user ID", payout.cancelledByUserId]] : []), ["Notes", payout.notes], ["Notes visible to partner", payout.showNotesToClient ? "Yes" : "No"], ...(payout.status === "Cancelled" || payout.cancelledAt ? [["Cancellation reason", payout.cancellationReason], ["Cancellation reason visible to partner", payout.showCancellationReasonToClient ? "Yes" : "No"]] : [])].map(([label, value]) => <div key={label} className="py-3"><dt className="text-xs text-gray-500">{label}</dt><dd className="mt-1 whitespace-pre-wrap break-words text-sm">{value || "—"}</dd></div>)}</dl>
       {!payout.validOwnership && <p className="mt-3 text-sm text-danger">The partner link is inconsistent. Correct it before editing this payout.</p>}
       <div className="mt-4 flex justify-end"><button type="button" className={secondary} onClick={onClose}>Close</button></div>
-    </> : <form onSubmit={submit} aria-busy={busy} className="mt-4 space-y-4">
+    </> : <form onSubmit={submit} aria-busy={busy} className="space-y-4">
       {cancelling ? <><p className="text-sm text-gray-600">This payout will be marked Cancelled and kept in the partner’s history.</p><div className="rounded-lg bg-gray-50 p-3 text-sm"><p className="font-medium">{payout.ref} · {payout.partnerName}</p><p className="mt-1 text-gray-600">{money(payout.amount, payout.currency)} CAD</p></div><div><div className="mb-1.5 flex flex-wrap items-center justify-between gap-2"><label htmlFor="payout-cancellation-reason" className="text-xs font-medium">Cancellation reason (optional)</label><label className="flex items-center gap-2 text-xs text-gray-600"><input type="checkbox" disabled={busy} checked={showCancellationReasonToClient} onChange={event => { if (submitting.current) return; requestId.current = crypto.randomUUID(); setShowCancellationReasonToClient(event.target.checked); }} className="accent-accent" />Show cancellation reason to partner</label></div><textarea id="payout-cancellation-reason" rows={3} maxLength={2000} disabled={busy} value={cancellationReason} onChange={(event) => { if (submitting.current) return; requestId.current = crypto.randomUUID(); setCancellationReason(event.target.value); }} className={input} /></div></> : <fieldset disabled={busy} className="space-y-4">
         <div><label htmlFor="payout-ref" className="mb-1.5 block text-xs font-medium">Reference *</label><input id="payout-ref" value={form.ref} readOnly aria-readonly="true" className={`${input} bg-gray-50 text-gray-500`} /><p className="mt-1 text-xs text-gray-500">Reference generated automatically.</p></div>
         <SearchableSelect id="payout-partner" label="Partner *" value={form.partnerId} options={partnerOptions} onChange={(value) => change("partnerId", value)} disabled={editing || busy} required placeholder="Search partner or email" />
@@ -122,9 +119,10 @@ function PayoutDialog({ mode, payout, partners, onClose, onSave }) {
         <div><div className="mb-1.5 flex flex-wrap items-center justify-between gap-2"><label htmlFor="payout-notes" className="text-xs font-medium">Notes (optional)</label><label className="flex items-center gap-2 text-xs text-gray-600"><input type="checkbox" checked={form.showNotesToClient} onChange={event => change("showNotesToClient", event.target.checked)} className="accent-accent" />Show notes to partner</label></div><textarea id="payout-notes" rows={3} maxLength={2000} value={form.notes} onChange={(event) => change("notes", event.target.value)} className={input} /><p className="mt-1 text-xs text-gray-500">Additional information about this payout.</p></div>
       </fieldset>}
       {error && <p role="alert" className="text-sm text-danger">{error}</p>}
-      <div className="flex justify-end gap-2 border-t border-gray-100 pt-4"><button type="button" className={secondary} disabled={busy} onClick={onClose}>{cancelling ? "Keep payout" : "Cancel"}</button><button type="submit" disabled={busy || (!cancelling && !valid)} className={cancelling ? "rounded-lg bg-danger px-4 py-2.5 text-sm font-medium text-white hover:bg-red-800 disabled:opacity-50" : primary}>{busy ? "Saving…" : cancelling ? "Cancel payout" : "Save payout"}</button></div>
+      <div className="flex justify-end gap-2"><button type="button" className={secondary} disabled={busy} onClick={onClose}>{cancelling ? "Keep payout" : "Cancel"}</button><button type="submit" disabled={busy || (!cancelling && !valid)} className={cancelling ? dialogDanger : primary}>{busy ? "Saving…" : cancelling ? "Cancel payout" : "Save payout"}</button></div>
     </form>}
-  </dialog>;
+    </div>
+  </PortalDialog>;
 }
 
 export default function AdminPayouts() {

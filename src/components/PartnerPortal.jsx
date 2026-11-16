@@ -1,3 +1,8 @@
+import { dialogSecondary } from "../lib/dialogStyles";
+import DocumentPreview from "./DocumentPreview";
+import Documents from "./Documents";
+import { loadOnePagers } from "../lib/onePagers";
+import { canPreviewFile, fileFormat } from "../lib/fileFormat.mjs";
 import { loadBrandAssets } from "../lib/brandAssets";
 import { brandKitRequest, encodeBrandFile } from "../lib/brandKit";
 import { airtableFieldValue, formatAirtableDateTime, inAirtableDateRange } from "../lib/airtableDates.mjs";
@@ -266,19 +271,11 @@ function Referrals({ authenticated = false, go }) {
 }
 
 function Detail({ r, onClose }) {
-  const dialog = useRef(null);
-  useEffect(() => {
-    const element = dialog.current, previous = document.activeElement;
-    element.showModal();
-    return () => { element.close(); previous?.focus?.(); };
-  }, []);
   const idx = stepIndex(r.status);
   return (
-    <dialog ref={dialog} aria-label={r.company} onCancel={event => { event.preventDefault(); onClose(); }} className="m-auto max-h-[90vh] w-[calc(100%-2rem)] max-w-xl overflow-y-auto rounded-2xl bg-white p-5 text-gray-900 shadow-xl backdrop:bg-navy/50">
-        <div className="flex items-start justify-between mb-4">
-          <div><h2 className="text-lg font-semibold text-gray-900">{r.company}</h2><div className="mt-1"><Badge s={r.status} /></div></div>
-          <button type="button" aria-label="Close referral details" onClick={onClose} className="p-1 text-gray-400 hover:text-gray-700"><X className="w-4 h-4" /></button>
-        </div>
+    <PortalDialog title={r.company} subtitle="Referral details and onboarding progress." icon={<Users className="h-5 w-5" />} maxWidth="max-w-xl" onClose={onClose}>
+      <div className="p-6">
+        <div className="mb-4"><Badge s={r.status} /></div>
         {[["Contact", r.contact], ["Email", r.email], ["Country", r.country], ["Expected monthly volume", r.volume || "—"], ["Currencies", r.cur?.join(", ") || "—"], ["Other currency", r.otherCur || "—"], ["Notes", r.notes || "—"], ["Created", prettyDateTime(referralDateValue(r, "created"))], ["Last modified", prettyDateTime(referralDateValue(r, "modified"))], ["Onboarded", r.status === "Onboarded" ? "Yes" : "No"]].map(([k, v]) => (
           <div key={k} className="flex justify-between gap-4 py-2 border-b border-gray-100 text-sm"><span className="text-gray-500">{k}</span><span className="text-gray-900 text-right break-all">{v}</span></div>
         ))}
@@ -297,8 +294,9 @@ function Detail({ r, onClose }) {
             );
           })}
         </ol>
-      <div className="mt-5 flex justify-end"><button type="button" onClick={onClose} className={ghost}>Close</button></div>
-    </dialog>
+      <div className="mt-5 flex justify-end"><button type="button" onClick={onClose} className={dialogSecondary}>Close</button></div>
+      </div>
+    </PortalDialog>
   );
 }
 
@@ -398,7 +396,7 @@ function Uploader({ id, label, hint, kind, accept, maxMB, file, disabled, onUplo
     <p className="text-sm font-medium text-accent">{label}</p><p className="text-xs text-gray-500 mt-0.5">{hint}</p>
     {file && <div className="flex items-center gap-3 mt-3 p-2 rounded-md bg-gray-50">
       <img src={file.url} alt={`${label} preview`} className="w-12 h-12 shrink-0 object-contain rounded-md bg-white border border-gray-200" />
-      <div className="min-w-0"><p className="text-sm truncate">{file.name}</p>{Number.isFinite(file.size) && <p className="text-xs text-gray-500">{Math.round(file.size / 1024)} KB</p>}</div>
+      <div className="min-w-0"><p className="text-sm truncate">{file.name}</p><p className="text-xs text-gray-400">{fileFormat(file.name)}</p>{Number.isFinite(file.size) && <p className="text-xs text-gray-500">{Math.round(file.size / 1024)} KB</p>}</div>
     </div>}
     <input id={id} type="file" disabled={disabled || busy} accept={accept.join(",")} onChange={pick} className="sr-only" />
     <div className={`mt-3 ${file ? "grid grid-cols-[0.8fr_1.2fr_1fr] gap-1.5" : "flex"}`}>
@@ -440,9 +438,11 @@ function BrandAssets({ authenticated }) {
     return () => { active = false; };
   }, [authenticated, revision]);
   async function openPreview(asset) {
+    if (!canPreviewFile(asset.file?.name)) return;
     try {
       const current = (await loadBrandAssets()).find(item => item.id === asset.id);
       if (!current) throw new Error("This asset is no longer available.");
+      if (!canPreviewFile(current.file?.name)) throw new Error("Preview is available only for PDF and images.");
       setPreview(current);
     } catch (error) { setError(error.message); }
   }
@@ -465,13 +465,13 @@ function BrandAssets({ authenticated }) {
       {error && <div role="alert" className="mt-3 text-sm text-danger">{error}<button type="button" className={ghost} onClick={() => { setLoading(true); setRevision(value => value + 1); }}>Try again</button></div>}
       {!error && !assets.length && <p className="mt-3 text-sm text-gray-500">No brand assets are available yet.</p>}
       <ul className="mt-3 divide-y divide-gray-100">{assets.map(asset => <li key={asset.id} className="flex flex-wrap items-center gap-3 py-3">
-        <button type="button" onClick={() => openPreview(asset)} aria-label={`Preview ${asset.name}`} className={`flex h-16 w-20 shrink-0 items-center justify-center rounded-lg border border-gray-200 p-2 hover:ring-2 hover:ring-accent/30 ${/white/i.test(asset.file.name) ? "bg-navy" : "bg-gray-50"}`}><img src={asset.file.url} alt={asset.name} loading="lazy" className="h-full w-full object-contain" /></button>
-        <span className="min-w-0 flex-1 text-sm text-gray-900">{asset.name}</span>
-        <div className="flex flex-wrap gap-2"><button type="button" onClick={() => openPreview(asset)} aria-label={`View ${asset.name}`} className={ghost}><Eye className="w-4 h-4" />View</button><button type="button" onClick={() => download(asset)} aria-label={`Download ${asset.name}`} className={ghost}><Download className="w-4 h-4" />Download</button></div>
+        <button type="button" onClick={() => openPreview(asset)} disabled={!canPreviewFile(asset.file.name)} title={canPreviewFile(asset.file.name) ? "View document" : "Preview is available only for PDF and images"} aria-label={`Preview ${asset.name}`} className={`flex h-16 w-20 shrink-0 items-center justify-center rounded-lg border border-gray-200 p-2 enabled:hover:ring-2 enabled:hover:ring-accent/30 disabled:cursor-not-allowed disabled:opacity-50 ${/white/i.test(asset.file.name) ? "bg-navy" : "bg-gray-50"}`}>{["PNG", "JPG", "JPEG", "SVG", "WEBP", "GIF", "AVIF"].includes(fileFormat(asset.file.name)) ? <img src={asset.file.url} alt={asset.name} loading="lazy" className="h-full w-full object-contain" /> : <FileText className="h-6 w-6 text-gray-400" />}</button>
+        <span className="min-w-0 flex-1 flex items-center gap-2 text-sm text-gray-900"><span className="truncate">{asset.name}</span><span className="text-xs text-gray-400 shrink-0">{fileFormat(asset.file.name)}</span></span>
+        <div className="flex flex-wrap gap-2"><button type="button" onClick={() => openPreview(asset)} disabled={!canPreviewFile(asset.file.name)} title={canPreviewFile(asset.file.name) ? "View document" : "Preview is available only for PDF and images"} aria-label={`View ${asset.name}`} className={`${ghost} disabled:cursor-not-allowed disabled:opacity-50`}><Eye className="w-4 h-4" />View</button><button type="button" onClick={() => download(asset)} aria-label={`Download ${asset.name}`} className={ghost}><Download className="w-4 h-4" />Download</button></div>
       </li>)}</ul>
     </>}
     {preview && <PortalDialog title="Brand asset preview" subtitle={preview.name} onClose={() => setPreview(null)} icon={<Eye className="h-5 w-5" />} maxWidth="max-w-2xl">
-      <div className="p-6"><div className={`flex h-56 sm:h-72 items-center justify-center rounded-xl border border-gray-200 p-6 ${/white/i.test(preview.file.name) ? "bg-navy" : "bg-gray-50"}`}><img src={preview.file.url} alt={preview.name} className="h-full w-full object-contain" /></div>
+      <div className="p-6"><DocumentPreview file={preview.file} name={preview.name} />
         <p className="mt-3 break-all text-xs text-gray-500">{preview.file.name}</p>
         <div className="mt-4 flex justify-end"><button type="button" onClick={() => download(preview)} className={`inline-flex items-center gap-1.5 ${primary}`}><Download className="h-4 w-4" />Download</button></div>
       </div>
@@ -542,13 +542,31 @@ const GUIDE = [
   ["How long does onboarding take?", "Timing depends on the client and the documents provided. Your PulseFX partner manager will confirm typical timelines."],
   ["How and when am I paid?", "Payouts go to the account under Banking details. Your PulseFX partner manager will confirm the payout terms."],
 ];
-const ONE_PAGERS = [
-  ["PulseFX company and core offerings", "pulsefx-company-overview.pdf"],
-  ["PulseFX hedging solutions", "hedging-solutions.pdf"],
-];
-function Guide() {
+function Guide({ authenticated }) {
   const [open, setOpen] = useState(0);
-  const base = import.meta.env.BASE_URL;
+  const [onePagers, setOnePagers] = useState([]);
+  const [loading, setLoading] = useState(authenticated);
+  const [error, setError] = useState("");
+  const [revision, setRevision] = useState(0);
+  useEffect(() => {
+    if (!authenticated) return;
+    let active = true;
+    loadOnePagers().then(value => { if (active) { setOnePagers(value); setError(""); } })
+      .catch(error => { if (active) setError(error.message); })
+      .finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
+  }, [authenticated, revision]);
+  async function download(item) {
+    try {
+      const current = (await loadOnePagers()).find(record => record.id === item.id);
+      if (!current) throw new Error("This one-pager is no longer available.");
+      const response = await fetch(current.file.url);
+      if (!response.ok) throw new Error("Unable to download this one-pager. Please try again.");
+      const url = URL.createObjectURL(await response.blob());
+      const link = document.createElement("a"); link.href = url; link.download = current.file.name; link.click();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } catch (error) { setError(error.message); }
+  }
   return (
     <div className="flex flex-col gap-4 max-w-2xl">
     <div className={`${card} divide-y divide-gray-100`}>
@@ -565,14 +583,18 @@ function Guide() {
     <div className={`${card} p-5`}>
       <p className="text-sm font-medium text-accent">One-pagers</p>
       <p className="text-xs text-gray-500 mt-0.5">Download and share these with your clients.</p>
-      <ul className="mt-3 divide-y divide-gray-100">
-        {ONE_PAGERS.map(([n, f]) => (
-          <li key={f} className="flex items-center justify-between gap-3 py-2.5">
-            <span className="flex items-center gap-2 text-sm text-gray-900 min-w-0"><FileText className="w-4 h-4 text-gray-400 shrink-0" /><span className="truncate">{n}</span><span className="text-xs text-gray-400 shrink-0">PDF</span></span>
-            <a href={`${base}onepagers/${f}`} download={f} aria-label={`Download ${n}`} className={ghost}><Download className="w-4 h-4" />Download</a>
-          </li>
-        ))}
-      </ul>
+      {!authenticated ? <p className="mt-3 text-sm text-gray-500">Sign in to download one-pagers.</p> : loading ? <p className="mt-3 text-sm text-gray-500">Loading one-pagers…</p> : <>
+        {error && <div role="alert" className="mt-3 text-sm text-danger">{error}<button type="button" className={ghost} onClick={() => { setLoading(true); setRevision(value => value + 1); }}>Try again</button></div>}
+        {!error && !onePagers.length && <p className="mt-3 text-sm text-gray-500">No one-pagers are available yet.</p>}
+        <ul className="mt-3 divide-y divide-gray-100">
+          {onePagers.map(item => (
+            <li key={item.id} className="flex items-center justify-between gap-3 py-2.5">
+              <span className="flex items-center gap-2 text-sm text-gray-900 min-w-0"><FileText className="w-4 h-4 text-gray-400 shrink-0" /><span className="truncate">{item.name}</span><span className="text-xs text-gray-400 shrink-0">{fileFormat(item.file.name)}</span></span>
+              <button type="button" onClick={() => download(item)} aria-label={`Download ${item.name}`} className={ghost}><Download className="w-4 h-4" />Download</button>
+            </li>
+          ))}
+        </ul>
+      </>}
       
     </div>
     </div>
@@ -638,7 +660,7 @@ const PARTNER_NAV_ITEMS = NAV
     icon,
   }));
 
-const ADMIN_NAV_ITEMS = [{ key: "admin", label: "User management", icon: Users }, { key: "banking-approvals", label: "Banking approvals", icon: Landmark }, { key: "admin-payouts", label: "Payouts", icon: DollarSign }];
+const ADMIN_NAV_ITEMS = [{ key: "admin", label: "User management", icon: Users }, { key: "banking-approvals", label: "Banking approvals", icon: Landmark }, { key: "admin-payouts", label: "Payouts", icon: DollarSign }, { key: "documents", label: "Documents", icon: FileText }];
 
 export default function PartnerPortal({ onExit, user, isAdmin = false, signingOut = false, signOutError = "", basePath = "/demo" }) {
   const canAdmin = !!user && isAdmin;
@@ -653,7 +675,7 @@ export default function PartnerPortal({ onExit, user, isAdmin = false, signingOu
     // An unknown or not-permitted page goes back to the start page.
     if (page && !allowedTabs.includes(page)) navigate(basePath, { replace: true });
   }, [page, canAdmin]); // eslint-disable-line react-hooks/exhaustive-deps
-  const title = tab === "admin" ? "User management" : tab === "banking-approvals" ? "Banking approvals" : tab === "admin-payouts" ? "Payouts" : tab === "home" ? "Dashboard" : NAV.find((n) => n[0] === tab)?.[1];
+  const title = tab === "documents" ? "Documents" : tab === "admin" ? "User management" : tab === "banking-approvals" ? "Banking approvals" : tab === "admin-payouts" ? "Payouts" : tab === "home" ? "Dashboard" : NAV.find((n) => n[0] === tab)?.[1];
   useEffect(() => {
     document.title = `${title || "Partner portal"} · PulseFX`;
     window.scrollTo(0, 0);
@@ -695,6 +717,7 @@ export default function PartnerPortal({ onExit, user, isAdmin = false, signingOu
           <div><h1 className="text-xl font-semibold text-gray-900">{title}</h1>{PAGE_SUBTITLES[tab] && <p className="mt-0.5 text-sm text-gray-500">{PAGE_SUBTITLES[tab]}</p>}</div>
         </div>}
         {signOutError && <p role="alert" className="text-sm text-danger mb-4">{signOutError}</p>}
+        {tab === "documents" && canAdmin && <Documents key={user?.id} />}
         {tab === "admin" && canAdmin && <PartnerAdmin />}
         {tab === "banking-approvals" && canAdmin && <BankingApprovals />}
         {tab === "admin-payouts" && canAdmin && <AdminPayouts />}
@@ -704,7 +727,7 @@ export default function PartnerPortal({ onExit, user, isAdmin = false, signingOu
         {tab === "banking" && <BankingDetails authenticated={!!user} />}
         {tab === "payouts" && <PayoutHistory authenticated={!!user} showDescription={false} />}
         {tab === "brand" && <BrandKit key={user?.id || "demo"} authenticated={!!user} />}
-        {tab === "guide" && <Guide />}
+        {tab === "guide" && <Guide key={user?.id || "demo"} authenticated={!!user} />}
         {tab === "contact" && !canAdmin && <Contact key={user?.id || "demo"} authenticated={!!user} go={setTab} />}
         {tab !== "admin" && tab !== "add" && tab !== "contact" && !user && <p className="text-xs text-gray-400 mt-4">Portal preview: all names and figures are sample data.</p>}
       </main>

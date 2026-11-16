@@ -1,8 +1,10 @@
+import { dialogInput, dialogPrimary, dialogSecondary } from "../lib/dialogStyles";
+import PortalDialog from "./PortalDialog";
 import SearchFilter from "./SearchFilter";
 import SortableHeader from "./SortableHeader";
 import useTableSort from "../lib/useTableSort";
 import ClearFiltersButton from "./ClearFiltersButton";
-import { useState, useMemo, useRef } from "react";
+import { useState, useRef } from "react";
 import { Download, X, Calculator, FileDown, AlertTriangle, Plus, Paperclip, CheckCircle2 } from "lucide-react";
 import NewFinanceRequest from "./NewFinanceRequest";
 
@@ -63,7 +65,7 @@ export default function TradeFinance() {
   const [pdfMsg, setPdfMsg] = useState("");
   const [newOpen, setNewOpen] = useState(false);
   const [notice, setNotice] = useState("");
-  const [tick, setTick] = useState(0);
+  const [, setTick] = useState(0);
   const docRef = useRef(null);
 
   const used = REQUESTS.reduce((s, r) => s + owing(r) + reserved(r), 0);
@@ -71,10 +73,10 @@ export default function TradeFinance() {
   const overdue = REQUESTS.filter((r) => r.status === "Overdue");
   const overdueTotal = overdue.reduce((s, r) => s + owing(r), 0);
 
-  const filteredList = useMemo(() => {
+  const filteredList = (() => {
     const base = tab === "requests" ? REQUESTS : REQUESTS.filter((r) => ["Funded", "Overdue", "Repaid"].includes(r.status));
     return base.filter((r) => (status === "All" || r.status === status) && (!q || `${r.ref} ${r.supplier} ${r.invoice}`.toLowerCase().includes(q.toLowerCase())));
-  }, [tab, status, q, tick]);
+  })();
 
   const list = sortRows(filteredList, { amount: { value: r => tab === "requests" ? r.amount : owing(r) || r.repaid, type: "number" }, eventDate: { value: r => tab === "requests" ? r.submitted : r.due, type: "date" } });
 
@@ -89,8 +91,10 @@ export default function TradeFinance() {
 
   function addDocs(files) {
     if (!open || !files.length) return;
-    open.docs = [...(open.docs ?? []), ...files.map((f) => f.name)];
-    setTick((t) => t + 1);
+    const updated = { ...open, docs: [...(open.docs ?? []), ...files.map((f) => f.name)] };
+    const index = REQUESTS.findIndex(request => request.ref === open.ref);
+    if (index !== -1) REQUESTS.splice(index, 1, updated);
+    setOpen(updated);
   }
 
   function openPanel(r) { setOpen(r); setEarly(""); setEarlyResult(null); setPdfMsg(""); }
@@ -216,15 +220,9 @@ export default function TradeFinance() {
       {newOpen && <NewFinanceRequest available={CREDIT_LINE - used} onClose={() => setNewOpen(false)} onSubmit={submitNew} />}
 
       {open && (
-        <div className="fixed inset-0 z-50 flex justify-end bg-black/30" onClick={() => setOpen(null)}>
-          <aside role="dialog" aria-label={`Request ${open.ref}`} onClick={(e) => e.stopPropagation()} className="w-full max-w-sm bg-white h-full overflow-y-auto p-5 shadow-xl">
-            <div className="flex items-start justify-between mb-4">
-              <div>
-                <p className="font-mono text-sm text-gray-900">{open.ref}</p>
-                <div className="mt-1"><Badge s={open.status} /></div>
-              </div>
-              <button type="button" aria-label="Close" onClick={() => setOpen(null)} className="p-1 text-gray-400 hover:text-gray-700"><X className="w-4 h-4" /></button>
-            </div>
+        <PortalDialog title={`Request ${open.ref}`} subtitle="Financing details, documents and repayment." icon={<FileDown className="h-5 w-5" />} maxWidth="max-w-xl" closeOnBackdrop collapseOnStatus={false} onClose={() => setOpen(null)}>
+          <div className="p-6">
+            <div className="mb-4"><Badge s={open.status} /></div>
             {[
               ["Supplier", open.supplier],
               ["Invoice", open.invoice],
@@ -247,10 +245,10 @@ export default function TradeFinance() {
                 <ul className="mb-2 flex flex-col gap-1">{open.docs.map((n, i) => <li key={`${n}-${i}`} className="text-xs bg-gray-50 rounded px-2.5 py-1.5 truncate">{n}</li>)}</ul>
               )}
               <input ref={docRef} type="file" multiple className="hidden" aria-label="Upload more documents" onChange={(e) => { addDocs(Array.from(e.target.files ?? [])); e.target.value = ""; }} />
-              <button type="button" onClick={() => docRef.current?.click()} className="inline-flex items-center gap-1.5 text-sm font-medium border border-gray-200 text-gray-700 px-3 py-2 rounded-md hover:bg-gray-50"><Paperclip className="w-4 h-4" />Add documents</button>
+              <button type="button" onClick={() => docRef.current?.click()} className={dialogSecondary}><Paperclip className="w-4 h-4" />Add documents</button>
             </div>
 
-            <button type="button" onClick={() => setPdfMsg("Demo only: a PDF would download here.")} className="mt-4 inline-flex items-center gap-1.5 text-sm font-medium border border-gray-200 text-gray-700 px-3 py-2 rounded-md hover:bg-gray-50">
+            <button type="button" onClick={() => setPdfMsg("Demo only: a PDF would download here.")} className={`${dialogSecondary} mt-4`}>
               <Download className="w-4 h-4" />Download PDF
             </button>
             {pdfMsg && <p className="text-xs text-gray-500 mt-2">{pdfMsg}</p>}
@@ -259,8 +257,8 @@ export default function TradeFinance() {
               <div className="mt-5 bg-gray-50 rounded-lg p-4">
                 <p className="text-sm font-medium text-gray-900 flex items-center gap-1.5"><Calculator className="w-4 h-4 text-accent" />Calculate early repayment</p>
                 <label htmlFor="early" className="block text-xs text-gray-500 mt-3 mb-1">Repayment date</label>
-                <input id="early" type="date" value={early} min={iso(0)} max={open.due} onChange={(e) => { setEarly(e.target.value); setEarlyResult(null); }} className="w-full text-sm border border-gray-200 rounded-md px-2.5 py-2 bg-white" />
-                <button type="button" disabled={!early} onClick={calcEarly} className="mt-3 text-sm font-medium bg-brand text-navy px-4 py-2 rounded-md hover:bg-[#009a7d] disabled:opacity-50 disabled:cursor-not-allowed">Calculate</button>
+                <input id="early" type="date" value={early} min={iso(0)} max={open.due} onChange={(e) => { setEarly(e.target.value); setEarlyResult(null); }} className={dialogInput} />
+                <button type="button" disabled={!early} onClick={calcEarly} className={`${dialogPrimary} mt-3`}>Calculate</button>
                 {earlyResult && (
                   <div className="mt-3 text-sm">
                     <div className="flex justify-between py-1"><span className="text-gray-500">Interest to that date</span><span>{money(earlyResult.interest)}</span></div>
@@ -271,8 +269,8 @@ export default function TradeFinance() {
                 )}
               </div>
             )}
-          </aside>
-        </div>
+          </div>
+        </PortalDialog>
       )}
     </div>
   );

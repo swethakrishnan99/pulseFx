@@ -23,6 +23,8 @@
     "test:payouts": "node --test supabase/functions/partner-payouts/*.test.mjs src/lib/payoutHistory.test.mjs src/lib/dateRange.test.mjs src/lib/airtableDates.test.mjs",
     "lint:tables": "eslint src/components/SortableHeader.jsx src/lib/useTableSort.js src/lib/tableSort.mjs src/lib/tableSort.test.mjs src/components/SearchFilter.jsx",
     "test:tables": "node --test src/lib/tableSort.test.mjs",
+    "lint:documents": "eslint src/components/Documents.jsx src/components/DocumentPreview.jsx src/lib/documents.js src/lib/dialogStyles.js supabase/functions/pulsefx-documents/*.mjs",
+    "test:documents": "node --test supabase/functions/pulsefx-documents/*.test.mjs supabase/functions/pulsefx-one-pagers/*.test.mjs supabase/functions/pulsefx-brand-assets/*.test.mjs",
     "lint:support": "eslint src/lib/support.js supabase/functions/partner-support/service.mjs",
     "test:support": "node --test supabase/functions/partner-support/*.test.mjs"
   },

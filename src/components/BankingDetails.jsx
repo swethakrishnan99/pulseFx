@@ -1,7 +1,8 @@
+import { dialogSecondary } from "../lib/dialogStyles";
 import { formatAirtableDateTime } from "../lib/airtableDates.mjs";
 import { latestBankingDecision, latestPendingBanking } from "../lib/pendingBanking.mjs";
 import { useEffect, useRef, useState } from "react";
-import { CheckCircle2, ChevronDown, Clock3, Eye, History, Landmark, X, XCircle } from "lucide-react";
+import { CheckCircle2, ChevronDown, Clock3, Eye, History, Landmark, XCircle } from "lucide-react";
 import ActionButton from "./ActionButton";
 import PortalDialog from "./PortalDialog";
 import { loadBanking, submitBanking } from "../lib/banking";
@@ -24,22 +25,18 @@ function Account({ account }) {
 }
 
 function AccountHistoryDetails({ account, isCurrent, onClose }) {
-  const dialog = useRef(null);
-  useEffect(() => {
-    const element = dialog.current, previous = document.activeElement;
-    element.showModal();
-    return () => { element.close(); previous?.focus?.(); };
-  }, []);
-  return <dialog ref={dialog} aria-labelledby="account-history-title" onCancel={onClose} className="m-auto max-h-[90vh] w-[calc(100%-2rem)] max-w-lg overflow-y-auto rounded-2xl bg-white p-5 text-gray-900 shadow-xl backdrop:bg-navy/50">
-    <div className="flex items-start justify-between gap-3"><h2 id="account-history-title" className="text-lg font-semibold text-gray-900">Bank submission details</h2><button type="button" aria-label="Close bank submission details" onClick={onClose} className="rounded-md p-1 text-gray-500 hover:bg-gray-100"><X className="h-5 w-5" /></button></div>
+  return <PortalDialog title="Bank submission details" subtitle={account.bank} icon={<Landmark className="h-5 w-5" />} maxWidth="max-w-xl" onClose={onClose}>
+    <div className="p-6">
+
     <div className="mt-3 flex flex-wrap items-center gap-2"><Status status={account.status} />{isCurrent && <span className="text-xs text-accent">Current account</span>}</div>
     <dl className="mt-3"><div className="flex justify-between gap-4 border-b border-gray-100 py-2 text-sm"><dt className="text-gray-500">Submitted</dt><dd className="text-right text-gray-900">{date(account.submittedAt)}</dd></div></dl>
     <Account account={account} />
     {account.comments && <div className="mt-4 rounded-lg bg-gray-50 p-3"><p className="text-xs font-medium text-accent">Your comments</p><p className="mt-1 whitespace-pre-wrap break-words text-sm text-gray-700">{account.comments}</p></div>}
     {account.rejectionReason && <div className="mt-4 rounded-lg bg-gray-50 p-3"><p className="text-xs font-medium text-accent">Reason for rejection</p><p className="mt-1 whitespace-pre-wrap break-words text-sm text-gray-700">{account.rejectionReason}</p></div>}
     {account.reviewNotes && <div className="mt-4 rounded-lg bg-gray-50 p-3"><p className="text-xs font-medium text-accent">Approval reason</p><p className="mt-1 whitespace-pre-wrap break-words text-sm text-gray-700">{account.reviewNotes}</p></div>}
-    <div className="mt-5 flex justify-end"><button type="button" className={secondary} onClick={onClose}>Close</button></div>
-  </dialog>;
+    <div className="mt-5 flex justify-end"><button type="button" className={dialogSecondary} onClick={onClose}>Close</button></div>
+    </div>
+  </PortalDialog>;
 }
 
 export default function BankingDetails({ authenticated = false }) {

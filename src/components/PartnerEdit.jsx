@@ -1,12 +1,11 @@
-import { useEffect, useRef, useState } from "react";
-import { ArrowLeft, Mail, Pencil, X } from "lucide-react";
+import PortalDialog from "./PortalDialog";
+import { dialogInput as input, dialogPrimary as primary, dialogSecondary as secondary } from "../lib/dialogStyles";
+import { useRef, useState } from "react";
+import { ArrowLeft, Mail, Pencil } from "lucide-react";
 
-const input = "w-full rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent-100";
-const primary = "rounded-lg bg-brand px-4 py-2.5 text-sm font-medium text-navy hover:bg-[#009a7d] disabled:opacity-50 disabled:cursor-not-allowed";
-const secondary = "rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium hover:bg-gray-50 disabled:opacity-50";
 export default function PartnerEdit({ partner, onClose, onSave }) {
   const isAdmin = partner.role === "partner_admin";
-  const dialog = useRef(null), submitting = useRef(false);
+  const submitting = useRef(false);
   const [company, setCompany] = useState(partner.company || "");
   const [name, setName] = useState(partner.name);
   const [email, setEmail] = useState(partner.email);
@@ -18,11 +17,6 @@ export default function PartnerEdit({ partner, onClose, onSave }) {
   const normalizedEmail = email.trim().toLowerCase();
   const emailChanged = normalizedEmail !== originalEmail;
   const valid = (isAdmin || company.trim()) && name.trim() && /^\S+@\S+\.\S+$/.test(normalizedEmail);
-  useEffect(() => {
-    const element = dialog.current, previous = document.activeElement;
-    element.showModal();
-    return () => { element.close(); previous?.focus?.(); };
-  }, []);
   async function submit(event) {
     event.preventDefault();
     if (!valid || submitting.current) return;
@@ -34,9 +28,8 @@ export default function PartnerEdit({ partner, onClose, onSave }) {
     catch (failure) { setError(failure.message); }
     finally { submitting.current = false; setBusy(false); }
   }
-  return <dialog ref={dialog} aria-labelledby="edit-partner-title" onCancel={(event) => { if (busy) event.preventDefault(); else onClose(); }} className="m-auto max-h-[90vh] w-[calc(100%-2rem)] max-w-lg overflow-y-auto rounded-2xl bg-white p-5 text-gray-900 shadow-xl backdrop:bg-navy/50">
-    <div className="flex items-start justify-between gap-3"><div className="flex items-center gap-2">{confirming ? <Mail className="h-5 w-5 text-accent" /> : <Pencil className="h-5 w-5 text-accent" />}<h2 id="edit-partner-title" className="text-lg font-semibold">{confirming ? "Confirm email change" : partner.profileEditPending ? "Resume partner update" : (isAdmin ? "Edit admin" : "Edit partner")}</h2></div><button type="button" aria-label="Close partner edit" disabled={busy} onClick={onClose} className="rounded-md p-1 text-gray-500 hover:bg-gray-100"><X className="h-5 w-5" /></button></div>
-    <form onSubmit={submit} className="mt-4 space-y-4">
+  return <PortalDialog title={confirming ? "Confirm email change" : partner.profileEditPending ? "Resume partner update" : isAdmin ? "Edit admin" : "Edit partner"} subtitle={partner.name} icon={confirming ? <Mail className="h-5 w-5" /> : <Pencil className="h-5 w-5" />} maxWidth="max-w-xl" busy={busy} onClose={() => { if (!submitting.current) onClose(); }}>
+    <form onSubmit={submit} aria-busy={busy} className="space-y-4 p-6">
       {confirming ? <>
         <dl className="rounded-lg bg-gray-50 p-3 text-sm"><dt className="text-gray-500">Current email</dt><dd className="mt-1 break-all">{originalEmail}</dd><dt className="mt-3 text-gray-500">New email</dt><dd className="mt-1 break-all font-medium">{normalizedEmail}</dd></dl>
         <p className="text-sm text-gray-600">The user will sign in with the new email. Existing passwords stay unchanged. Existing sessions and access links will be revoked. {isAdmin ? "Administrator access stays linked to this account." : "Partner records and history stay linked to this account."}</p>
@@ -48,7 +41,7 @@ export default function PartnerEdit({ partner, onClose, onSave }) {
       </fieldset>}
       {partner.profileEditPending && <p className="rounded-lg bg-warning-100 p-3 text-sm text-gray-700">This update needs to be completed before other account actions. Resume using the saved values.</p>}
       {error && <p role="alert" className="text-sm text-danger">{error}</p>}
-      <div className="flex flex-wrap justify-end gap-2 border-t border-gray-100 pt-4">{confirming ? <button type="button" className={`${secondary} inline-flex items-center gap-1`} disabled={busy} onClick={() => { setConfirming(false); setConfirmed(false); setError(""); }}><ArrowLeft className="h-4 w-4" />Back</button> : <button type="button" className={secondary} disabled={busy} onClick={onClose}>Cancel</button>}<button type="submit" className={primary} disabled={!valid || busy || (confirming && !confirmed)}>{busy ? "Saving…" : confirming ? "Confirm and update email" : emailChanged ? "Continue" : partner.profileEditPending ? "Resume update" : "Save changes"}</button></div>
+      <div className="flex flex-wrap justify-end gap-2">{confirming ? <button type="button" className={`${secondary} inline-flex items-center gap-1`} disabled={busy} onClick={() => { setConfirming(false); setConfirmed(false); setError(""); }}><ArrowLeft className="h-4 w-4" />Back</button> : <button type="button" className={secondary} disabled={busy} onClick={onClose}>Cancel</button>}<button type="submit" className={primary} disabled={!valid || busy || (confirming && !confirmed)}>{busy ? "Saving…" : confirming ? "Confirm and update email" : emailChanged ? "Continue" : partner.profileEditPending ? "Resume update" : "Save changes"}</button></div>
     </form>
-  </dialog>;
+  </PortalDialog>;
 }

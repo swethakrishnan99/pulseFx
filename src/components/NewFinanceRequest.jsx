@@ -1,9 +1,11 @@
+import PortalDialog from "./PortalDialog";
+import { dialogInput, dialogPrimary, dialogSecondary } from "../lib/dialogStyles";
 import { useState, useRef, useEffect } from "react";
-import { X, Paperclip, Plus } from "lucide-react";
+import { X, Paperclip } from "lucide-react";
 import { FORWARDS, canDrawdown } from "./Forwardsdrawdown";
 import { FALLBACK_RATES } from "../lib/fx";
 
-// Side panel for "New Request" on the Trade Finance page. Fields follow Ebury's
+// Dialog for "New Request" on the Trade Finance page. Fields follow Ebury's
 // "Submit a new request" help article. Demo only: nothing is sent anywhere.
 
 const SUPPLIERS = ["Maple Supply Co.", "Test Company Inc", "Lone Star Logistics"];
@@ -25,7 +27,7 @@ const nextBiz = (iso) => { let x = iso; while (!isBizDay(x)) x = plusDays(x, 1);
 const minIn = (cur) => Math.ceil((MIN_GBP * FALLBACK_RATES[cur]) / FALLBACK_RATES.GBP);
 const fmt = (n) => n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-const field = "w-full text-sm border border-gray-200 rounded-md px-2.5 py-2 bg-white focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent-100";
+const field = dialogInput;
 const lab = "block text-xs text-gray-500 mb-1";
 
 const toCad = (n, cur) => (n / FALLBACK_RATES[cur]) * FALLBACK_RATES.CAD;
@@ -93,20 +95,9 @@ export default function NewFinanceRequest({ onClose, onSubmit, available = Infin
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex justify-end bg-black/30" onClick={onClose}>
-      <form
-        role="dialog"
-        aria-label="New request"
-        onSubmit={submit}
-        onClick={(e) => e.stopPropagation()}
-        className="w-full max-w-md bg-white h-full flex flex-col shadow-xl"
-      >
-        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
-          <h2 className="text-lg font-semibold text-gray-900">New request</h2>
-          <button type="button" aria-label="Close" onClick={onClose} className="p-1 text-gray-400 hover:text-gray-700"><X className="w-4 h-4" /></button>
-        </div>
-
-        <div className="flex-1 overflow-y-auto px-5 py-4 flex flex-col gap-4">
+    <PortalDialog title="New request" subtitle="Add the supplier, invoice and financing details." icon={<Paperclip className="h-5 w-5" />} maxWidth="max-w-xl" closeOnBackdrop collapseOnStatus={false} onClose={onClose}>
+      <form onSubmit={submit}>
+        <div className="p-6 flex flex-col gap-4">
           <div>
             <label htmlFor="nr-supplier" className={lab}>Supplier name *</label>
             <select id="nr-supplier" className={field} value={supplier} onChange={(e) => setSupplier(e.target.value)}>
@@ -263,17 +254,17 @@ export default function NewFinanceRequest({ onClose, onSubmit, available = Infin
           </div>
         </div>
 
-        <div className="border-t border-gray-100 px-5 py-4">
+        <div className="px-6 pb-6">
           <label className="flex items-start gap-2 text-xs text-gray-600 mb-3 cursor-pointer">
             <input type="checkbox" className="mt-0.5 accent-accent" checked={agree} onChange={(e) => setAgree(e.target.checked)} />
             I accept the terms of use
           </label>
           <div className="flex items-center gap-2">
-            <button type="button" onClick={onClose} className="text-sm font-medium text-gray-500 px-4 py-2 rounded-md hover:bg-gray-100">Cancel</button>
-            <button type="submit" disabled={!ready} className="ml-auto text-sm font-medium bg-brand text-navy px-5 py-2 rounded-md hover:bg-[#009a7d] disabled:opacity-50 disabled:cursor-not-allowed">Submit</button>
+            <button type="button" onClick={onClose} className={dialogSecondary}>Cancel</button>
+            <button type="submit" disabled={!ready} className={`${dialogPrimary} ml-auto`}>Submit</button>
           </div>
         </div>
       </form>
-    </div>
+    </PortalDialog>
   );
 }

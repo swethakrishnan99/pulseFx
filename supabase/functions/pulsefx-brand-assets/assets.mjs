@@ -4,7 +4,7 @@ export async function loadBrandAssets({ env, call }) {
   let offset;
   do {
     const url = new URL(`https://api.airtable.com/v0/${encodeURIComponent(env.AIRTABLE_BASE_ID)}/${encodeURIComponent(env.AIRTABLE_BRAND_ASSETS_TABLE_ID)}`);
-    url.searchParams.set("filterByFormula", "{Active}=1");
+    url.searchParams.set("filterByFormula", "AND({Visible to partner}=1,NOT({Deleted}))");
     url.searchParams.set("sort[0][field]", "Display order");
     url.searchParams.set("sort[0][direction]", "asc");
     if (offset) url.searchParams.set("offset", offset);
@@ -15,7 +15,7 @@ export async function loadBrandAssets({ env, call }) {
     for (const record of page.records) {
       const fields = record.fields || {};
       const file = fields.File?.[0];
-      if (fields.Active !== true || typeof fields.Name !== "string" || !file?.url || !file.filename) continue;
+      if (fields["Visible to partner"] !== true || fields.Deleted === true || typeof fields.Name !== "string" || !file?.url || !file.filename) continue;
       if (!/^https:\/\//i.test(file.url)) continue;
       assets.push({ id: record.id, name: fields.Name, file: { name: file.filename, url: file.url } });
     }
