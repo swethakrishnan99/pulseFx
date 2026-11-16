@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { filterPayoutHistory, payoutDay, payoutHistoryCsv, payoutHistoryTotals } from "./payoutHistory.mjs";
 
-const local = (month, day, hour = 12) => new Date(2026, month - 1, day, hour).toISOString();
+const local = (month, day, hour = 12) => `2026-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}T${String(hour).padStart(2, "0")}:00:00-05:00`;
 const rows = [
   { ref: "PAY-PAID", client: "Acme | customer@example.test", amount: 100.25, currency: "CAD", status: "Paid", createdAt: local(11, 10), date: local(11, 14), notes: "PRIVATE-NOTE" },
   { ref: "PAY-PENDING", client: "Beta", amount: 25.1, currency: "CAD", status: "Pending", createdAt: local(11, 12), date: "", notes: "PRIVATE-PENDING-NOTE" },
@@ -14,7 +14,7 @@ test("history filters combine reference/client search and status", () => {
   assert.deepEqual(filterPayoutHistory(rows, { query: "Beta", status: "Paid" }), []);
   assert.deepEqual(filterPayoutHistory(rows), rows);
 });
-test("created and paid date filters are inclusive and use the same local day as the UI", () => {
+test("created and paid date filters are inclusive and use the same Toronto calendar day as the UI", () => {
   assert.deepEqual(filterPayoutHistory(rows, { createdFrom: "2026-11-10", createdTo: "2026-11-12" }), rows.slice(0, 2));
   assert.deepEqual(filterPayoutHistory(rows, { createdFrom: "2026-11-10", createdTo: "2026-11-10", paidFrom: "2026-11-14", paidTo: "2026-11-14" }), [rows[0]]);
   assert.equal(payoutDay(local(11, 14, 0)), "2026-11-14");

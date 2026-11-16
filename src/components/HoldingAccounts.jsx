@@ -1,8 +1,9 @@
+import SearchFilter from "./SearchFilter";
 import SortableHeader from "./SortableHeader";
 import useTableSort from "../lib/useTableSort";
 import ClearFiltersButton from "./ClearFiltersButton";
 import { useState, useEffect } from "react";
-import { Landmark, Plus, Trash2, X, Eye, EyeOff, FileText, Copy, Check, Send, ArrowLeftRight, ArrowUpRight, ArrowDownRight, Search, RefreshCw, Download, Printer } from "lucide-react";
+import { Landmark, Plus, Trash2, X, Eye, EyeOff, FileText, Copy, Check, Send, ArrowLeftRight, ArrowUpRight, ArrowDownRight, RefreshCw, Download, Printer } from "lucide-react";
 import Tooltip from "./Tooltip";
 import { setPendingPayFrom } from "../lib/quoteHandoff";
 import { isVerified, getBankAccounts, addBankAccount, removeBankAccount, takePendingTab } from "../lib/bankAccounts";
@@ -25,7 +26,7 @@ function DetailRow({ label, value, mono = false, action }) {
   return (
     <div className="flex items-center justify-between py-2.5 border-b border-gray-100 last:border-b-0">
       <div>
-        <p className="text-[11px] text-gray-400">{label}</p>
+        <p className="text-xs text-gray-400">{label}</p>
         <p className={`text-sm text-gray-900 ${mono ? "font-mono" : ""}`}>{value}</p>
       </div>
       {action}
@@ -72,7 +73,7 @@ function DetailsPanel({ account, onClose }) {
         className="relative w-full max-w-sm bg-white h-full shadow-xl p-5 overflow-y-auto"
       >
         <div className="flex items-center justify-between mb-1">
-          <h2 className="text-base font-semibold text-gray-900">
+          <h2 className="text-lg font-semibold text-gray-900">
             {FLAGS[account.currency]} {account.currency} holding account
           </h2>
           <button type="button" aria-label="Close" onClick={onClose} className="text-gray-400 hover:text-gray-700">
@@ -186,25 +187,25 @@ function LinkedAccounts() {
 
       {adding && (
         <form onSubmit={save} className="bg-white rounded-xl border border-gray-200/70 p-5 mb-4 max-w-2xl">
-          <h2 className="text-sm font-semibold text-gray-900 border-b border-gray-100 pb-2 mb-4">Link a bank account</h2>
+          <h2 className="text-base font-semibold text-gray-900 border-b border-gray-100 pb-2 mb-4">Link a bank account</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
             <div>
-              <label className="block text-[11px] text-gray-500 mb-1">Currency of the account</label>
+              <label className="block text-xs text-gray-500 mb-1">Currency of the account</label>
               <select value={f.currency} onChange={(e) => setF({ ...f, currency: e.target.value })} className={field}>
                 {CURRENCIES.map((c) => <option key={c} value={c}>{FLAGS[c]} {c}</option>)}
               </select>
             </div>
             <div>
-              <label className="block text-[11px] text-gray-500 mb-1">Bank name</label>
+              <label className="block text-xs text-gray-500 mb-1">Bank name</label>
               <input className={field} value={f.bank} onChange={(e) => setF({ ...f, bank: e.target.value })} placeholder="e.g. RBC Chequing" />
             </div>
             <div className="sm:col-span-2">
-              <label className="block text-[11px] text-gray-500 mb-1">Account holder name</label>
+              <label className="block text-xs text-gray-500 mb-1">Account holder name</label>
               <input className={field} value={f.holder} onChange={(e) => setF({ ...f, holder: e.target.value })} />
-              <p className="text-[11px] text-gray-400 mt-1">Must match the name on the bank account.</p>
+              <p className="text-xs text-gray-400 mt-1">Must match the name on the bank account.</p>
             </div>
             <div>
-              <label className="block text-[11px] text-gray-500 mb-1">Account number</label>
+              <label className="block text-xs text-gray-500 mb-1">Account number</label>
               <input
                 className={`${field} font-mono`}
                 inputMode="numeric"
@@ -212,14 +213,14 @@ function LinkedAccounts() {
                 onChange={(e) => setF({ ...f, account: e.target.value.replace(/\D/g, "") })}
                 placeholder="Digits only"
               />
-              <p className="text-[11px] text-gray-400 mt-1">Once saved, only the last 4 digits are shown.</p>
+              <p className="text-xs text-gray-400 mt-1">Once saved, only the last 4 digits are shown.</p>
             </div>
             <div>
-              <label className="block text-[11px] text-gray-500 mb-1">{routingLabel}</label>
+              <label className="block text-xs text-gray-500 mb-1">{routingLabel}</label>
               <input className={`${field} font-mono`} value={f.routing} onChange={(e) => setF({ ...f, routing: e.target.value })} />
             </div>
           </div>
-          {duplicate && <p role="alert" className="text-[11px] text-danger mt-3">You have already linked this account.</p>}
+          {duplicate && <p role="alert" className="text-xs text-danger mt-3">You have already linked this account.</p>}
           <div className="flex gap-2 mt-4">
             <button
               type="submit"
@@ -236,7 +237,7 @@ function LinkedAccounts() {
       )}
 
       <div className="bg-white rounded-xl border border-gray-200/70 p-4 overflow-x-auto">
-        <div className="grid grid-cols-[1.4fr_0.7fr_1fr_1.4fr_1fr_0.5fr] gap-4 min-w-[720px] text-[11px] text-gray-400 border-b border-gray-100 pb-1.5">
+        <div className="grid grid-cols-[1.4fr_0.7fr_1fr_1.4fr_1fr_0.5fr] gap-4 min-w-[720px] text-xs text-gray-400 border-b border-gray-100 pb-1.5">
           <SortableHeader as="div" column="bank" label="Bank" sort={sort} onSort={toggleSort}  />
           <SortableHeader as="div" column="currency" label="Currency" sort={sort} onSort={toggleSort}  />
           <SortableHeader as="div" column="last4" label="Account number" sort={sort} onSort={toggleSort}  />
@@ -256,9 +257,9 @@ function LinkedAccounts() {
             <span className="text-gray-700">{a.holder}</span>
             <span>
               {isVerified(a) ? (
-                <span className="inline-block text-[11px] font-medium px-2 py-0.5 rounded-full bg-success-100 text-success">Verified</span>
+                <span className="inline-block text-xs font-medium px-2 py-0.5 rounded-full bg-success-100 text-success">Verified</span>
               ) : (
-                <span className="inline-block text-[11px] font-medium px-2 py-0.5 rounded-full bg-warning-100 text-[#7a4e0b]">Pending verification</span>
+                <span className="inline-block text-xs font-medium px-2 py-0.5 rounded-full bg-warning-100 text-[#7a4e0b]">Pending verification</span>
               )}
             </span>
             <span className="flex items-center justify-end gap-3 text-xs font-medium">
@@ -323,8 +324,8 @@ export default function HoldingAccounts({ onNavigate }) {
           <h1 className="text-xl font-semibold text-gray-900 mb-1">Accounts</h1>
           <p className="text-sm text-gray-500 max-w-xl">
             {tab === "holding"
-              ? "Money you hold with PulseFX. You have one account for each currency."
-              : "Your own bank accounts that we can collect money from by direct debit."}
+              ? "View balances and account details for each currency."
+              : "Manage the bank accounts linked for direct debit."}
           </p>
         </div>
         <div className={`items-center gap-1 shrink-0 ${tab === "holding" ? "flex" : "hidden"}`}>
@@ -361,23 +362,13 @@ export default function HoldingAccounts({ onNavigate }) {
         <LinkedAccounts />
       ) : (
       <>
-      <div className="relative max-w-xs mb-3.5">
-        <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
-        <input
-          type="text"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder="Search currency or account ID"
-          aria-label="Search accounts"
-          className="w-full text-sm border border-gray-200 rounded-md pl-9 pr-3 py-2 bg-white focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent-100"
-        />
-      </div>
+      <SearchFilter id="accounts-search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Currency or account ID" className="mb-3.5" />
 
       <ClearFiltersButton onClick={() => setQuery("")} className="mb-3.5" />
 
       {/* Accounts table */}
       <div className="bg-white rounded-xl border border-gray-200/70 p-4 overflow-x-auto">
-        <div className="grid grid-cols-[0.7fr_1fr_0.9fr_1.3fr_1.2fr_1.8fr] gap-4 min-w-[820px] text-[11px] text-gray-400 border-b border-gray-100 pb-1.5">
+        <div className="grid grid-cols-[0.7fr_1fr_0.9fr_1.3fr_1.2fr_1.8fr] gap-4 min-w-[820px] text-xs text-gray-400 border-b border-gray-100 pb-1.5">
           <SortableHeader as="div" column="currency" label="Currency" sort={sort} onSort={toggleSort}  />
           <SortableHeader as="div" column="accountId" label="Account ID" sort={sort} onSort={toggleSort}  />
           <SortableHeader as="div" column="type" label="Account type" sort={sort} onSort={toggleSort}  />

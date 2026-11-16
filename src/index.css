@@ -24,11 +24,28 @@
   --color-border-elevated-dark: rgba(255, 255, 255, 0.08);
   --color-danger-dark: #ff6b6b;
 
+  /* UI scale: supporting text 12px, body 14px, section 16px, modal 18px,
+     page title 20px and summary indicators 24px. */
+  --text-xs: 0.75rem;
+  --text-xs--line-height: 1rem;
+  --text-sm: 0.875rem;
+  --text-sm--line-height: 1.25rem;
+  --text-base: 1rem;
+  --text-base--line-height: 1.5rem;
+  --text-lg: 1.125rem;
+  --text-lg--line-height: 1.75rem;
+  --text-xl: 1.25rem;
+  --text-xl--line-height: 1.75rem;
+  --text-2xl: 1.5rem;
+  --text-2xl--line-height: 2rem;
+
   --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
 
 body {
   font-family: var(--font-sans);
+  font-size: var(--text-sm);
+  line-height: var(--text-sm--line-height);
   background: #f3f6f7;
 }
 
@@ -50,3 +67,66 @@ body {
 @keyframes pfx-tip-in { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
 .pfx-tip { animation: pfx-tip-in 0.45s ease-out; }
 @media (prefers-reduced-motion: reduce) { .pfx-tip { animation: none; } }
+/* Explicit sizing and appearance keep native Safari filters aligned with search inputs. */
+.filter-control {
+  box-sizing: border-box;
+  height: 2.75rem;
+  min-height: 2.75rem;
+  min-width: 0;
+}
+select.filter-control {
+  -webkit-appearance: none;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.75rem center;
+  background-size: 1rem;
+  padding-right: 2.5rem;
+  padding-top: 0;
+  padding-bottom: 0;
+}
+.filter-control[type="date"] {
+  -webkit-appearance: none;
+  appearance: none;
+}
+.filter-control[type="date"]::-webkit-date-and-time-value {
+  min-height: 1.25rem;
+  text-align: left;
+}
+.filter-control-compact {
+  height: 2.25rem;
+  min-height: 2.25rem;
+}
+@media (forced-colors: active) {
+  select.filter-control {
+    -webkit-appearance: auto;
+    appearance: auto;
+    background-image: none;
+  }
+}
+
+/* Shared search width across filter bars. */
+.filter-search {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+}
+@media (min-width: 640px) {
+  .filter-search {
+    width: 18rem;
+    flex: 0 0 18rem;
+  }
+}
+
+/* Status, company and date filters share the Submission status width. */
+.filter-field {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+}
+@media (min-width: 640px) {
+  .filter-field {
+    width: 15rem;
+    flex: 0 0 15rem;
+  }
+}

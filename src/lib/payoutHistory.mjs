@@ -1,19 +1,12 @@
-export function payoutDay(value) {
-  if (!value || !Number.isFinite(Date.parse(value))) return "";
-  const date = new Date(value);
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
-}
+import { airtableDay, inAirtableDateRange } from "./airtableDates.mjs";
+
+export const payoutDay = airtableDay;
 export function filterPayoutHistory(rows, { query = "", status = "All statuses", createdFrom = "", createdTo = "", paidFrom = "", paidTo = "" } = {}) {
   if ((createdFrom && createdTo && createdFrom > createdTo) || (paidFrom && paidTo && paidFrom > paidTo)) return [];
   const search = query.trim().toLowerCase();
-  function inRange(value, from, to) {
-    if (!from && !to) return true;
-    const day = payoutDay(value);
-    return !!day && (!from || day >= from) && (!to || day <= to);
-  }
   return rows.filter((row) => [row.ref, row.client].some((value) => String(value || "").toLowerCase().includes(search))
     && (status === "All statuses" || row.status === status)
-    && inRange(row.createdAt, createdFrom, createdTo) && inRange(row.date, paidFrom, paidTo));
+    && inAirtableDateRange(row.createdAt, createdFrom, createdTo) && inAirtableDateRange(row.date, paidFrom, paidTo));
 }
 export function payoutHistoryTotals(rows, now = new Date()) {
   const sum = (items) => items.reduce((total, row) => total + (row.currency === "CAD" && Number.isFinite(row.amount) ? Math.round(row.amount * 100) : 0), 0) / 100;

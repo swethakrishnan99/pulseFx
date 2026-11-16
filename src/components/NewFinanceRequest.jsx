@@ -26,7 +26,7 @@ const minIn = (cur) => Math.ceil((MIN_GBP * FALLBACK_RATES[cur]) / FALLBACK_RATE
 const fmt = (n) => n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 const field = "w-full text-sm border border-gray-200 rounded-md px-2.5 py-2 bg-white focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent-100";
-const lab = "block text-[11px] text-gray-500 mb-1";
+const lab = "block text-xs text-gray-500 mb-1";
 
 const toCad = (n, cur) => (n / FALLBACK_RATES[cur]) * FALLBACK_RATES.CAD;
 
@@ -102,7 +102,7 @@ export default function NewFinanceRequest({ onClose, onSubmit, available = Infin
         className="w-full max-w-md bg-white h-full flex flex-col shadow-xl"
       >
         <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
-          <h2 className="text-base font-semibold text-gray-900">New request</h2>
+          <h2 className="text-lg font-semibold text-gray-900">New request</h2>
           <button type="button" aria-label="Close" onClick={onClose} className="p-1 text-gray-400 hover:text-gray-700"><X className="w-4 h-4" /></button>
         </div>
 
@@ -121,7 +121,7 @@ export default function NewFinanceRequest({ onClose, onSubmit, available = Infin
                   <option value="">Country</option>
                   {COUNTRIES.map((c) => <option key={c}>{c}</option>)}
                 </select>
-                <p className="col-span-2 text-[11px] text-gray-400">The company name must be the entity that issued the invoice.</p>
+                <p className="col-span-2 text-xs text-gray-400">The company name must be the entity that issued the invoice.</p>
               </div>
             )}
           </div>
@@ -134,7 +134,7 @@ export default function NewFinanceRequest({ onClose, onSubmit, available = Infin
               <option value="__new">+ Add a new beneficiary</option>
             </select>
             {benef === "__new" && <input aria-label="New beneficiary name" className={`${field} mt-2`} placeholder="Beneficiary name" value={newBenef} onChange={(e) => setNewBenef(e.target.value)} />}
-            <p className="text-[11px] text-gray-400 mt-1">Who receives the funds.</p>
+            <p className="text-xs text-gray-400 mt-1">Who receives the funds.</p>
           </div>
 
           <div className="grid grid-cols-2 gap-3">
@@ -146,7 +146,7 @@ export default function NewFinanceRequest({ onClose, onSubmit, available = Infin
               <label htmlFor="nr-date" className={lab}>Date to pay supplier *</label>
               <input id="nr-date" type="date" className={field} min={todayIso()} value={payDate} onChange={(e) => setPayDate(e.target.value)} />
             </div>
-            <p className={`col-span-2 text-[11px] -mt-1.5 ${payDate && !dateOk ? "text-danger" : "text-gray-400"}`}>
+            <p className={`col-span-2 text-xs -mt-1.5 ${payDate && !dateOk ? "text-danger" : "text-gray-400"}`}>
               {payDate && !dateOk ? "Choose a business day that is not in the past." : "The date you'd like the supplier to be paid. Payment on that date is not guaranteed."}
             </p>
           </div>
@@ -171,7 +171,7 @@ export default function NewFinanceRequest({ onClose, onSubmit, available = Infin
               <option value="">Select a country</option>
               {COUNTRIES.map((c) => <option key={c}>{c}</option>)}
             </select>
-            <p className="text-[11px] text-gray-400 mt-1">This may differ from the country the goods shipped from.</p>
+            <p className="text-xs text-gray-400 mt-1">This may differ from the country the goods shipped from.</p>
           </div>
 
           <div>
@@ -182,10 +182,10 @@ export default function NewFinanceRequest({ onClose, onSubmit, available = Infin
               </select>
               <input id="nr-amt" inputMode="decimal" className={field} placeholder="0.00" value={amount} onChange={(e) => { const v = e.target.value.replace(/,/g, ""); if (v === "" || /^\d*\.?\d{0,2}$/.test(v)) setAmount(v); }} />
             </div>
-            <p className={`text-[11px] mt-1 ${belowMin ? "text-danger" : "text-gray-400"}`} role={belowMin ? "alert" : undefined}>
+            <p className={`text-xs mt-1 ${belowMin ? "text-danger" : "text-gray-400"}`} role={belowMin ? "alert" : undefined}>
               {belowMin ? `The amount must be above GBP 2,000, which is about ${cur} ${fmt(min)}.` : `Must be above GBP 2,000 (about ${cur} ${fmt(min)}). You can combine several smaller invoices from the same supplier: enter their total.`}
             </p>
-            {overLine && <p role="alert" className="text-[11px] text-danger mt-1">This is more than your available credit line (CAD {fmt(Math.max(0, available))}). Enter a smaller amount.</p>}
+            {overLine && <p role="alert" className="text-xs text-danger mt-1">This is more than your available credit line (CAD {fmt(Math.max(0, available))}). Enter a smaller amount.</p>}
           </div>
 
           <fieldset>
@@ -207,7 +207,7 @@ export default function NewFinanceRequest({ onClose, onSubmit, available = Infin
                 </div>
               </div>
             )}
-            {deposit === "yes" && <p id="nr-dep-hint" className={`text-[11px] mt-1 ${depAmt && num(depAmt) >= amt && amt > 0 ? "text-danger" : "text-gray-400"}`}>The deposit date can't be in the future, and the deposit must be less than the invoice amount.</p>}
+            {deposit === "yes" && <p id="nr-dep-hint" className={`text-xs mt-1 ${depAmt && num(depAmt) >= amt && amt > 0 ? "text-danger" : "text-gray-400"}`}>The deposit date can't be in the future, and the deposit must be less than the invoice amount.</p>}
           </fieldset>
 
           <div>
@@ -230,7 +230,7 @@ export default function NewFinanceRequest({ onClose, onSubmit, available = Infin
                     <p className="text-xs text-gray-500">You have no open forwards that sell {repayCur} and buy {cur}. Choose Other instead.</p>
                   ) : (
                     <>
-                      <p className="text-[11px] text-gray-500 mb-1.5">Select one or more of your open forwards.</p>
+                      <p className="text-xs text-gray-500 mb-1.5">Select one or more of your open forwards.</p>
                       {fwdOptions.map((f) => (
                         <label key={f.id} className="flex items-start gap-2 text-sm py-1 cursor-pointer">
                           <input type="checkbox" className="mt-1 accent-accent" checked={fwdIds.includes(f.id)} onChange={() => toggleFwd(f.id)} />
@@ -247,7 +247,7 @@ export default function NewFinanceRequest({ onClose, onSubmit, available = Infin
 
           <div>
             <p className={lab}>Attachments</p>
-            <p className="text-[11px] text-gray-400 mb-1.5">Upload the invoice, transport documents and packing lists so we can process the request smoothly.</p>
+            <p className="text-xs text-gray-400 mb-1.5">Upload the invoice, transport documents and packing lists so we can process the request smoothly.</p>
             <input ref={fileRef} type="file" multiple className="hidden" aria-label="Upload documents" onChange={(e) => { setFiles((l) => [...l, ...Array.from(e.target.files ?? [])]); e.target.value = ""; }} />
             <button type="button" onClick={() => fileRef.current?.click()} className="inline-flex items-center gap-1.5 text-sm font-medium border border-gray-200 text-gray-700 px-3 py-2 rounded-md hover:bg-gray-50"><Paperclip className="w-4 h-4" />Add documents</button>
             {files.length > 0 && (

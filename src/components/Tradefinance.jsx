@@ -1,8 +1,9 @@
+import SearchFilter from "./SearchFilter";
 import SortableHeader from "./SortableHeader";
 import useTableSort from "../lib/useTableSort";
 import ClearFiltersButton from "./ClearFiltersButton";
 import { useState, useMemo, useRef } from "react";
-import { Download, X, Calculator, FileDown, AlertTriangle, Search, Plus, Paperclip, CheckCircle2 } from "lucide-react";
+import { Download, X, Calculator, FileDown, AlertTriangle, Plus, Paperclip, CheckCircle2 } from "lucide-react";
 import NewFinanceRequest from "./NewFinanceRequest";
 
 // Demo data only. Dates are generated relative to today so overdue days always look right.
@@ -36,7 +37,7 @@ const STATUS_STYLE = {
 };
 
 function Badge({ s }) {
-  return <span className={`inline-block text-[11px] font-medium px-2 py-0.5 rounded-full ${STATUS_STYLE[s] ?? STATUS_STYLE.Pending}`}>{s}</span>;
+  return <span className={`inline-block text-xs font-medium px-2 py-0.5 rounded-full ${STATUS_STYLE[s] ?? STATUS_STYLE.Pending}`}>{s}</span>;
 }
 
 const daysOverdue = (r) => (r.status === "Overdue" ? Math.max(1, Math.round((Date.now() - new Date(`${r.due}T12:00:00`).getTime()) / DAY)) : 0);
@@ -112,7 +113,7 @@ export default function TradeFinance() {
     ]);
   }
 
-  const th = "text-left text-[11px] font-medium text-gray-500 px-3 py-2.5 whitespace-nowrap";
+  const th = "text-left text-xs font-medium text-gray-500 px-3 py-2.5 whitespace-nowrap";
   const td = "px-3 py-3 text-sm text-gray-700 whitespace-nowrap";
 
   return (
@@ -120,7 +121,7 @@ export default function TradeFinance() {
       <div className="flex items-start justify-between gap-3 mb-4">
         <div>
           <h1 className="text-xl font-semibold text-gray-900 mb-1">Trade finance</h1>
-          <p className="text-sm text-gray-500 max-w-xl">Supplier payment finance: pay your suppliers now and repay later.</p>
+          <p className="text-sm text-gray-500 max-w-xl">Manage supplier financing requests and repayment schedules.</p>
         </div>
         <button type="button" onClick={() => { setNotice(""); setNewOpen(true); }} className="shrink-0 inline-flex items-center gap-1.5 text-sm font-medium bg-brand text-navy px-4 py-2 rounded-md hover:bg-[#009a7d]"><Plus className="w-4 h-4" />New request</button>
       </div>
@@ -144,7 +145,7 @@ export default function TradeFinance() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-4">
         <div className="lg:col-span-2 bg-white rounded-xl border border-gray-200/70 p-5">
-          <p className="text-[11px] text-gray-500">Credit line</p>
+          <p className="text-xs text-gray-500">Credit line</p>
           <p className="text-lg font-semibold text-gray-900">{money(CREDIT_LINE)}</p>
           <div className="h-2 bg-gray-100 rounded-full mt-3 overflow-hidden" role="progressbar" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100} aria-label="Credit line used">
             <div className="h-full bg-brand rounded-full" style={{ width: `${pct}%` }} />
@@ -155,7 +156,7 @@ export default function TradeFinance() {
           </div>
         </div>
         <div className="bg-white rounded-xl border border-gray-200/70 p-5">
-          <p className="text-[11px] text-gray-500">Financial account status</p>
+          <p className="text-xs text-gray-500">Financial account status</p>
           <p className="mt-1"><span className="inline-block text-xs font-medium px-2 py-0.5 rounded-full bg-success-100 text-success">Active</span></p>
           <p className="text-xs text-gray-500 mt-2">Your supplier payment finance account is open and in good standing.</p>
         </div>
@@ -169,14 +170,11 @@ export default function TradeFinance() {
           <button type="button" onClick={exportCsv} aria-label="Download statement" title="Download statement (CSV)" className="ml-auto mb-1 p-2 text-gray-500 hover:text-accent"><FileDown className="w-4 h-4" /></button>
         </div>
 
-        <div className="flex flex-wrap gap-2 px-4 py-3">
-          <div className="relative">
-            <Search className="w-3.5 h-3.5 text-gray-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
-            <input aria-label="Search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search reference or supplier" className="text-sm border border-gray-200 rounded-md pl-8 pr-2.5 py-1.5 w-64 focus:outline-none focus:border-accent" />
-          </div>
-          <select aria-label="Filter by status" value={status} onChange={(e) => setStatus(e.target.value)} className="text-sm border border-gray-200 rounded-md px-2.5 py-1.5 bg-white">
-            {statuses.map((s) => <option key={s}>{s}</option>)}
-          </select>
+        <div className="flex flex-wrap items-end gap-2 px-4 py-3">
+          <SearchFilter id="trade-search" value={q} onChange={(event) => setQ(event.target.value)} placeholder="Reference, supplier or invoice" />
+          <div className="filter-field"><label htmlFor="trade-status" className="mb-1.5 block text-xs text-gray-500">Status</label><select id="trade-status" aria-label="Filter by status" value={status} onChange={(e) => setStatus(e.target.value)} className="filter-control w-full text-sm border border-gray-200 rounded-md px-2.5 py-1.5 bg-white">
+            {[...statuses].sort().map((s) => <option key={s}>{s}</option>)}
+          </select></div>
           <ClearFiltersButton onClick={() => { setQ(""); setStatus("All"); }} />
         </div>
 
@@ -202,7 +200,7 @@ export default function TradeFinance() {
                   <td className={td}>{pretty(tab === "requests" ? r.submitted : r.due)}</td>
                   <td className={td}>
                     <Badge s={r.status} />
-                    {r.status === "Overdue" && <span className="text-[11px] text-danger ml-2">{daysOverdue(r)} days</span>}
+                    {r.status === "Overdue" && <span className="text-xs text-danger ml-2">{daysOverdue(r)} days</span>}
                   </td>
                 </tr>
               ))}
@@ -213,7 +211,7 @@ export default function TradeFinance() {
           </table>
         </div>
       </div>
-      <p className="text-[11px] text-gray-400 mt-3">Demo only: figures are sample data.</p>
+      <p className="text-xs text-gray-400 mt-3">Demo only: figures are sample data.</p>
 
       {newOpen && <NewFinanceRequest available={CREDIT_LINE - used} onClose={() => setNewOpen(false)} onSubmit={submitNew} />}
 
@@ -260,7 +258,7 @@ export default function TradeFinance() {
             {owing(open) > 0 && open.status === "Funded" && (
               <div className="mt-5 bg-gray-50 rounded-lg p-4">
                 <p className="text-sm font-medium text-gray-900 flex items-center gap-1.5"><Calculator className="w-4 h-4 text-accent" />Calculate early repayment</p>
-                <label htmlFor="early" className="block text-[11px] text-gray-500 mt-3 mb-1">Repayment date</label>
+                <label htmlFor="early" className="block text-xs text-gray-500 mt-3 mb-1">Repayment date</label>
                 <input id="early" type="date" value={early} min={iso(0)} max={open.due} onChange={(e) => { setEarly(e.target.value); setEarlyResult(null); }} className="w-full text-sm border border-gray-200 rounded-md px-2.5 py-2 bg-white" />
                 <button type="button" disabled={!early} onClick={calcEarly} className="mt-3 text-sm font-medium bg-brand text-navy px-4 py-2 rounded-md hover:bg-[#009a7d] disabled:opacity-50 disabled:cursor-not-allowed">Calculate</button>
                 {earlyResult && (

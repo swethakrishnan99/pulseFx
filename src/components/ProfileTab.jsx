@@ -20,8 +20,8 @@ function Row({ label, htmlFor, children, hint, error }) {
       <label htmlFor={htmlFor} className="text-xs font-medium text-gray-500">{label}</label>
       <div>
         {children}
-        {hint && <p className="text-[11px] text-gray-400 mt-1">{hint}</p>}
-        {error && <p className="text-[11px] text-danger mt-1" role="alert">{error}</p>}
+        {hint && <p className="text-xs text-gray-400 mt-1">{hint}</p>}
+        {error && <p className="text-xs text-danger mt-1" role="alert">{error}</p>}
       </div>
     </div>
   );
@@ -92,7 +92,7 @@ export default function ProfileTab({ username, email }) {
           Save
         </button>
       </div>
-      <p className="text-[11px] text-gray-400 mt-3">Demo only. Details are stored in this browser and are not sent anywhere.</p>
+      <p className="text-xs text-gray-400 mt-3">Demo only. Details are stored in this browser and are not sent anywhere.</p>
     </form>
   );
 }

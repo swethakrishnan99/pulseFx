@@ -1,3 +1,7 @@
+import { airtableFieldValue, formatAirtableDateTime, inAirtableDateRange } from "../lib/airtableDates.mjs";
+import SearchFilter from "./SearchFilter";
+import ActionButton from "./ActionButton";
+import DateRangeFilter from "./DateRangeFilter";
 import SortableHeader from "./SortableHeader";
 import TablePager from "./TablePager";
 import { usePagination } from "../lib/usePagination";
@@ -5,7 +9,7 @@ import { sortTableRows } from "../lib/tableSort.mjs";
 import ClearFiltersButton from "./ClearFiltersButton";
 import { useEffect, useState, useMemo, useRef } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { Home, Users, DollarSign, Landmark, BookOpen, Headset, Copy, Check, X, Download, UserPlus, ChevronDown, CheckCircle2, Palette, Upload, Phone, MessageSquare, Mail, FileText, Trash2, RefreshCw } from "lucide-react";
+import { Home, Users, DollarSign, Landmark, BookOpen, Headset, Copy, Check, X, Eye, Download, UserPlus, ChevronDown, CheckCircle2, Palette, Upload, Phone, MessageSquare, Mail, FileText, Trash2, RefreshCw } from "lucide-react";
 import Sidebar from "./Sidebar";
 import PartnerAdmin from "./PartnerAdmin";
 import BankingDetails from "./BankingDetails";
@@ -24,9 +28,8 @@ const DAY = 86400000;
 const iso = (off) => { const d = new Date(Date.now() + off * DAY); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; };
 const pretty = (s) => s ? new Date(`${s}T12:00:00`).toLocaleDateString("en-CA", { year: "numeric", month: "short", day: "numeric" }) : "—";
 
-const prettyDateTime = (timestamp, date) => timestamp
-  ? new Date(timestamp).toLocaleString("en-CA", { year: "numeric", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit", timeZoneName: "short" })
-  : pretty(date);
+const prettyDateTime = formatAirtableDateTime;
+const referralDateValue = (record, field) => airtableFieldValue(record, field === "created" ? "createdAt" : "modifiedAt", field);
 
 const STEPS = ["Invite sent", "Account created", "Documents submitted", "Under review", "Onboarded"];
 const STATUSES = ["Invited", "Account created", "Documents submitted", "Under review", "Onboarded", "Rejected"];
@@ -51,7 +54,7 @@ let nextId = 9;
 
 const card = "bg-white rounded-xl border border-gray-200/70";
 const field = "w-full text-sm border border-gray-200 rounded-md px-2.5 py-2 bg-white focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent-100";
-const lab = "block text-[11px] text-gray-500 mb-1";
+const lab = "block text-xs text-gray-500 mb-1";
 const primary = "text-sm font-medium bg-brand text-navy px-4 py-2 rounded-md hover:bg-[#009a7d] disabled:opacity-50 disabled:cursor-not-allowed";
 
 const ghost = "inline-flex items-center gap-1.5 text-sm font-medium border border-gray-200 px-3 py-2 rounded-md hover:bg-gray-50";
@@ -59,10 +62,24 @@ const PHONE = { display: "416 848 1028", tel: "+14168481028" };
 const EMAIL = "partnerships@pulsefx.com";
 
 function Badge({ s }) {
-  return <span className={`inline-block text-[11px] font-medium px-2 py-0.5 rounded-full whitespace-nowrap ${STATUS_STYLE[s] || STATUS_STYLE.Invited}`}>{s}</span>;
+  return <span className={`inline-block text-xs font-medium px-2 py-0.5 rounded-full whitespace-nowrap ${STATUS_STYLE[s] || STATUS_STYLE.Invited}`}>{s}</span>;
 }
 
 const NAV = [["home", "Home", Home], ["referrals", "Referrals", Users], ["add", "Add a client", UserPlus], ["banking", "Banking details", Landmark], ["payouts", "Payout history", DollarSign], ["brand", "Brand kit", Palette], ["guide", "Partner guide", BookOpen], ["contact", "Contact", Headset]];
+const PAGE_SUBTITLES = {
+  admin: "Manage portal access for partners and PulseFX administrators.",
+  "banking-approvals": "Review banking updates and approve or reject partner submissions.",
+  "admin-payouts": "Manage partner payouts and review payment history.",
+  home: "View your referral activity and onboarding progress.",
+  referrals: "Track your referrals from invitation to onboarding.",
+  add: "Refer a client and add their company and contact details.",
+  banking: "Update your bank details and track the review status.",
+  payouts: "Track your payouts and review payment details.",
+  brand: "Manage your referral branding and download PulseFX assets.",
+  guide: "Explore the referral process and resources for your clients.",
+  contact: "Get in touch with the PulseFX partnerships team.",
+};
+
 
 /* ---------------------------------------------------------------- Home */
 function PartnerHome({ go }) {
@@ -74,7 +91,7 @@ function PartnerHome({ go }) {
   return (
     <div className="flex flex-col gap-4">
       <div className={`${card} p-5`}>
-        <p className="text-[11px] text-gray-500">Your partner status</p>
+        <p className="text-xs text-gray-500">Your partner status</p>
         <div className="flex flex-wrap items-center gap-2 mt-1">
           <p className="text-lg font-semibold text-gray-900">{PARTNER.name}</p>
           <span className="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full bg-success-100 text-success"><CheckCircle2 className="w-3.5 h-3.5" />Onboarded</span>
@@ -95,7 +112,7 @@ function PartnerHome({ go }) {
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         {[["Referred", total], ["In progress", inProgress], ["Onboarded", onboarded]].map(([k, v]) => (
-          <div key={k} className={`${card} p-5`}><p className="text-[11px] text-gray-500">{k}</p><p className="text-2xl font-semibold text-gray-900 mt-1">{v}</p></div>
+          <div key={k} className={`${card} p-5`}><p className="text-xs text-gray-500">{k}</p><p className="text-2xl font-semibold text-gray-900 mt-1">{v}</p></div>
         ))}
       </div>
 
@@ -123,7 +140,7 @@ function exportReferrals(rows) {
   const cell = (v) => { const t = String(v); const safe = /^[=+\-@\t\r]/.test(t) ? `'${t}` : t; return `"${safe.replace(/"/g, '""')}"`; };
   const lines = [
     ["Company", "Contact", "Email", "Country", "Expected monthly volume", "Currencies", "Other currency", "Notes", "Status", "Onboarded", "Created", "Last modified"],
-    ...rows.map((r) => [r.company, r.contact, r.email, r.country, r.volume || "", (r.cur || []).join(", "), r.otherCur || "", r.notes || "", r.status, r.status === "Onboarded" ? "Yes" : "No", r.created, r.modified]),
+    ...rows.map((r) => [r.company, r.contact, r.email, r.country, r.volume || "", (r.cur || []).join(", "), r.otherCur || "", r.notes || "", r.status, r.status === "Onboarded" ? "Yes" : "No", referralDateValue(r, "created"), referralDateValue(r, "modified")]),
   ].map((r) => r.map(cell).join(","));
   const url = URL.createObjectURL(new Blob(["\ufeff" + lines.join("\r\n")], { type: "text/csv;charset=utf-8;" }));
   const a = document.createElement("a");
@@ -132,13 +149,13 @@ function exportReferrals(rows) {
   URL.revokeObjectURL(url);
 }
 
-const referralHeader = "text-left text-[11px] font-medium text-gray-400 px-3 py-2.5 whitespace-nowrap";
+const referralHeader = "text-left text-xs font-medium text-gray-400 px-3 py-2.5 whitespace-nowrap";
 function ReferralSortHeader({ column, sort, onSort, children }) {
   return <SortableHeader column={column} label={children} sort={sort} onSort={onSort} className={referralHeader} />;
 }
 
 function Referrals({ authenticated = false, go }) {
-  const [f, setF] = useState({ company: "", status: "", cFrom: "", cTo: "", mFrom: "", mTo: "" });
+  const [f, setF] = useState({ query: "", status: "", cFrom: "", cTo: "", mFrom: "", mTo: "" });
   const [filterReset, setFilterReset] = useState(0);
   const [sort, setSort] = useState({ key: "created", dir: "desc" });
   const [open, setOpen] = useState(null);
@@ -163,10 +180,10 @@ function Referrals({ authenticated = false, go }) {
   }
   const rows = useMemo(() => {
     const r = referrals.filter((x) =>
-      (!f.company || x.company === f.company) && (!f.status || x.status === f.status) &&
-      (!f.cFrom || x.created >= f.cFrom) && (!f.cTo || x.created <= f.cTo) &&
-      (!f.mFrom || x.modified >= f.mFrom) && (!f.mTo || x.modified <= f.mTo));
-    return sortTableRows(r, sort, { onboarded: (row) => row.status === "Onboarded", created: { type: "date" }, modified: { type: "date" } });
+      (!f.query.trim() || [x.company, x.contact, x.email].some(value => (value || "").toLowerCase().includes(f.query.trim().toLowerCase()))) && (!f.status || x.status === f.status) &&
+      inAirtableDateRange(referralDateValue(x, "created"), f.cFrom, f.cTo) &&
+      inAirtableDateRange(referralDateValue(x, "modified"), f.mFrom, f.mTo));
+    return sortTableRows(r, sort, { onboarded: (row) => row.status === "Onboarded", created: { value: row => referralDateValue(row, "created"), type: "date" }, modified: { value: row => referralDateValue(row, "modified"), type: "date" } });
   }, [f, sort, referrals]);
   const pager = usePagination(rows, [JSON.stringify(f), sort?.key, sort?.dir].join("|"));
   const set = (k) => (e) => {
@@ -174,8 +191,8 @@ function Referrals({ authenticated = false, go }) {
     setF((current) => ({ ...current, [k]: value }));
   };
   function clearFilters() {
-    setF({ company: "", status: "", cFrom: "", cTo: "", mFrom: "", mTo: "" });
-    // Remount native date inputs to also clear incomplete dates held by the browser.
+    setF({ query: "", status: "", cFrom: "", cTo: "", mFrom: "", mTo: "" });
+    // Also discard any unconfirmed calendar selections.
     setFilterReset((current) => current + 1);
   }
   const sortBy = (key) => setSort((s) => ({ key, dir: s.key === key && s.dir === "asc" ? "desc" : "asc" }));
@@ -184,24 +201,20 @@ function Referrals({ authenticated = false, go }) {
   return (
     <div className={card}>
       <div className="px-4 pt-4">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <p className="text-sm text-gray-500">Keep track of your referrals and where each one is in onboarding.</p>
+        <div className="flex flex-wrap items-center justify-end gap-3">
           <div className="flex flex-wrap gap-2">
             {authenticated && <button type="button" onClick={reload} disabled={remote.loading} className="inline-flex items-center justify-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"><RefreshCw className="w-4 h-4" />Refresh</button>}
             <button type="button" onClick={() => go("add")} className="inline-flex items-center justify-center gap-2 rounded-lg bg-brand px-4 py-2.5 text-sm font-medium text-navy hover:bg-[#009a7d]"><UserPlus className="w-4 h-4" />Add a client</button>
           </div>
         </div>
-        <fieldset key={filterReset} disabled={remote.loading || !!remote.error} className="grid grid-cols-2 lg:grid-cols-6 gap-3 mt-3 items-end">
-          <div><label htmlFor="rf-co" className={lab}>Company</label>
-            <select id="rf-co" className={field} value={f.company} onChange={set("company")}><option value="">All companies</option>{[...new Set(referrals.map((r) => r.company))].sort().map((company) => <option key={company}>{company}</option>)}</select></div>
-          <div><label htmlFor="rf-st" className={lab}>Status</label>
-            <select id="rf-st" className={field} value={f.status} onChange={set("status")}><option value="">All statuses</option>{STATUSES.map((s) => <option key={s}>{s}</option>)}</select></div>
-          <div><label htmlFor="rf-cf" className={lab}>Created from</label><input id="rf-cf" type="date" className={field} value={f.cFrom} onChange={set("cFrom")} /></div>
-          <div><label htmlFor="rf-ct" className={lab}>Created to</label><input id="rf-ct" type="date" className={field} value={f.cTo} onChange={set("cTo")} /></div>
-          <div><label htmlFor="rf-mf" className={lab}>Modified from</label><input id="rf-mf" type="date" className={field} value={f.mFrom} onChange={set("mFrom")} /></div>
-          <div><label htmlFor="rf-mt" className={lab}>Modified to</label><input id="rf-mt" type="date" className={field} value={f.mTo} onChange={set("mTo")} /></div>
+        <fieldset key={filterReset} disabled={remote.loading || !!remote.error} className="flex flex-wrap items-end gap-3 mt-3">
+          <SearchFilter id="referrals-search" value={f.query} onChange={set("query")} placeholder="Company, contact or email" />
+          <div className="filter-field"><label htmlFor="rf-st" className={lab}>Status</label>
+            <select id="rf-st" className={`${field} filter-control`} value={f.status} onChange={set("status")}><option value="">All statuses</option>{[...STATUSES].sort().map((s) => <option key={s}>{s}</option>)}</select></div>
+          <DateRangeFilter id="rf-created-period" label="Created at" from={f.cFrom} to={f.cTo} onChange={range => setF(previous => ({ ...previous, cFrom: range.from, cTo: range.to }))} />
+          <DateRangeFilter id="rf-modified-period" label="Last modified" from={f.mFrom} to={f.mTo} onChange={range => setF(previous => ({ ...previous, mFrom: range.from, mTo: range.to }))} />
         </fieldset>
-        {(dateBad(f.cFrom, f.cTo) || dateBad(f.mFrom, f.mTo)) && <p role="alert" className="text-[11px] text-danger mt-2">The "from" date must be before the "to" date.</p>}
+        {(dateBad(f.cFrom, f.cTo) || dateBad(f.mFrom, f.mTo)) && <p role="alert" className="text-xs text-danger mt-2">The "from" date must be before the "to" date.</p>}
         <div className="flex items-center justify-between gap-3 mt-3">
           <ClearFiltersButton onClick={clearFilters} />
           <div className="flex items-center gap-3">
@@ -221,21 +234,23 @@ function Referrals({ authenticated = false, go }) {
             <ReferralSortHeader column="onboarded" sort={sort} onSort={sortBy}>Onboarded</ReferralSortHeader>
             <ReferralSortHeader column="created" sort={sort} onSort={sortBy}>Created</ReferralSortHeader>
             <ReferralSortHeader column="modified" sort={sort} onSort={sortBy}>Last modified</ReferralSortHeader>
+            <th scope="col" className={referralHeader}>Actions</th>
           </tr></thead>
           <tbody>
             {pager.rows.map((r) => (
               <tr key={r.id} className="border-t border-gray-100">
-                <td className={td}><button type="button" onClick={() => setOpen(r)} className="text-accent hover:underline font-medium text-left">{r.company}</button></td>
+                <td className={`${td} font-medium text-gray-900`}>{r.company}</td>
                 <td className={td}>{r.contact || "—"}</td>
                 <td className={td}>{r.email || "—"}</td>
                 <td className={td}><Badge s={r.status} /></td>
                 <td className={td}>{r.status === "Onboarded" ? "Yes" : "No"}</td>
-                <td className={td}>{pretty(r.created)}</td><td className={td}>{pretty(r.modified)}</td>
+                <td className={td}>{prettyDateTime(referralDateValue(r, "created"))}</td><td className={td}>{prettyDateTime(referralDateValue(r, "modified"))}</td>
+                <td className={td}><ActionButton label={`View referral ${r.company}`} tooltip="View referral details" onClick={() => setOpen(r)} className="inline-flex shrink-0 items-center justify-center rounded-md p-1.5 text-gray-500 hover:text-accent hover:bg-gray-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"><Eye className="h-4 w-4" /></ActionButton></td>
               </tr>
             ))}
-            {remote.loading && <tr><td colSpan={7} className="px-3 py-8 text-center text-sm text-gray-500"><span role="status">Loading referrals…</span></td></tr>}
-            {remote.error && <tr><td colSpan={7} className="px-3 py-8 text-center text-sm"><p role="alert" className="text-danger">{remote.error}</p><button type="button" onClick={reload} className="mt-3 font-medium text-accent hover:underline">Try again</button></td></tr>}
-            {!remote.loading && !remote.error && rows.length === 0 && <tr><td colSpan={7} className="px-3 py-8 text-center text-sm text-gray-400">{referrals.length === 0 ? "No referrals yet." : "No referrals match those filters."}</td></tr>}
+            {remote.loading && <tr><td colSpan={8} className="px-3 py-8 text-center text-sm text-gray-500"><span role="status">Loading referrals…</span></td></tr>}
+            {remote.error && <tr><td colSpan={8} className="px-3 py-8 text-center text-sm"><p role="alert" className="text-danger">{remote.error}</p><button type="button" onClick={reload} className="mt-3 font-medium text-accent hover:underline">Try again</button></td></tr>}
+            {!remote.loading && !remote.error && rows.length === 0 && <tr><td colSpan={8} className="px-3 py-8 text-center text-sm text-gray-400">{referrals.length === 0 ? "No referrals yet." : "No referrals match those filters."}</td></tr>}
           </tbody>
         </table>
       </div>
@@ -246,15 +261,20 @@ function Referrals({ authenticated = false, go }) {
 }
 
 function Detail({ r, onClose }) {
+  const dialog = useRef(null);
+  useEffect(() => {
+    const element = dialog.current, previous = document.activeElement;
+    element.showModal();
+    return () => { element.close(); previous?.focus?.(); };
+  }, []);
   const idx = stepIndex(r.status);
   return (
-    <div className="fixed inset-0 z-50 flex justify-end bg-black/30" onClick={onClose}>
-      <aside role="dialog" aria-label={r.company} onClick={(e) => e.stopPropagation()} className="w-full max-w-sm bg-white h-full overflow-y-auto p-5 shadow-xl">
+    <dialog ref={dialog} aria-label={r.company} onCancel={event => { event.preventDefault(); onClose(); }} className="m-auto max-h-[90vh] w-[calc(100%-2rem)] max-w-xl overflow-y-auto rounded-2xl bg-white p-5 text-gray-900 shadow-xl backdrop:bg-navy/50">
         <div className="flex items-start justify-between mb-4">
-          <div><p className="text-base font-semibold text-gray-900">{r.company}</p><div className="mt-1"><Badge s={r.status} /></div></div>
-          <button type="button" aria-label="Close" onClick={onClose} className="p-1 text-gray-400 hover:text-gray-700"><X className="w-4 h-4" /></button>
+          <div><h2 className="text-lg font-semibold text-gray-900">{r.company}</h2><div className="mt-1"><Badge s={r.status} /></div></div>
+          <button type="button" aria-label="Close referral details" onClick={onClose} className="p-1 text-gray-400 hover:text-gray-700"><X className="w-4 h-4" /></button>
         </div>
-        {[["Contact", r.contact], ["Email", r.email], ["Country", r.country], ["Expected monthly volume", r.volume || "—"], ["Currencies", r.cur?.join(", ") || "—"], ["Other currency", r.otherCur || "—"], ["Notes", r.notes || "—"], ["Created", prettyDateTime(r.createdAt, r.created)], ["Last modified", prettyDateTime(r.modifiedAt, r.modified)], ["Onboarded", r.status === "Onboarded" ? "Yes" : "No"]].map(([k, v]) => (
+        {[["Contact", r.contact], ["Email", r.email], ["Country", r.country], ["Expected monthly volume", r.volume || "—"], ["Currencies", r.cur?.join(", ") || "—"], ["Other currency", r.otherCur || "—"], ["Notes", r.notes || "—"], ["Created", prettyDateTime(referralDateValue(r, "created"))], ["Last modified", prettyDateTime(referralDateValue(r, "modified"))], ["Onboarded", r.status === "Onboarded" ? "Yes" : "No"]].map(([k, v]) => (
           <div key={k} className="flex justify-between gap-4 py-2 border-b border-gray-100 text-sm"><span className="text-gray-500">{k}</span><span className="text-gray-900 text-right break-all">{v}</span></div>
         ))}
         <p className="text-sm font-medium text-accent mt-5 mb-2">Onboarding progress</p>
@@ -272,8 +292,8 @@ function Detail({ r, onClose }) {
             );
           })}
         </ol>
-      </aside>
-    </div>
+      <div className="mt-5 flex justify-end"><button type="button" onClick={onClose} className={ghost}>Close</button></div>
+    </dialog>
   );
 }
 
@@ -323,13 +343,12 @@ function AddClient({ go, authenticated = false }) {
   return (
     <form onSubmit={submit} noValidate aria-busy={saving} className={`${card} p-5 max-w-xl`}>
       <fieldset disabled={saving} className="flex flex-col gap-4">
-        <p className="text-sm text-gray-500">Enter your client's details to add them to Referrals.</p>
         <div><label htmlFor="ac-co" className={lab}>Company name *</label><input id="ac-co" maxLength={200} required className={field} value={v.company} onChange={(e) => setV({ ...v, company: e.target.value })} />
-          {dup && <p role="alert" className="text-[11px] text-danger mt-1">You have already referred this company.</p>}</div>
+          {dup && <p role="alert" className="text-xs text-danger mt-1">You have already referred this company.</p>}</div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div><label htmlFor="ac-ct" className={lab}>Contact name *</label><input id="ac-ct" maxLength={200} required className={field} value={v.contact} onChange={(e) => setV({ ...v, contact: e.target.value })} /></div>
           <div><label htmlFor="ac-em" className={lab}>Contact email *</label><input id="ac-em" maxLength={254} required type="email" className={field} value={v.email} onChange={(e) => setV({ ...v, email: e.target.value })} aria-invalid={v.email !== "" && !emailOk} />
-            {v.email !== "" && !emailOk && <p role="alert" className="text-[11px] text-danger mt-1">Enter a valid email address.</p>}</div>
+            {v.email !== "" && !emailOk && <p role="alert" className="text-xs text-danger mt-1">Enter a valid email address.</p>}</div>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div><label htmlFor="ac-cn" className={lab}>Country *</label><select id="ac-cn" className={field} value={v.country} onChange={(e) => setV({ ...v, country: e.target.value })}><option value="">Select</option>{["Canada", "United States"].map((c) => <option key={c}>{c}</option>)}</select></div>
@@ -373,7 +392,7 @@ function Uploader({ id, label, hint, kind, accept, maxMB }) {
       {file && (
         <div className="flex items-center gap-3 mt-3 p-2 rounded-md bg-gray-50">
           <img src={file.url} alt={`${label} preview`} className={`w-12 h-12 object-contain bg-white border border-gray-200 ${kind === "headshot" ? "rounded-full object-cover" : "rounded-md"}`} />
-          <div className="min-w-0 flex-1"><p className="text-sm text-gray-900 truncate">{file.name}</p><p className="text-[11px] text-gray-500">{(file.size / 1024).toFixed(0)} KB</p></div>
+          <div className="min-w-0 flex-1"><p className="text-sm text-gray-900 truncate">{file.name}</p><p className="text-xs text-gray-500">{(file.size / 1024).toFixed(0)} KB</p></div>
           <button type="button" onClick={remove} aria-label={`Remove ${label}`} className="p-2 rounded-md text-gray-500 hover:bg-gray-100"><Trash2 className="w-4 h-4" /></button>
         </div>
       )}
@@ -412,7 +431,7 @@ function BrandKit() {
         <textarea id="bk-desc" rows={4} maxLength={max} className={`${field} mt-3`} value={desc} onChange={(e) => { setDesc(e.target.value); setSaved(false); }} />
         <div className="flex items-center justify-between gap-3 mt-2">
           <div className="flex items-center gap-3"><button type="submit" className={primary}>Save description</button>{saved && <span role="status" className="text-xs text-success flex items-center gap-1"><CheckCircle2 className="w-3.5 h-3.5" />Saved</span>}</div>
-          <span className="text-[11px] text-gray-400">{desc.length}/{max}</span>
+          <span className="text-xs text-gray-400">{desc.length}/{max}</span>
         </div>
       </form>
 
@@ -459,7 +478,7 @@ function Guide() {
           {open === i && <p className="px-5 pb-4 text-sm text-gray-600">{a}</p>}
         </div>
       ))}
-      {/* <p className="px-5 py-3 text-[11px] text-gray-400">Demo only: wording is a placeholder until PulseFX confirms the real partner terms.</p> */}
+      {/* <p className="px-5 py-3 text-xs text-gray-400">Demo only: wording is a placeholder until PulseFX confirms the real partner terms.</p> */}
     </div>
     <div className={`${card} p-5`}>
       <p className="text-sm font-medium text-accent">One-pagers</p>
@@ -467,7 +486,7 @@ function Guide() {
       <ul className="mt-3 divide-y divide-gray-100">
         {ONE_PAGERS.map(([n, f]) => (
           <li key={f} className="flex items-center justify-between gap-3 py-2.5">
-            <span className="flex items-center gap-2 text-sm text-gray-900 min-w-0"><FileText className="w-4 h-4 text-gray-400 shrink-0" /><span className="truncate">{n}</span><span className="text-[11px] text-gray-400 shrink-0">PDF</span></span>
+            <span className="flex items-center gap-2 text-sm text-gray-900 min-w-0"><FileText className="w-4 h-4 text-gray-400 shrink-0" /><span className="truncate">{n}</span><span className="text-xs text-gray-400 shrink-0">PDF</span></span>
             <a href={`${base}onepagers/${f}`} download={f} aria-label={`Download ${n}`} className={ghost}><Download className="w-4 h-4" />Download</a>
           </li>
         ))}
@@ -560,7 +579,7 @@ export default function PartnerPortal({ onExit, user, isAdmin = false, signingOu
         active={tab}
         onNavigate={setTab}
         items={canAdmin ? ADMIN_NAV_ITEMS : PARTNER_NAV_ITEMS}
-        helpKey="contact"
+        helpKey={canAdmin ? null : "contact"}
         portalLabel={canAdmin ? "Administration" : "Partner portal"}
         account={{
           name: username,
@@ -573,9 +592,8 @@ export default function PartnerPortal({ onExit, user, isAdmin = false, signingOu
       />
       <main className="flex-1 bg-gray-50 min-w-0 p-4 pt-[72px] md:p-6">
         <div className="flex items-center justify-between mb-4">
-          <h1 className="text-xl font-semibold text-gray-900">{title}</h1>
+          <div><h1 className="text-xl font-semibold text-gray-900">{title}</h1>{PAGE_SUBTITLES[tab] && <p className="mt-0.5 text-sm text-gray-500">{PAGE_SUBTITLES[tab]}</p>}</div>
         </div>
-        {tab === "home" && <p className="text-sm text-gray-500 mb-4">Welcome, {username}. Refer clients to PulseFX and track their onboarding.</p>}
         {signOutError && <p role="alert" className="text-sm text-danger mb-4">{signOutError}</p>}
         {tab === "admin" && canAdmin && <PartnerAdmin />}
         {tab === "banking-approvals" && canAdmin && <BankingApprovals />}
@@ -584,11 +602,11 @@ export default function PartnerPortal({ onExit, user, isAdmin = false, signingOu
         {tab === "referrals" && <Referrals key={user?.id || "demo"} authenticated={!!user} go={setTab} />}
         {tab === "add" && <AddClient go={setTab} authenticated={!!user} />}
         {tab === "banking" && <BankingDetails authenticated={!!user} />}
-        {tab === "payouts" && <PayoutHistory authenticated={!!user} />}
+        {tab === "payouts" && <PayoutHistory authenticated={!!user} showDescription={false} />}
         {tab === "brand" && <BrandKit />}
         {tab === "guide" && <Guide />}
         {tab === "contact" && <Contact />}
-        {tab !== "admin" && !user && <p className="text-[11px] text-gray-400 mt-4">Portal preview: all names and figures are sample data.</p>}
+        {tab !== "admin" && !user && <p className="text-xs text-gray-400 mt-4">Portal preview: all names and figures are sample data.</p>}
       </main>
     </div>
   );

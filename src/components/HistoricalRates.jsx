@@ -56,7 +56,7 @@ function Field({ label, htmlFor, children, hint }) {
       <label htmlFor={htmlFor} className="text-xs font-medium text-accent pt-2.5">{label}</label>
       <div>
         {children}
-        {hint && <p className="text-[11px] text-gray-400 mt-1">{hint}</p>}
+        {hint && <p className="text-xs text-gray-400 mt-1">{hint}</p>}
       </div>
     </div>
   );
@@ -108,7 +108,7 @@ function PairChart({ pair, period, compact = false }) {
         ) : (
           <RateChart points={shown} period={period} onHover={setHovered} label={chartLabel} compact />
         )}
-        {status === "sample" && <p className="text-[11px] text-danger">Sample data. Unable to reach the rate service.</p>}
+        {status === "sample" && <p className="text-xs text-danger">Sample data. Unable to reach the rate service.</p>}
       </div>
     );
   }
@@ -146,7 +146,7 @@ function PairChart({ pair, period, compact = false }) {
         />
       )}
       {status === "sample" && (
-        <p className="text-[11px] text-danger mt-1">Sample data. Unable to reach the rate service.</p>
+        <p className="text-xs text-danger mt-1">Sample data. Unable to reach the rate service.</p>
       )}
     </div>
   );
@@ -265,11 +265,11 @@ function AlertsModal({ alerts, onChange, onClose }) {
                   <input id="ra-amount" inputMode="decimal" placeholder="0.00" value={amount} onChange={numOnly(setAmount, "amount")} aria-invalid={!!errors.amount} className={inputCls} />
                   <span className="shrink-0 w-16 text-sm border border-gray-200 rounded-md px-2 py-2 bg-gray-50 text-gray-600 text-center">{buy}</span>
                 </div>
-                {errors.amount && <p className="text-[11px] text-danger mt-1">{errors.amount}</p>}
+                {errors.amount && <p className="text-xs text-danger mt-1">{errors.amount}</p>}
               </Field>
               <Field label="Notify me when the rate reaches" htmlFor="ra-target" hint={errors.target ? undefined : `1 ${buy} = ? ${have}`}>
                 <input id="ra-target" inputMode="decimal" placeholder="0.0000" value={target} onChange={numOnly(setTarget, "target")} aria-invalid={!!errors.target} className={inputCls} />
-                {errors.target && <p className="text-[11px] text-danger mt-1">{errors.target}</p>}
+                {errors.target && <p className="text-xs text-danger mt-1">{errors.target}</p>}
               </Field>
               <Field label="Notify me by">
                 <div className="flex gap-5 pt-2.5">
@@ -280,9 +280,9 @@ function AlertsModal({ alerts, onChange, onClose }) {
                     <input type="checkbox" checked={text} onChange={(e) => { setText(e.target.checked); setErrors((er) => ({ ...er, via: undefined })); }} className="accent-[#00af8e]" /> Text message
                   </label>
                 </div>
-                {errors.via && <p className="text-[11px] text-danger mt-1">{errors.via}</p>}
+                {errors.via && <p className="text-xs text-danger mt-1">{errors.via}</p>}
               </Field>
-              <p className="text-[11px] text-gray-400">Demo only. No notifications are sent.</p>
+              <p className="text-xs text-gray-400">Demo only. No notifications are sent.</p>
             </div>
             <div className="flex justify-end gap-2 px-5 py-3 border-t border-gray-100">
               <button type="button" onClick={onClose} className="text-sm font-medium text-gray-600 bg-gray-100 rounded-md px-4 py-2 hover:bg-gray-200">Cancel</button>
@@ -372,7 +372,7 @@ export default function HistoricalRates({ compact = false }) {
                 aria-pressed={period === p.key}
                 aria-label={p.label}
                 title={p.label}
-                className={`${compact ? "w-6 h-6" : "w-7 h-7"} rounded-full text-[11px] font-semibold transition-colors ${
+                className={`${compact ? "w-6 h-6" : "w-7 h-7"} rounded-full text-xs font-semibold transition-colors ${
                   period === p.key ? "bg-navy text-white" : "bg-accent-100 text-accent hover:bg-accent/20"
                 }`}
               >
@@ -430,7 +430,7 @@ export default function HistoricalRates({ compact = false }) {
             >
               <ChevronUp className="w-4 h-4" />
             </button>
-            <span className="text-[11px] text-gray-500 tabular-nums" aria-live="polite">
+            <span className="text-xs text-gray-500 tabular-nums" aria-live="polite">
               {view.idx + 1} of {pairs.length}
             </span>
             <button
@@ -450,7 +450,7 @@ export default function HistoricalRates({ compact = false }) {
           ))}
         </div>
       )}
-      <p className="text-[11px] text-gray-400 mt-2.5">
+      <p className="text-xs text-gray-400 mt-2.5">
         {compact
           ? `ECB daily reference rates \u00B7 ${PERIODS.find((p) => p.key === period).label}`
           : `ECB daily reference rates. Showing the ${PERIODS.find((p) => p.key === period).label.toLowerCase()}. Hover over a chart to see a day's rate.`}

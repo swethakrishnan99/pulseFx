@@ -1,6 +1,7 @@
+import SearchFilter from "./SearchFilter";
 import ClearFiltersButton from "./ClearFiltersButton";
 import { useMemo, useState } from "react";
-import { Search, ChevronDown, Mail, Phone, Clock, CheckCircle2 } from "lucide-react";
+import { ChevronDown, Mail, Phone, Clock, CheckCircle2 } from "lucide-react";
 
 const CARD = "bg-white rounded-xl border border-gray-200/70 p-4 md:p-5 mb-4";
 const INPUT =
@@ -132,23 +133,13 @@ export default function HelpSupport() {
     <div className="flex-1 bg-gray-50 p-4 pt-[72px] md:p-6 min-w-0">
       <h1 className="text-xl font-semibold text-gray-900 mb-1">Help &amp; support</h1>
       <p className="text-sm text-gray-500 mb-4 max-w-xl">
-        Find answers to common questions, or contact our support team.
+        Find answers or contact the PulseFX support team.
       </p>
 
       <div className="grid grid-cols-1 md:grid-cols-[1.4fr_1fr] md:gap-x-4 items-start max-w-6xl">
         {/* Left: search and FAQ */}
         <div>
-          <div className="relative mb-4">
-            <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" aria-hidden="true" />
-            <input
-              type="search"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search for help"
-              aria-label="Search help articles"
-              className="w-full text-sm border border-gray-200 rounded-md pl-9 pr-3 py-2.5 bg-white focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent-100"
-            />
-          </div>
+          <SearchFilter id="help-search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Help articles" className="mb-4" />
 
           <ClearFiltersButton onClick={() => setQuery("")} className="mb-4" />
 
@@ -160,7 +151,7 @@ export default function HelpSupport() {
 
           {groups.map((g) => (
             <section key={g.group} className={CARD} aria-label={g.group}>
-              <h2 className="text-sm font-medium text-gray-900 mb-1">{g.group}</h2>
+              <h2 className="text-base font-medium text-gray-900 mb-1">{g.group}</h2>
               <ul>
                 {g.items.map((it) => (
                   <FaqItem
@@ -180,7 +171,7 @@ export default function HelpSupport() {
         {/* Right: contact */}
         <div>
           <section className={CARD} aria-labelledby="hs-contact">
-            <h2 id="hs-contact" className="text-sm font-medium text-gray-900 mb-3">Contact us</h2>
+            <h2 id="hs-contact" className="text-base font-medium text-gray-900 mb-3">Contact us</h2>
             <ul className="flex flex-col gap-3">
               <li className="flex items-start gap-3">
                 <Mail className="w-4 h-4 text-accent mt-0.5 shrink-0" />
@@ -207,7 +198,7 @@ export default function HelpSupport() {
           </section>
 
           <form onSubmit={submit} noValidate className={CARD} aria-labelledby="hs-msg">
-            <h2 id="hs-msg" className="text-sm font-medium text-gray-900 mb-3">Send us a message</h2>
+            <h2 id="hs-msg" className="text-base font-medium text-gray-900 mb-3">Send us a message</h2>
 
             {sent && (
               <p role="status" className="flex items-start gap-2 text-sm text-success bg-accent-100/60 rounded-md p-3 mb-3">
@@ -219,7 +210,7 @@ export default function HelpSupport() {
             )}
 
             <div className="mb-3">
-              <label htmlFor="hs-topic" className="block text-[11px] text-gray-500 mb-1">Topic</label>
+              <label htmlFor="hs-topic" className="block text-xs text-gray-500 mb-1">Topic</label>
               <select
                 id="hs-topic"
                 className={INPUT}
@@ -235,11 +226,11 @@ export default function HelpSupport() {
                   <option key={t}>{t}</option>
                 ))}
               </select>
-              {errors.topic && <p className="text-[11px] text-danger mt-1" role="alert">{errors.topic}</p>}
+              {errors.topic && <p className="text-xs text-danger mt-1" role="alert">{errors.topic}</p>}
             </div>
 
             <div className="mb-3">
-              <label htmlFor="hs-message" className="block text-[11px] text-gray-500 mb-1">How can we help?</label>
+              <label htmlFor="hs-message" className="block text-xs text-gray-500 mb-1">How can we help?</label>
               <textarea
                 id="hs-message"
                 rows={5}
@@ -251,7 +242,7 @@ export default function HelpSupport() {
                   setSent(null);
                 }}
               />
-              {errors.message && <p className="text-[11px] text-danger mt-1" role="alert">{errors.message}</p>}
+              {errors.message && <p className="text-xs text-danger mt-1" role="alert">{errors.message}</p>}
             </div>
 
             <button
@@ -260,7 +251,7 @@ export default function HelpSupport() {
             >
               Send message
             </button>
-            <p className="text-[11px] text-gray-400 mt-3">Demo only. Your message is not sent and the contact details are samples.</p>
+            <p className="text-xs text-gray-400 mt-3">Demo only. Your message is not sent and the contact details are samples.</p>
           </form>
         </div>
       </div>

@@ -1,10 +1,11 @@
+import SearchFilter from "./SearchFilter";
 import SortableHeader from "./SortableHeader";
 import TablePager from "./TablePager";
 import { usePagination } from "../lib/usePagination";
 import useTableSort from "../lib/useTableSort";
 import ClearFiltersButton from "./ClearFiltersButton";
 import { useEffect, useRef, useState } from "react";
-import { Building2, Check, CheckCircle2, Clock3, Copy, Eye, KeyRound, Link2, LoaderCircle, Pencil, Play, Power, RefreshCw, Search, ShieldCheck, Trash2, UserPlus, Users, X } from "lucide-react";
+import { Building2, Check, CheckCircle2, Clock3, Copy, Eye, KeyRound, Link2, LoaderCircle, Pencil, Play, Power, RefreshCw, ShieldCheck, Trash2, UserPlus, Users, X } from "lucide-react";
 import { changePartnerAccess, createPartner, deletePartnerUser, editPartnerProfile, generatePartnerInvite, generatePartnerRecovery, listPartners } from "../lib/partnerAdmin";
 import { createAdmin, listAdmins, manageAdmin } from "../lib/pulsefxUserAdmin";
 import PartnerAccountConfirmation from "./PartnerAccountConfirmation";
@@ -376,8 +377,7 @@ export default function PartnerAdmin() {
 
   return (
     <div className="max-w-6xl space-y-5">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <p className="text-sm text-gray-500">Invite partners and admins, and manage their accounts.</p>
+      <div className="flex flex-wrap items-center justify-end gap-3">
         <div className="flex flex-wrap gap-2"><button type="button" className={secondary} disabled={loading || !!busyId} onClick={refresh}><RefreshCw className="w-4 h-4" />Refresh</button>
         <button type="button" className={primary} disabled={loading || !!busyId} onClick={() => setAddingAdmin(true)}><ShieldCheck className="w-4 h-4" />Add admin</button>
         <button type="button" className={primary} disabled={loading || !!busyId || !!error} onClick={() => setInviting(true)}><UserPlus className="w-4 h-4" />Add partner</button></div>
@@ -398,21 +398,21 @@ export default function PartnerAdmin() {
       {error && <div role="alert" className="rounded-lg bg-danger-100 p-3 text-sm text-danger flex flex-wrap items-center justify-between gap-3"><p>{error}</p><button type="button" className={secondary} disabled={loading} onClick={refresh}>Try again</button></div>}
       {notice && <div role="status" className="rounded-lg bg-accent-100 p-3 text-sm text-accent flex items-center justify-between gap-3"><p>{notice}</p><button type="button" aria-label="Dismiss notification" onClick={() => setNotice("")}><X className="w-4 h-4" /></button></div>}
       <section aria-label={showingAdmins ? "Administrators" : "Partner contacts"} className="rounded-xl border border-gray-200/70 bg-white overflow-hidden">
-        <div className="p-4 flex flex-wrap gap-3">
-          <div className="flex-1 min-w-0 basis-56"><label htmlFor="admin-search" className="block text-xs text-gray-500 mb-1.5">{showingAdmins ? "Search admin name or email" : "Search partner, name or email"}</label><div className="relative"><Search className="absolute top-3 left-3 w-4 h-4 text-gray-400" /><input id="admin-search" type="search" value={query} onChange={(event) => setQuery(event.target.value)} className={`${input} pl-9`} /></div></div>
-          <div><label htmlFor="admin-status" className="block text-xs text-gray-500 mb-1.5">Account status</label><select id="admin-status" aria-label="Filter by account status" value={status} onChange={(event) => setStatus(event.target.value)} className={`${input} sm:w-44`}>
-            {(showingAdmins ? ["All statuses", "Active", "Awaiting activation", "Deactivated"] : ["All statuses", "Active", "Awaiting activation", "Setup incomplete", "Deactivated"]).map((value) => <option key={value}>{value}</option>)}
+        <div className="p-4 flex flex-wrap items-end gap-3">
+          <SearchFilter id="admin-search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder={showingAdmins ? "Admin name or email" : "Partner, contact or email"} />
+          <div className="filter-field"><label htmlFor="admin-status" className="block text-xs text-gray-500 mb-1.5">Account status</label><select id="admin-status" aria-label="Filter by account status" value={status} onChange={(event) => setStatus(event.target.value)} className={`${input} filter-control w-full`}>
+            {["All statuses", ...(showingAdmins ? ["Active", "Awaiting activation", "Deactivated"] : ["Active", "Awaiting activation", "Setup incomplete", "Deactivated"]).sort()].map((value) => <option key={value}>{value}</option>)}
           </select></div>
         </div>
         <div className="border-b border-gray-100 px-4 pb-4"><ClearFiltersButton onClick={() => { setQuery(""); setStatus("All statuses"); }} /></div>
         <div className="overflow-x-auto"><table className="w-full min-w-[880px] table-fixed text-sm text-left">
           <colgroup><col className="w-[26%]" /><col /><col className="w-[190px]" /><col className="w-[240px]" /></colgroup>
-          <thead className="text-[11px] text-gray-400 border-b border-gray-100"><tr>{[["identity", showingAdmins ? "Administrator" : "Partner"], ["contact", showingAdmins ? "Email" : "Contact"], ["status", "Account status"]].map(([key, label]) => <SortableHeader key={key} column={key} label={label} sort={sort} onSort={toggleSort} className="font-medium px-5 py-3 whitespace-nowrap" />)}<th scope="col" className="font-medium px-5 py-3 whitespace-nowrap">Actions</th></tr></thead>
+          <thead className="text-xs text-gray-400 border-b border-gray-100"><tr>{[["identity", showingAdmins ? "Administrator" : "Partner"], ["contact", showingAdmins ? "Email" : "Contact"], ["status", "Account status"]].map(([key, label]) => <SortableHeader key={key} column={key} label={label} sort={sort} onSort={toggleSort} className="font-medium px-5 py-3 whitespace-nowrap" />)}<th scope="col" className="font-medium px-5 py-3 whitespace-nowrap">Actions</th></tr></thead>
           <tbody className="divide-y divide-gray-100 text-gray-700">
             {pager.rows.map((partner) => <tr key={partner.id} className="h-[76px]">
               <td className="px-5 py-4 font-medium text-gray-900"><span className="flex items-center gap-2">{showingAdmins ? <ShieldCheck className="w-4 h-4 text-accent shrink-0" /> : <Building2 className="w-4 h-4 text-gray-400 shrink-0" />}<span className="min-w-0 break-words">{showingAdmins ? partner.name || "Administrator" : partner.company}</span></span></td>
-              <td className="px-5 py-4">{!showingAdmins && <p className="text-gray-700">{partner.name}</p>}<p className={showingAdmins ? "break-all text-gray-700" : "text-[11px] text-gray-400 mt-1 break-all"}>{partner.email}</p></td>
-              <td className="px-5 py-4"><span className={`inline-flex text-xs rounded-full px-2.5 py-1 whitespace-nowrap ${badge[partner.status]}`}>{partner.status}</span>{partner.profileEditPending && <p className="mt-1 text-xs text-warning">Update pending</p>}{partner.airtableSyncPending && partner.airtableSyncError && <p className="text-[11px] mt-1.5 text-warning">Airtable update pending — retrying</p>}</td>
+              <td className="px-5 py-4">{!showingAdmins && <p className="text-gray-700">{partner.name}</p>}<p className={showingAdmins ? "break-all text-gray-700" : "text-xs text-gray-400 mt-1 break-all"}>{partner.email}</p></td>
+              <td className="px-5 py-4"><span className={`inline-flex text-xs rounded-full px-2.5 py-1 whitespace-nowrap ${badge[partner.status]}`}>{partner.status}</span>{partner.profileEditPending && <p className="mt-1 text-xs text-warning">Update pending</p>}{partner.airtableSyncPending && partner.airtableSyncError && <p className="text-xs mt-1.5 text-warning">Airtable update pending — retrying</p>}</td>
               <td className="px-5 py-4">
                 <div className="flex items-center gap-1.5" role="group" aria-label={`Account actions for ${partner.email}`}>
                   <ActionButton className={`${iconButton} text-gray-500 enabled:hover:text-accent`} disabled={loading} label={`View user details for ${partner.email}`} tooltip="View user details" onClick={() => setViewing(partner)}><Eye className="w-4 h-4" /></ActionButton>
