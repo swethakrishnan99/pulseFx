@@ -21,7 +21,7 @@ function AuditDetails({ label, value, showActor = true }) {
   </dl></section>;
 }
 function DocumentSection({ section, label, description, showDeleted }) {
-  const { sort, toggleSort, sortRows } = useTableSort();
+  const { sort, toggleSort, sortRows } = useTableSort({ key: "name", dir: "asc" });
   const [documents, setDocuments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
