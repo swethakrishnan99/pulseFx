@@ -1,3 +1,5 @@
+import PortalDialog from "./PortalDialog";
+import { dialogInput, dialogPrimary, dialogSecondary } from "../lib/dialogStyles";
 import SearchFilter from "./SearchFilter";
 import SortableHeader from "./SortableHeader";
 import TablePager from "./TablePager";
@@ -29,7 +31,7 @@ function formatCreatedAt(value) {
 }
 
 function PartnerDetails({ partner, onClose }) {
-  const dialog = useRef(null);
+  const secondary = dialogSecondary;
   const [copied, setCopied] = useState("");
   const [copyError, setCopyError] = useState("");
   async function copy(label, value) {
@@ -38,12 +40,6 @@ function PartnerDetails({ partner, onClose }) {
     try { await navigator.clipboard.writeText(value); setCopied(label); }
     catch { setCopyError("Copy is unavailable. Select the value and copy it manually."); }
   }
-  useEffect(() => {
-    const element = dialog.current;
-    const previous = document.activeElement;
-    element.showModal();
-    return () => { element.close(); previous?.focus?.(); };
-  }, []);
   const details = [
     ["Contact name", partner.name],
     ["Email address", partner.email, true],
@@ -53,14 +49,9 @@ function PartnerDetails({ partner, onClose }) {
     ...(partner.role === "partner_admin" ? [] : [["Airtable ID", partner.airtableId, true]]),
     ["User created", formatCreatedAt(partner.createdAt)],
   ];
-  return <dialog ref={dialog} onCancel={onClose} aria-labelledby="partner-details-title"
-    onClick={(event) => { if (event.target === event.currentTarget) onClose(); }}
-    className="m-auto max-h-[90vh] w-[calc(100%-2rem)] max-w-lg overflow-y-auto rounded-2xl bg-white p-5 text-gray-900 shadow-xl backdrop:bg-navy/50">
-    <div className="flex items-center justify-between gap-3">
-      <h2 id="partner-details-title" className="flex items-center gap-2 text-lg font-semibold"><Eye className="h-5 w-5 text-gray-900" />User details</h2>
-      <button type="button" onClick={onClose} aria-label="Close user details" className="rounded-md p-1.5 hover:bg-gray-100"><X className="h-5 w-5" /></button>
-    </div>
-    <dl className="mt-5 divide-y divide-gray-100">
+  return <PortalDialog title="User details" subtitle={partner.name} icon={<Eye className="h-5 w-5" />} maxWidth="max-w-xl" closeOnBackdrop collapseOnStatus={false} onClose={onClose}>
+    <div className="p-6">
+    <dl className="divide-y divide-gray-100">
       {details.map(([label, value, copyable]) => <div key={label} className="py-3 first:pt-0">
         <dt className="text-xs text-gray-500">{label}</dt>
         <dd className="mt-1 flex items-start gap-2 text-sm">
@@ -75,29 +66,23 @@ function PartnerDetails({ partner, onClose }) {
     </dl>
     {copied && <p role="status" className="mt-2 text-xs text-accent">{copied} copied.</p>}
     {copyError && <p role="alert" className="mt-2 text-xs text-danger">{copyError}</p>}
-    <div className="mt-4 flex justify-end border-t border-gray-100 pt-4"><button type="button" onClick={onClose} className={secondary}>Close</button></div>
-  </dialog>;
+    <div className="mt-4 flex justify-end"><button type="button" onClick={onClose} className={secondary}>Close</button></div>
+    </div>
+  </PortalDialog>;
 }
 
 function InvitationLink({ result, onClose }) {
   const recovery = result.kind === "recovery";
-  const dialog = useRef(null);
+  const secondary = dialogSecondary, input = dialogInput, primary = dialogPrimary;
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState("");
-  useEffect(() => {
-    const element = dialog.current;
-    const previous = document.activeElement;
-    element.showModal();
-    return () => { element.close(); previous?.focus?.(); };
-  }, []);
   async function copy() {
     setError("");
     try { await navigator.clipboard.writeText(result.link); setCopied(true); }
     catch { setError("Copy is unavailable. Select the link and copy it manually."); }
   }
-  return <dialog ref={dialog} onCancel={onClose} aria-labelledby="invitation-link-title"
-    className="m-auto w-[calc(100%-2rem)] max-w-lg rounded-2xl bg-white p-5 text-gray-900 shadow-xl backdrop:bg-navy/50">
-    <div className="flex justify-between items-center gap-3"><h2 id="invitation-link-title" className="text-lg font-semibold">{recovery ? "Password reset link ready" : "Invitation link ready"}</h2><button type="button" aria-label="Close invitation link" onClick={onClose} className="p-1.5 rounded-md hover:bg-gray-100"><X className="w-5 h-5" /></button></div>
+  return <PortalDialog title={recovery ? "Password reset link ready" : "Invitation link ready"} subtitle={(result.administrator || result.partner).email} icon={<Link2 className="h-5 w-5" />} maxWidth="max-w-xl" collapseOnStatus={false} onClose={onClose}>
+    <div className="p-6">
     <p className="text-sm text-gray-600 mt-3">{recovery ? "Send this private password reset link directly to the registered email address." : "Copy this private link and send it directly to the contact. No email has been sent."}</p>
     <p className="text-sm mt-3 font-medium break-all">{(result.administrator || result.partner).email}</p>
     <label htmlFor="generated-invite-link" className="block text-xs text-gray-500 mt-4 mb-1.5">{recovery ? "Password reset link" : "Invitation link"}</label>
@@ -106,22 +91,18 @@ function InvitationLink({ result, onClose }) {
     {error && <p role="alert" className="text-sm text-danger mt-3">{error}</p>}
     {copied && <p role="status" className="text-sm text-accent mt-3">Link copied.</p>}
     <div className="flex justify-end gap-2 mt-5"><button type="button" onClick={onClose} className={secondary}>Done</button><button type="button" onClick={copy} className={primary}>{copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}{copied ? "Copied" : "Copy link"}</button></div>
-  </dialog>;
+    </div>
+  </PortalDialog>;
 }
 
 function AddAdminDialog({ onClose, onCreated }) {
-  const dialog = useRef(null);
+  const input = dialogInput, primary = dialogPrimary, secondary = dialogSecondary;
   const submitting = useRef(false);
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [confirmed, setConfirmed] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  useEffect(() => {
-    const element = dialog.current, previous = document.activeElement;
-    element.showModal();
-    return () => { element.close(); previous?.focus?.(); };
-  }, []);
   async function submit(event) {
     event.preventDefault();
     if (submitting.current || !confirmed) return;
@@ -131,37 +112,27 @@ function AddAdminDialog({ onClose, onCreated }) {
     catch (failure) { setError(failure.message); }
     finally { submitting.current = false; setBusy(false); }
   }
-  return <dialog ref={dialog} aria-labelledby="add-admin-title"
-    onCancel={(event) => { if (busy) event.preventDefault(); else onClose(); }}
-    className="m-auto max-h-[90vh] w-[calc(100%-2rem)] max-w-lg overflow-y-auto rounded-2xl bg-white p-5 text-gray-900 shadow-xl backdrop:bg-navy/50">
-    <div className="flex items-center justify-between gap-3"><h2 id="add-admin-title" className="flex items-center gap-2 text-lg font-semibold"><ShieldCheck className="h-5 w-5 text-gray-900" />Add admin</h2><button type="button" aria-label="Close add admin" disabled={busy} onClick={onClose} className={iconButton}><X className="h-5 w-5" /></button></div>
-    <p className="mt-3 text-sm text-gray-600">Create an administrator with access to the admin portal. Share the generated link so they can set their password.</p>
-    <form onSubmit={submit} className="mt-5 space-y-4">
+  return <PortalDialog title="Add admin" subtitle="Create an administrator and generate their password setup link." icon={<ShieldCheck className="h-5 w-5" />} maxWidth="max-w-xl" busy={busy} onClose={onClose}>
+    <form onSubmit={submit} aria-busy={busy} className="space-y-4 p-6">
       <fieldset disabled={busy} className="space-y-4">
         <div><label htmlFor="add-admin-name" className="mb-1.5 block text-xs font-medium">Name *</label><input id="add-admin-name" autoComplete="name" required maxLength={120} value={name} onChange={(event) => setName(event.target.value)} className={input} /></div>
         <div><label htmlFor="add-admin-email" className="mb-1.5 block text-xs font-medium">Email address *</label><input id="add-admin-email" type="email" autoComplete="email" required maxLength={254} value={email} onChange={(event) => setEmail(event.target.value)} className={input} /></div>
         <label className="flex items-start gap-2 text-sm text-gray-700"><input type="checkbox" required checked={confirmed} onChange={(event) => setConfirmed(event.target.checked)} className="mt-1 accent-accent" /><span>I confirm this person should have administrator access, including the ability to add other administrators.</span></label>
       </fieldset>
       {error && <p role="alert" className="text-sm text-danger">{error}</p>}
-      <div className="flex justify-end gap-2 border-t border-gray-100 pt-4"><button type="button" disabled={busy} onClick={onClose} className={secondary}>Cancel</button><button type="submit" disabled={busy || !confirmed} className={primary}><ShieldCheck className="h-4 w-4" />{busy ? "Creating admin…" : "Create admin and generate link"}</button></div>
+      <div className="flex justify-end gap-2"><button type="button" disabled={busy} onClick={onClose} className={secondary}>Cancel</button><button type="submit" disabled={busy || !confirmed} className={primary}><ShieldCheck className="h-4 w-4" />{busy ? "Creating admin…" : "Create admin and generate link"}</button></div>
     </form>
-  </dialog>;
+  </PortalDialog>;
 }
 
 function InviteDialog({ partners, onClose, onInvite }) {
-  const dialog = useRef(null);
+  const input = dialogInput, primary = dialogPrimary, secondary = dialogSecondary;
   const [company, setCompany] = useState("");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
 
-  useEffect(() => {
-    const element = dialog.current;
-    const previous = document.activeElement;
-    element.showModal();
-    return () => { element.close(); previous?.focus?.(); };
-  }, []);
 
   async function submit(event) {
     event.preventDefault();
@@ -199,15 +170,9 @@ function InviteDialog({ partners, onClose, onInvite }) {
   }
 
   return (
-    <dialog ref={dialog} onCancel={(event) => { if (busy) event.preventDefault(); else onClose(); }} aria-labelledby="invite-title"
-      onClick={(event) => { if (!busy && event.target === event.currentTarget) onClose(); }}
-      className="m-auto w-[calc(100%-2rem)] max-w-lg rounded-2xl bg-white p-0 text-gray-900 shadow-xl backdrop:bg-navy/50 max-h-[90vh] overflow-y-auto">
-      <div className="flex items-start justify-between border-b border-gray-100 p-5">
-        <div><h2 id="invite-title" className="font-semibold text-lg">Add a partner</h2><p className="text-sm text-gray-500 mt-1">Register a partner and invite their contact to the portal.</p></div>
-        <button type="button" onClick={onClose} disabled={busy} aria-label="Close invitation" className="p-1.5 rounded-md hover:bg-gray-100"><X className="w-5 h-5" /></button>
-      </div>
-      <form onSubmit={submit} className="p-5 space-y-5">
-        <fieldset disabled={busy} className="space-y-5">
+    <PortalDialog closeOnBackdrop title="Add partner" subtitle="Register a partner and invite their contact to the portal." icon={<UserPlus className="h-5 w-5" />} maxWidth="max-w-xl" busy={busy} onClose={onClose}>
+      <form onSubmit={submit} aria-busy={busy} className="space-y-4 p-6">
+        <fieldset disabled={busy} className="space-y-4">
         <div>
           <label htmlFor="admin-company" className="block text-xs font-medium mb-1.5">Partner name *</label>
           <input id="admin-company" required maxLength={160} value={company} onChange={(event) => setCompany(event.target.value)} className={input} />
@@ -220,12 +185,12 @@ function InviteDialog({ partners, onClose, onInvite }) {
         <div className="rounded-lg bg-gray-50 p-3 flex gap-2.5 text-xs text-gray-600"><ShieldCheck className="w-4 h-4 text-accent shrink-0" /><p>This invitation grants partner access only. The contact will only see data linked to their account.</p></div>
         </fieldset>
         {error && <p id="admin-invite-error" role="alert" className="text-sm text-danger">{error}</p>}
-        <div className="flex justify-end gap-2 border-t border-gray-100 pt-4">
+        <div className="flex justify-end gap-2">
           <button type="button" className={secondary} disabled={busy} onClick={onClose}>Cancel</button>
           <button type="submit" disabled={busy} className={primary}><Link2 className="w-4 h-4" />{busy ? "Generating link…" : "Confirm and generate link"}</button>
         </div>
       </form>
-    </dialog>
+    </PortalDialog>
   );
 }
 

@@ -8,7 +8,7 @@ function setup(member = true, authStatus = 200) {
     url = String(url); calls.push(url);
     if (url.includes("/auth/v1/user")) return Response.json({ id: "user-1" }, { status: authStatus });
     if (url.includes("partner_memberships")) return Response.json(member ? [{ partner_id: "rec12345678901234" }] : []);
-    return Response.json({ records: [{ id: "recAsset", fields: { Active: true, Name: "Logo", File: [{ filename: "logo.png", url: "https://files.test/logo" }] } }] });
+    return Response.json({ records: [{ id: "recAsset", fields: { "Visible to partner": true, Name: "Logo", File: [{ filename: "logo.png", url: "https://files.test/logo" }] } }] });
   } });
   return { handler, calls };
 }

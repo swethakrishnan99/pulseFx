@@ -1,3 +1,5 @@
+import PortalDialog from "./PortalDialog";
+import { dialogDanger, dialogInput, dialogPrimary, dialogSecondary } from "../lib/dialogStyles";
 import { formatAirtableDateTime } from "../lib/airtableDates.mjs";
 import SearchFilter from "./SearchFilter";
 import SortableHeader from "./SortableHeader";
@@ -6,26 +8,15 @@ import { usePagination } from "../lib/usePagination";
 import useTableSort from "../lib/useTableSort";
 import ClearFiltersButton from "./ClearFiltersButton";
 import { useEffect, useRef, useState } from "react";
-import { CheckCircle2, ClipboardCheck, Clock3, Eye, Landmark, RefreshCw, ShieldCheck, X, XCircle } from "lucide-react";
+import { CheckCircle2, ClipboardCheck, Clock3, Eye, Landmark, RefreshCw, ShieldCheck, XCircle } from "lucide-react";
 import ActionButton from "./ActionButton";
 import { loadBankingReviews, reviewBanking } from "../lib/banking";
 
 const secondary = "inline-flex items-center justify-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed";
-const primary = "inline-flex items-center justify-center gap-2 rounded-lg bg-brand px-4 py-2.5 text-sm font-medium text-navy hover:bg-[#009a7d] disabled:opacity-50 disabled:cursor-not-allowed";
 const input = "w-full rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent-100";
 const date = formatAirtableDateTime;
 const statuses = { "Pending verification": "bg-warning-100 text-amber-800", Verified: "bg-success-100 text-success", Rejected: "bg-danger-100 text-danger" };
 function Badge({ status }) { return <span className={`inline-block whitespace-nowrap rounded-full px-2.5 py-1 text-xs ${statuses[status] || "bg-gray-100 text-gray-700"}`}>{status}</span>; }
-
-function useModal() {
-  const dialog = useRef(null);
-  useEffect(() => {
-    const element = dialog.current;
-    element.showModal();
-    return () => element.close();
-  }, []);
-  return dialog;
-}
 
 function ReviewVisibility({ checked, onChange, disabled, rejection = false }) {
   return <label className="flex items-center gap-2 text-xs text-gray-600"><input type="checkbox" className="accent-accent" checked={checked} disabled={disabled} onChange={event => onChange(event.target.checked)} />{rejection ? "Show rejection reason to partner" : "Show approval reason to partner"}</label>;
@@ -56,10 +47,10 @@ function ReviewDialog({ submission, current, onClose, onReview }) {
 }
 
 function ReviewDetails({ submission, current, notes, showNotes, onClose, onDecision }) {
-  const dialog = useModal();
+  const input = dialogInput, primary = dialogPrimary, secondary = dialogSecondary;
   const pending = submission.status === "Pending verification";
-  return <dialog ref={dialog} aria-labelledby="bank-review-title" className={`m-auto max-h-[90vh] w-[calc(100%-2rem)] ${pending ? "max-w-3xl" : "max-w-xl"} overflow-y-auto rounded-2xl bg-white p-5 text-gray-900 shadow-xl backdrop:bg-navy/50`} onCancel={onClose}>
-    <div className="flex items-start justify-between gap-3"><div><h2 id="bank-review-title" className="text-lg font-semibold">{pending ? "Review bank details" : "Bank submission"}</h2><p className="mt-1 text-sm text-gray-600">{submission.partnerName}</p></div><button type="button" aria-label="Close bank review" onClick={onClose} className="rounded-md p-1 text-gray-500 hover:bg-gray-100"><X className="h-5 w-5" /></button></div>
+  return <PortalDialog title={pending ? "Review bank details" : "Bank submission"} subtitle={submission.partnerName} icon={<Landmark className="h-5 w-5" />} maxWidth={pending ? "max-w-3xl" : "max-w-xl"} onClose={onClose}>
+    <div className="p-6">
     <div className="mt-3"><Badge status={submission.status} /></div>
     {!submission.validOwnership && <p role="alert" className="mt-3 text-sm text-danger">The partner link is inconsistent. Correct it in Airtable before reviewing.</p>}
     <dl className="mt-3">{[["Partner contact", submission.contact], ["Email", submission.email], ...(!pending ? [["Account holder", submission.holder], ["Institution code", submission.institutionCode], ["Institution name", submission.bank], ["Transit number", submission.transitNumber], ["Account number", submission.account], ["Currency", submission.currency]] : []), ["Submitted", date(submission.submittedAt)], ["Partner Record ID", submission.partnerId], ...(submission.status === "Verified" || submission.approvedAt ? [["Approved at", date(submission.approvedAt)], ["Approved by user ID", submission.approvedByUserId], ["Approved by email", submission.approvedByEmail]] : []), ...(submission.status === "Rejected" || submission.rejectedAt ? [["Rejected at", date(submission.rejectedAt)], ["Rejected by user ID", submission.rejectedByUserId], ["Rejected by email", submission.rejectedByEmail]] : [])].map(([label, value]) => <div key={label} className="grid grid-cols-[140px_minmax(0,1fr)] gap-3 border-b border-gray-100 py-2 text-sm"><dt className="text-gray-500">{label}</dt><dd className="break-words text-right text-gray-900">{value || "—"}</dd></div>)}</dl>
@@ -67,12 +58,14 @@ function ReviewDetails({ submission, current, notes, showNotes, onClose, onDecis
     {submission.comments && <div className="mt-4 rounded-lg bg-gray-50 p-3"><p className="text-xs font-medium text-gray-500">Partner comments</p><p className="mt-1 whitespace-pre-wrap break-words text-sm text-gray-700">{submission.comments}</p></div>}
     {!pending && submission.status !== "Rejected" && <div className="mt-4"><div className="mb-1 flex flex-wrap items-center justify-between gap-2"><label htmlFor="bank-review-notes" className="text-xs text-gray-600">Approval reason</label><ReviewVisibility checked={showNotes} disabled /></div><textarea id="bank-review-notes" className={input} rows={3} disabled readOnly value={notes} /></div>}
     {submission.status === "Rejected" && <div className="mt-4"><div className="mb-1 flex flex-wrap items-center justify-between gap-2"><label htmlFor="bank-rejection-reason" className="text-xs text-gray-600">Reason for rejection</label><ReviewVisibility checked={submission.showRejectionReasonToPartner === true} disabled rejection /></div><textarea id="bank-rejection-reason" className={input} rows={3} disabled readOnly value={submission.rejectionReason || ""} /></div>}
-    <div className="mt-4 flex flex-wrap justify-end gap-2">{pending ? <><button type="button" className="inline-flex items-center justify-center gap-2 rounded-lg bg-danger px-4 py-2.5 text-sm font-medium text-white hover:bg-red-800 disabled:opacity-50 disabled:cursor-not-allowed" disabled={!submission.validOwnership} onClick={() => onDecision("reject")}><XCircle className="h-4 w-4" />Reject</button><button type="button" className={primary} disabled={!submission.validOwnership} onClick={() => onDecision("approve")}><CheckCircle2 className="h-4 w-4" />Approve</button></> : <button type="button" className={secondary} onClick={onClose}>Close</button>}</div>
-  </dialog>;
+    <div className="mt-4 flex flex-wrap justify-end gap-2">{pending ? <><button type="button" className={dialogDanger} disabled={!submission.validOwnership} onClick={() => onDecision("reject")}><XCircle className="h-4 w-4" />Reject</button><button type="button" className={primary} disabled={!submission.validOwnership} onClick={() => onDecision("approve")}><CheckCircle2 className="h-4 w-4" />Approve</button></> : <button type="button" className={secondary} onClick={onClose}>Close</button>}</div>
+    </div>
+  </PortalDialog>;
 }
 
 function ReviewConfirmation({ submission, current, action, notes, setNotes, showNotes, setShowNotes, onBack, onClose, onReview }) {
-  const dialog = useModal(), submitting = useRef(false);
+  const input = dialogInput, primary = dialogPrimary, secondary = dialogSecondary;
+  const submitting = useRef(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const approving = action === "approve";
@@ -84,18 +77,17 @@ function ReviewConfirmation({ submission, current, action, notes, setNotes, show
     catch (failure) { setError(failure.message); }
     finally { submitting.current = false; setBusy(false); }
   }
-  return <dialog ref={dialog} aria-labelledby="bank-confirm-title" className="m-auto max-h-[90vh] w-[calc(100%-2rem)] max-w-3xl overflow-y-auto rounded-2xl bg-white p-6 text-gray-900 shadow-xl backdrop:bg-navy/50" onCancel={(event) => { if (busy) event.preventDefault(); else onClose(); }}>
-    <div className="flex items-start justify-between gap-3"><span className={`rounded-full p-3 ${approving ? "bg-success-100 text-success" : "bg-danger-100 text-danger"}`}>{approving ? <CheckCircle2 className="h-6 w-6" /> : <XCircle className="h-6 w-6" />}</span><button type="button" aria-label="Close confirmation" disabled={busy} onClick={onClose} className="rounded-md p-1 text-gray-500 hover:bg-gray-100"><X className="h-5 w-5" /></button></div>
-    <h2 id="bank-confirm-title" className="mt-4 text-lg font-semibold">{approving ? "Approve bank details?" : "Reject bank details?"}</h2>
-    <p className="mt-2 text-sm font-medium">{submission.partnerName}</p><p className="mt-1 break-words text-sm text-gray-600">{submission.bank} · {submission.account}</p>
+  return <PortalDialog title={approving ? "Approve bank details?" : "Reject bank details?"} subtitle={`${submission.partnerName} · ${submission.bank} · ${submission.account}`} icon={approving ? <CheckCircle2 className="h-5 w-5" /> : <XCircle className="h-5 w-5" />} maxWidth="max-w-3xl" busy={busy} onClose={() => { if (!submitting.current) onClose(); }}>
+    <div className="p-6" aria-busy={busy}>
     <p className="mt-4 text-sm text-gray-600">{approving ? current ? `This becomes the current payout account, replacing ${current.bank} · ${current.account}. The previous account stays in history.` : "This becomes the partner's current payout account." : "The submission will be rejected. The current payout account will stay unchanged."}</p>
     <BankComparison submission={submission} current={current} />
     <form onSubmit={confirm} className="mt-4">
       <div className="mb-1 flex flex-wrap items-center justify-between gap-2"><label htmlFor="bank-confirm-notes" className="text-xs text-gray-600">{approving ? "Approval reason" : "Reason for rejection *"}</label><ReviewVisibility checked={showNotes} onChange={setShowNotes} disabled={busy} rejection={!approving} /></div><textarea id="bank-confirm-notes" required={!approving} disabled={busy} className={input} maxLength={2000} rows={3} value={notes} onChange={(event) => setNotes(event.target.value)} />
       {error && <p role="alert" className="mt-3 text-sm text-danger">{error}</p>}
-      <div className="mt-5 flex flex-wrap justify-end gap-2"><button type="button" className={secondary} disabled={busy} onClick={onBack}>Back</button><button type="submit" className={approving ? primary : "rounded-lg bg-danger px-4 py-2.5 text-sm font-medium text-white hover:bg-red-800 disabled:opacity-50"} disabled={busy || (!approving && !notes.trim())}>{busy ? "Saving…" : approving ? "Confirm approval" : "Confirm rejection"}</button></div>
+      <div className="mt-5 flex flex-wrap justify-end gap-2"><button type="button" className={secondary} disabled={busy} onClick={onBack}>Back</button><button type="submit" className={approving ? primary : dialogDanger} disabled={busy || (!approving && !notes.trim())}>{busy ? "Saving…" : approving ? "Confirm approval" : "Confirm rejection"}</button></div>
     </form>
-  </dialog>;
+    </div>
+  </PortalDialog>;
 }
 
 export default function BankingApprovals() {

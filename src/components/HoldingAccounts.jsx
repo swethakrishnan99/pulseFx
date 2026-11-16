@@ -1,9 +1,11 @@
+import { dialogPrimary } from "../lib/dialogStyles";
+import PortalDialog from "./PortalDialog";
 import SearchFilter from "./SearchFilter";
 import SortableHeader from "./SortableHeader";
 import useTableSort from "../lib/useTableSort";
 import ClearFiltersButton from "./ClearFiltersButton";
 import { useState, useEffect } from "react";
-import { Landmark, Plus, Trash2, X, Eye, EyeOff, FileText, Copy, Check, Send, ArrowLeftRight, ArrowUpRight, ArrowDownRight, RefreshCw, Download, Printer } from "lucide-react";
+import { Landmark, Plus, Trash2, Eye, EyeOff, FileText, Copy, Check, Send, ArrowLeftRight, ArrowUpRight, ArrowDownRight, RefreshCw, Download, Printer } from "lucide-react";
 import Tooltip from "./Tooltip";
 import { setPendingPayFrom } from "../lib/quoteHandoff";
 import { isVerified, getBankAccounts, addBankAccount, removeBankAccount, takePendingTab } from "../lib/bankAccounts";
@@ -65,21 +67,8 @@ function DetailsPanel({ account, onClose }) {
   }
 
   return (
-    <div className="fixed inset-0 z-30 flex justify-end">
-      <div className="absolute inset-0 bg-black/40" onClick={onClose} />
-      <aside
-        role="dialog"
-        aria-label={`${account.currency} account details`}
-        className="relative w-full max-w-sm bg-white h-full shadow-xl p-5 overflow-y-auto"
-      >
-        <div className="flex items-center justify-between mb-1">
-          <h2 className="text-lg font-semibold text-gray-900">
-            {FLAGS[account.currency]} {account.currency} holding account
-          </h2>
-          <button type="button" aria-label="Close" onClick={onClose} className="text-gray-400 hover:text-gray-700">
-            <X className="w-4 h-4" />
-          </button>
-        </div>
+    <PortalDialog title={`${account.currency} holding account`} subtitle="Account details and payment reference." icon={<Landmark className="h-5 w-5" />} maxWidth="max-w-xl" closeOnBackdrop collapseOnStatus={false} onClose={onClose}>
+      <div className="p-6">
         <p className="text-xs text-gray-500 mb-4">
           Share these details with anyone who needs to send money into this account. Always include the payment reference.
         </p>
@@ -115,7 +104,7 @@ function DetailsPanel({ account, onClose }) {
           type="button"
           onClick={handleDownload}
           disabled={download === "preparing"}
-          className="w-full flex items-center justify-center gap-2 bg-brand text-navy text-sm font-medium px-4 py-2.5 rounded-md hover:bg-[#009a7d] transition-colors disabled:opacity-60"
+          className={`${dialogPrimary} w-full`}
         >
           <FileText className="w-4 h-4" />
           {download === "preparing" ? "Preparing certificate..." : "Download account certificate (PDF)"}
@@ -127,8 +116,8 @@ function DetailsPanel({ account, onClose }) {
             Certificate ready. (Demo only: no file is created.)
           </p>
         )}
-      </aside>
-    </div>
+      </div>
+    </PortalDialog>
   );
 }
 

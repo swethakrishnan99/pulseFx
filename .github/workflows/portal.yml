@@ -36,6 +36,8 @@ jobs:
       - run: npm run test:banking
       - run: npm run lint:payouts
       - run: npm run test:payouts
+      - run: npm run lint:documents
+      - run: npm run test:documents
       - run: npm run lint:support
       - run: npm run test:support
       - run: npm run lint:admin

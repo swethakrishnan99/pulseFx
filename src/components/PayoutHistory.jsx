@@ -1,3 +1,5 @@
+import PortalDialog from "./PortalDialog";
+import { dialogSecondary } from "../lib/dialogStyles";
 import { formatAirtableDateTime } from "../lib/airtableDates.mjs";
 import DateRangeFilter from "./DateRangeFilter";
 import SearchFilter from "./SearchFilter";
@@ -6,8 +8,8 @@ import SortableHeader from "./SortableHeader";
 import TablePager from "./TablePager";
 import { usePagination } from "../lib/usePagination";
 import useTableSort from "../lib/useTableSort";
-import { useEffect, useRef, useState } from "react";
-import { CalendarDays, Clock3, DollarSign, Download, Eye, X } from "lucide-react";
+import { useEffect, useState } from "react";
+import { CalendarDays, Clock3, DollarSign, Download, Eye } from "lucide-react";
 import ClearFiltersButton from "./ClearFiltersButton";
 import { loadPayouts } from "../lib/payouts";
 import { filterPayoutHistory, payoutHistoryCsv, payoutHistoryTotals } from "../lib/payoutHistory.mjs";
@@ -29,20 +31,16 @@ function Status({ status }) {
   return <span className={`inline-block whitespace-nowrap rounded-full px-2.5 py-1 text-xs ${styles[status] || "bg-gray-100 text-gray-700"}`}>{status}</span>;
 }
 function PayoutDetails({ payout, onClose }) {
-  const dialog = useRef(null);
-  useEffect(() => {
-    const element = dialog.current, previous = document.activeElement;
-    element.showModal();
-    return () => { element.close(); previous?.focus?.(); };
-  }, []);
   const bank = payout.bank;
   const details = [["Reference", payout.ref], ["Client", payout.client], ["Amount", `${money(payout.amount, payout.currency)} ${payout.currency}`], ["Status", payout.status], ["Created at", date(payout.createdAt)], ["Paid at", date(payout.date)], ...(payout.lastEditedAt ? [["Last updated at", date(payout.lastEditedAt)]] : []), ...(payout.status === "Cancelled" || payout.cancelledAt ? [["Cancelled at", date(payout.cancelledAt)]] : []), ...(payout.notes ? [["Notes", payout.notes]] : []), ...(payout.cancellationReason && (payout.status === "Cancelled" || payout.cancelledAt) ? [["Cancellation reason", payout.cancellationReason]] : [])];
-  return <dialog ref={dialog} aria-labelledby="history-payout-title" onCancel={event => { event.preventDefault(); onClose(); }} className="m-auto max-h-[90vh] w-[calc(100%-2rem)] max-w-xl overflow-y-auto rounded-2xl bg-white p-5 text-gray-900 shadow-xl backdrop:bg-navy/50">
-    <div className="flex items-center justify-between gap-3"><h2 id="history-payout-title" className="flex items-center gap-2 text-lg font-semibold">Payout details</h2><button type="button" aria-label="Close payout" onClick={onClose} className="rounded-md p-1.5 hover:bg-gray-100"><X className="h-5 w-5" /></button></div>
+  return <PortalDialog title="Payout details" subtitle={payout.ref} icon={<DollarSign className="h-5 w-5" />} maxWidth="max-w-xl" onClose={onClose}>
+    <div className="p-6">
+
     <dl className="mt-4 divide-y divide-gray-100">{details.map(([label, value]) => <div key={label} className="py-3"><dt className="text-xs text-gray-500">{label}</dt><dd className="mt-1 whitespace-pre-wrap break-words text-sm">{value || "—"}</dd></div>)}</dl>
     <section aria-label="Payout account" className="mt-4 rounded-lg border border-gray-100 bg-gray-50 p-4"><h3 className="text-sm font-medium">{payout.status === "Paid" ? "Paid to account" : "Payout account"}</h3>{bank ? <dl className="mt-2 divide-y divide-gray-200/70">{[["Account holder", bank.holder], ["Institution name", bank.name], ["Institution code", bank.institutionCode], ["Transit number", bank.transitNumber], ["Account number", bank.account], ["Currency", bank.currency]].map(([label, value]) => <div key={label} className="py-2"><dt className="text-xs text-gray-500">{label}</dt><dd className="mt-1 break-all text-sm">{value || "—"}</dd></div>)}</dl> : <p className="mt-2 text-sm text-gray-500">{payout.submissionId ? "The recorded payout account is unavailable." : payout.status === "Paid" ? "The account used for this payment was not recorded." : "No payment account has been recorded for this payout."}</p>}</section>
-    <div className="mt-4 flex justify-end"><button type="button" className={secondary} onClick={onClose}>Close</button></div>
-  </dialog>;
+    <div className="mt-4 flex justify-end"><button type="button" className={dialogSecondary} onClick={onClose}>Close</button></div>
+    </div>
+  </PortalDialog>;
 }
 export default function PayoutHistory({ authenticated = false, showDescription = true }) {
   const { sort, toggleSort, sortRows } = useTableSort();

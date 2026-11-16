@@ -1,5 +1,23 @@
 # PulseFX client and partner portals
 
+### Partner Guide one-pagers API
+
+`pulsefx-one-pagers` is deployed in project `pvmndoytfgxogiaewlcb`.
+The secret `AIRTABLE_ONE_PAGERS_TABLE_ID=tblHM43sMf8k3nK9K` selects
+`One_pagers_api` in the existing Airtable base. It reuses `AIRTABLE_TOKEN` and
+`AIRTABLE_BASE_ID`. Expected fields: Name, Description (optional), File
+(attachment), Sort order (integer), and Published (checkbox).
+
+POST requires a live Supabase user and active partner membership. The response is
+`{ onePagers: [{ id, name, description, file: { name, url } }] }`, containing only
+partner-visible, non-deleted records with HTTPS attachments, ordered by Sort order. Attachment URLs
+are fetched fresh and responses are not cached. The function is read-only.
+The Partner Guide frontend loads the published one-pagers through this function.
+Both Partner Guide and Brand Kit display Airtable Name verbatim; format labels
+are derived separately from attachment filenames.
+
+Validate with `node --test supabase/functions/pulsefx-one-pagers/*.test.mjs`.
+
 React portals with Supabase email/password authentication for partner accounts and separate public client and partner demos.
 Partner access requires a row in `public.partner_memberships`. Authenticated referrals load from Airtable through a Supabase Edge Function. Other business screens and public demos use sample records.
 
@@ -311,3 +329,76 @@ Configure `AIRTABLE_SUPPORT_TABLE_ID` (currently `tblDf8Yt2cSMHPoSl`) in the sam
 Future response fields are `Responded by user ID`, `Responded by name`, `Responded by email`, `Response`, and `Responded at`. This function leaves them untouched and does not integrate Slack. It returns only the generated Support ID and status after a successful Airtable write. Demo submissions never call the API. Network failures after a write attempt produce an uncertain result and disable resubmission in that form to avoid accidental duplicates; no automatic retries are made. There is no durable cross-session idempotency guarantee.
 
 Deploy separately with `supabase functions deploy partner-support --remote=YOUR_PROJECT_REF --use-api`. The frontend must also be deployed to enable the live form. Run `npm run lint:support` and `npm run test:support` for the backend checks, alongside `lint:referrals` for the partner portal.
+
+
+### Admin Documents
+
+The Documents administration screen manages Brand assets and Partner guide through
+`pulsefx-documents`. The function verifies the live Auth user, `partner_admin` role,
+and active administrator session before reading or writing either Airtable table.
+It reuses AIRTABLE_BASE_ID, AIRTABLE_TOKEN, AIRTABLE_BRAND_ASSETS_TABLE_ID and
+AIRTABLE_ONE_PAGERS_TABLE_ID. The Airtable token needs read/write access to both tables.
+
+Both tables require Name (text), File (attachment), Visible to partner and Deleted
+(checkboxes), Created at (created time), Created by user ID (text), Created by email
+(email), and Replaced/Deleted at (date with time), Replaced/Deleted by user ID (text),
+and Replaced/Deleted by email (email). Audit identities and event timestamps come
+from the server, never from browser input. Historical audit values remain empty.
+Created at is supplied by Airtable. Replacements preserve names, visibility and
+creation audit. Soft deletion only patches Deleted and deletion audit; records and
+attachments are retained. The admin table has an archive toggle for deleted rows.
+
+Visible to partner is now the canonical visibility field for both partner APIs.
+Active and Published are no longer used. Migrate their original values to Visible
+to partner before deploying the partner reader functions. A document is shown to
+partners only when Visible to partner is checked and Deleted is unchecked.
+
+Uploads support PDF, PNG/JPG, static SVG, WebP/GIF, Office Open XML, TXT/CSV and ZIP,
+up to 5 MB. Previews support images and PDF; other types offer download. Uploads
+are staged in the private Supabase Storage bucket `document-upload-staging`, created
+by the service on first upload, without public access policies. A one-hour signed
+URL lets Airtable ingest the file. The final Airtable write replaces the attachment
+and its audit together; confirmed ingestions remove the temporary object. Failed
+or uncertain ingestions may retain private staging objects for operator cleanup;
+signed URLs expire after an hour. Storage bucket administration requires the
+existing service role secret; neither that secret nor Airtable credentials reach
+the browser.
+
+Mutation requests are not automatically retried. An uncertain response disables
+further changes in that section until a successful refresh. Stale file/visibility
+snapshots are rejected, but Airtable does not provide transactional compare-and-set;
+simultaneous writes from other sessions or Airtable can still race. There is no
+cross-session idempotency guarantee for creating documents. Verify the list before
+retrying a timed-out creation. No file write is attempted if staging fails.
+
+Run `npm run lint:documents` and `npm run test:documents`, plus the frontend build.
+Deploy pulsefx-documents, pulsefx-brand-assets and pulsefx-one-pagers separately,
+then publish the frontend through the existing workflow.
+
+
+The Documents Edit action updates the Airtable Name and/or the attachment filename.
+It preserves the file extension and uses the attachment URL freshly read by the
+server when re-ingesting a renamed attachment. A title-only change leaves File
+untouched. Renames preserve visibility, record ID and creation/replacement/deletion
+audit history. Snapshots include both display name and attachment filename to
+reject stale edits. No additional Airtable fields are required.
+
+
+Documents includes Last updated and Deleted at columns for both active and archived
+rows. Configure `Last updated at` in both Airtable document tables as Last modified
+time, with date/time, watching only Name and File (not all fields). Airtable updates
+it on creation, title/filename edits and file replacement, including direct Airtable
+changes. Visibility and soft deletion do not rewrite this content timestamp. The
+function reads the automatic value without writing it or estimating missing history.
+Deleted at continues to use the existing server-supplied deletion audit field.
+Show both fields in America/Toronto. Before the new field exists, Last updated shows
+an em dash and other document operations keep working.
+
+
+Last updated audit also requires `Last updated by user ID` (single line text) and
+`Last updated by email` (Email) in both document tables. Create these before deploying
+the updated pulsefx-documents function. The backend writes the authenticated actor
+on document creation, title/attachment-name edits and file replacement; visibility
+and deletion preserve that identity. The automatic Last updated at field remains
+read-only. Historical actor fields stay empty. Direct edits in Airtable cannot
+capture a Supabase identity and should not be attributed to the current portal reader.
