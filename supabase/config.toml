@@ -26,3 +26,11 @@ verify_jwt = false
 [functions.partner-support]
 # Auth and active partner membership are verified inside the handler.
 verify_jwt = false
+
+[functions.partner-brand-kit]
+# Auth and active partner membership are verified inside the handler.
+verify_jwt = false
+
+[functions.pulsefx-brand-assets]
+# Auth and active partner membership are verified inside the handler.
+verify_jwt = false
