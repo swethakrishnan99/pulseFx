@@ -138,7 +138,7 @@ function DocumentSection({ section, label, description, showDeleted }) {
       <div className="space-y-4 p-6">
         <dl className="space-y-3 rounded-lg bg-gray-50 p-4">{[["File name", information.file?.name || "—"], ["Visible to partner", information.visible && !information.deleted ? "Yes" : "No"]].map(([title, value]) => <div key={title}><dt className="text-xs text-gray-500">{title}</dt><dd className="mt-1 break-words text-sm">{value}</dd></div>)}</dl>
         <AuditDetails label="Created" value={information.created} />
-        <AuditDetails label="Last updated" value={{ at: information.updatedAt }} showActor={false} />
+        <AuditDetails label="Last updated" value={information.updated || { at: information.updatedAt }} />
         <AuditDetails label="Last replaced" value={information.replaced} />
         {(information.deleted || information.deletedAudit.at) && <AuditDetails label="Deleted" value={information.deletedAudit} />}
         <div className="flex justify-end"><button className={button} type="button" onClick={() => setInformationId(null)}>Close</button></div>

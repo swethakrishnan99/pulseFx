@@ -393,3 +393,12 @@ function reads the automatic value without writing it or estimating missing hist
 Deleted at continues to use the existing server-supplied deletion audit field.
 Show both fields in America/Toronto. Before the new field exists, Last updated shows
 an em dash and other document operations keep working.
+
+
+Last updated audit also requires `Last updated by user ID` (single line text) and
+`Last updated by email` (Email) in both document tables. Create these before deploying
+the updated pulsefx-documents function. The backend writes the authenticated actor
+on document creation, title/attachment-name edits and file replacement; visibility
+and deletion preserve that identity. The automatic Last updated at field remains
+read-only. Historical actor fields stay empty. Direct edits in Airtable cannot
+capture a Supabase identity and should not be attributed to the current portal reader.

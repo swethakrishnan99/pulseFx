@@ -11,7 +11,7 @@ export function documentView(record) {
   const audit = prefix => ({ at: f[`${prefix} at`] || null, userId: f[`${prefix} by user ID`] || null, email: f[`${prefix} by email`] || null });
   return { id: record.id, name: f.Name || "", visible: f["Visible to partner"] === true, deleted: f.Deleted === true,
     file: a?.url && /^https:\/\//i.test(a.url) ? { id: a.id, name: a.filename, url: a.url, type: a.type || "", size: a.size || null } : null,
-    updatedAt: f["Last updated at"] || null,
+    updatedAt: f["Last updated at"] || null, updated: audit("Last updated"),
     created: { ...audit("Created"), at: f["Created at"] || record.createdTime || null }, replaced: audit("Replaced"), deletedAudit: audit("Deleted") };
 }
 export async function boundedBody(request) {
@@ -98,7 +98,7 @@ export function createDocumentsHandler({ env, admin, fetchImpl = fetch, verifySe
         const extension = value => value.match(/\.[a-z0-9]+$/i)?.[0].toLowerCase() || "";
         if (current.file && extension(filename) !== extension(current.file.name)) throw new Failure("Keep the existing file extension.", 400);
         if (input.name.trim() === current.name && filename === (current.file?.name || "")) throw new Failure("No changes to save.", 400);
-        fields = { Name: input.name.trim() };
+        fields = { Name: input.name.trim(), "Last updated by user ID": actor.id, "Last updated by email": actor.email };
         // Re-ingest the existing attachment under its new name; never trust a URL from the browser.
         if (current.file && filename !== current.file.name) fields.File = record.fields.File.map((attachment, index) => index === 0 ? { url: current.file.url, filename } : { id: attachment.id });
       }
@@ -120,7 +120,7 @@ export function createDocumentsHandler({ env, admin, fetchImpl = fetch, verifySe
         const storage = admin.storage.from(bucket);
         checked(await storage.upload(path, upload.bytes, { contentType: upload.type, upsert: false }));
         const signed = checked(await storage.createSignedUrl(path, 3600));
-        fields = { File: [{ url: signed.signedUrl, filename: input.filename }] };
+        fields = { File: [{ url: signed.signedUrl, filename: input.filename }], "Last updated by user ID": actor.id, "Last updated by email": actor.email };
         if (input.action === "create") Object.assign(fields, { Name: input.name.trim(), "Visible to partner": input.visible, Deleted: false, "Created by user ID": actor.id, "Created by email": actor.email });
         else Object.assign(fields, audit("Replaced"));
         attemptedWrite = true;

@@ -123,7 +123,7 @@ test("edit renames the document and attachment using its freshly read URL", asyn
   const response = await run({ action: "edit", id, expected, name: "New display name", filename: "renamed.pdf", url: "https://untrusted.test/other" });
   assert.equal(response.status, 200);
   const fields = JSON.parse(calls.find(call => call.method === "PATCH").body).fields;
-  assert.deepEqual(fields, { Name: "New display name", File: [{ url: file.url, filename: "renamed.pdf" }] });
+  assert.deepEqual(fields, { Name: "New display name", File: [{ url: file.url, filename: "renamed.pdf" }], "Last updated by user ID": actor.id, "Last updated by email": actor.email });
   const { document } = await response.json();
   assert.equal(document.name, "New display name"); assert.equal(document.file.name, "renamed.pdf");
   assert.equal(document.replaced.at, expected.replacedAt); assert.equal(document.created.userId, "original-creator");
@@ -132,7 +132,7 @@ test("edit renames the document and attachment using its freshly read URL", asyn
 test("title-only edit keeps the existing attachment and audit intact", async () => {
   const { run, calls } = setup();
   assert.equal((await run({ action: "edit", id, expected, name: "Updated title", filename: "old.pdf" })).status, 200);
-  assert.deepEqual(JSON.parse(calls.find(call => call.method === "PATCH").body).fields, { Name: "Updated title" });
+  assert.deepEqual(JSON.parse(calls.find(call => call.method === "PATCH").body).fields, { Name: "Updated title", "Last updated by user ID": actor.id, "Last updated by email": actor.email });
 });
 test("edit rejects filename paths, changed formats, stale names and empty or unchanged values", async () => {
   for (const input of [
@@ -165,10 +165,21 @@ test("content mutations leave the automatic Last updated field to Airtable", asy
     { action: "edit", id, expected, name: "Original", filename: "renamed.pdf" },
   ]) {
     const { run, calls } = setup();
-    const response = await run({ ...body, "Last updated at": "forged" });
+    const response = await run({ ...body, "Last updated at": "forged", "Last updated by email": "forged@test", "Last updated by user ID": "forged" });
     assert.equal(response.status, 200);
     const fields = JSON.parse(calls.find(call => call.method).body).fields;
     assert.equal("Last updated at" in fields, false);
+    assert.equal(fields["Last updated by email"], actor.email);
+    assert.equal(fields["Last updated by user ID"], actor.id);
     assert.ok("Name" in fields || "File" in fields);
   }
+});
+
+test("returns Last updated actor from Airtable without substituting the current reader", () => {
+  const row = structuredClone(original);
+  row.fields["Last updated at"] = "2026-11-16T15:30:00.000Z";
+  row.fields["Last updated by email"] = "historical@example.test";
+  row.fields["Last updated by user ID"] = "historical-user";
+  assert.deepEqual(documentView(row).updated, { at: "2026-11-16T15:30:00.000Z", email: "historical@example.test", userId: "historical-user" });
+  assert.deepEqual(documentView(original).updated, { at: null, email: null, userId: null });
 });
