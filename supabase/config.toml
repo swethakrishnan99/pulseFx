@@ -22,3 +22,7 @@ verify_jwt = false
 [functions.pulsefx-user-admin]
 # Internal PulseFX account management requires a live, server-verified admin session.
 verify_jwt = false
+
+[functions.partner-support]
+# Auth and active partner membership are verified inside the handler.
+verify_jwt = false
