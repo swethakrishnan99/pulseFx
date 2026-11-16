@@ -1,6 +1,8 @@
 import { airtableFieldValue, formatAirtableDateTime, inAirtableDateRange } from "../lib/airtableDates.mjs";
 import { createSupportRequest } from "../lib/support";
 import SearchFilter from "./SearchFilter";
+import PortalDialog from "./PortalDialog";
+import AddClientFormFields, { AddClientDialog } from "./AddClientModal";
 import ActionButton from "./ActionButton";
 import DateRangeFilter from "./DateRangeFilter";
 import SortableHeader from "./SortableHeader";
@@ -300,6 +302,11 @@ function Detail({ r, onClose }) {
 
 /* ----------------------------------------------------------- Add client */
 function AddClient({ go, authenticated = false }) {
+  const close = () => go("referrals");
+  return <AddClientDialog onClose={close}><AddClientForm go={go} authenticated={authenticated} onClose={close} /></AddClientDialog>;
+}
+
+function AddClientForm({ go, authenticated = false, onClose }) {
   const empty = { company: "", contact: "", email: "", country: "", volume: "", cur: [], otherCur: "", notes: "" };
   const [v, setV] = useState(empty);
   const [done, setDone] = useState(null);
@@ -310,10 +317,13 @@ function AddClient({ go, authenticated = false }) {
   const emailOk = /^\S+@\S+\.\S+$/.test(v.email);
   const otherOk = !v.cur.includes("Other") || v.otherCur.trim() !== "";
   const ok = v.company.trim() && !dup && v.contact.trim() && emailOk && v.country && v.volume && v.cur.length > 0 && otherOk;
-  const toggle = (c) => setV((x) => ({ ...x, cur: x.cur.includes(c) ? x.cur.filter((y) => y !== c) : [...x.cur, c] }));
   async function submit(e) {
     e.preventDefault();
-    if (!ok || submitting.current) return;
+    if (submitting.current) return;
+    if (!ok) {
+      setSaveError("Complete the required fields, select at least one currency, and check the company and email details.");
+      return;
+    }
     submitting.current = true;
     setSaving(true);
     setSaveError("");
@@ -334,38 +344,16 @@ function AddClient({ go, authenticated = false }) {
     }
   }
   if (done) return (
-    <div className={`${card} p-6 max-w-xl`}>
-      <CheckCircle2 className="w-8 h-8 text-success" />
-      <p className="text-base font-semibold text-gray-900 mt-2">{done} has been added</p>
+    <div role="status" className="p-6 sm:p-8">
+      <div className="flex items-center gap-2.5">
+        <CheckCircle2 aria-hidden="true" className="w-6 h-6 shrink-0 text-success" />
+        <p className="text-base font-semibold text-gray-900">{done} has been added</p>
+      </div>
       <p className="text-sm text-gray-500 mt-1">{authenticated ? "The client has been saved. You can follow their progress under Referrals." : "Client added to this preview only. No invitation has been sent."}</p>
-      <div className="flex flex-wrap gap-2 mt-4"><button type="button" className={primary} onClick={() => go("referrals")}>View referrals</button><button type="button" className="inline-flex items-center gap-2 rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-900 hover:border-gray-400 hover:bg-gray-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent" onClick={() => setDone(null)}><UserPlus className="w-4 h-4" />Add another</button></div>
+      <div className="flex flex-wrap justify-end gap-2 mt-4"><button type="button" className="inline-flex items-center gap-2 rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-900 hover:border-gray-400 hover:bg-gray-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent" onClick={() => setDone(null)}><UserPlus className="w-4 h-4" />Add another</button><button type="button" className={primary} onClick={() => go("referrals")}>View referrals</button></div>
     </div>
   );
-  return (
-    <form onSubmit={submit} noValidate aria-busy={saving} className={`${card} p-5 max-w-xl`}>
-      <fieldset disabled={saving} className="flex flex-col gap-4">
-        <div><label htmlFor="ac-co" className={lab}>Company name *</label><input id="ac-co" maxLength={200} required className={field} value={v.company} onChange={(e) => setV({ ...v, company: e.target.value })} />
-          {dup && <p role="alert" className="text-xs text-danger mt-1">You have already referred this company.</p>}</div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <div><label htmlFor="ac-ct" className={lab}>Contact name *</label><input id="ac-ct" maxLength={200} required className={field} value={v.contact} onChange={(e) => setV({ ...v, contact: e.target.value })} /></div>
-          <div><label htmlFor="ac-em" className={lab}>Contact email *</label><input id="ac-em" maxLength={254} required type="email" className={field} value={v.email} onChange={(e) => setV({ ...v, email: e.target.value })} aria-invalid={v.email !== "" && !emailOk} />
-            {v.email !== "" && !emailOk && <p role="alert" className="text-xs text-danger mt-1">Enter a valid email address.</p>}</div>
-        </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <div><label htmlFor="ac-cn" className={lab}>Country *</label><select id="ac-cn" className={field} value={v.country} onChange={(e) => setV({ ...v, country: e.target.value })}><option value="">Select</option>{["Canada", "United States"].map((c) => <option key={c}>{c}</option>)}</select></div>
-          <div><label htmlFor="ac-vo" className={lab}>Expected monthly volume *</label><select id="ac-vo" className={field} value={v.volume} onChange={(e) => setV({ ...v, volume: e.target.value })}><option value="">Select</option>{["Under CAD 50,000", "CAD 50,000 to 250,000", "CAD 250,000 to 1,000,000", "Over CAD 1,000,000"].map((c) => <option key={c}>{c}</option>)}</select></div>
-        </div>
-        <fieldset><legend className={lab}>Currencies they will use *</legend>
-          <div className="flex flex-wrap gap-3 text-sm">{["CAD", "USD", "EUR", "GBP", "AUD", "MXN", "Other"].map((c) => <label key={c} className="flex items-center gap-1.5 cursor-pointer"><input type="checkbox" className="accent-accent" checked={v.cur.includes(c)} onChange={() => toggle(c)} />{c}</label>)}</div>
-          {v.cur.includes("Other") && (
-            <div className="mt-2"><label htmlFor="ac-oc" className={lab}>Other currency *</label><input id="ac-oc" className={`${field} sm:max-w-xs`} maxLength={60} placeholder="For example JPY" value={v.otherCur} onChange={(e) => setV({ ...v, otherCur: e.target.value })} /></div>
-          )}</fieldset>
-        <div><label htmlFor="ac-no" className={lab}>Notes (optional)</label><textarea id="ac-no" maxLength={5000} rows={2} className={field} value={v.notes} onChange={(e) => setV({ ...v, notes: e.target.value })} /></div>
-        <div><button type="submit" disabled={!ok || saving} className={primary}>{saving ? "Saving…" : "Add client"}</button></div>
-      </fieldset>
-      {saveError && <p role="alert" className="text-sm text-danger mt-3">{saveError}</p>}
-    </form>
-  );
+  return <AddClientFormFields values={v} setValues={setV} duplicate={dup} saving={saving} saveError={saveError} onSubmit={submit} onClose={() => { if (!submitting.current) onClose(); }} />;
 }
 
 /* --------------------------------------------------------------- Brand kit */
@@ -499,7 +487,7 @@ function Guide() {
 }
 
 /* ------------------------------------------------------------- Contact */
-function Contact({ authenticated }) {
+function Contact({ authenticated, go }) {
   const [m, setM] = useState({ subject: "", body: "" });
   const [sent, setSent] = useState(null);
   const [busy, setBusy] = useState(false);
@@ -518,41 +506,34 @@ function Contact({ authenticated }) {
     catch (failure) { setError(failure.message); setUncertain(failure.uncertain === true); }
     finally { submitting.current = false; setBusy(false); }
   }
-  return (
-    <div className="flex flex-col gap-4 max-w-xl">
-    <div className={`${card} p-5`}>
-      <p className="text-sm font-medium text-accent">Reach the partnerships team</p>
-      <div className="flex flex-wrap gap-2 mt-3">
-        <a href={`tel:${PHONE.tel}`} className={ghost}><Phone className="w-4 h-4 text-accent" />Call {PHONE.display}</a>
-        <a href={`sms:${PHONE.tel}`} className={ghost}><MessageSquare className="w-4 h-4 text-accent" />Text {PHONE.display}</a>
-        <a href={`mailto:${EMAIL}`} className={ghost}><Mail className="w-4 h-4 text-accent" />{EMAIL}</a>
-      </div>
-    </div>
-    <div className={`${card} p-5`}>
-      <p className="text-sm font-medium text-accent">Contact your partner manager</p>
-      <p className="text-xs text-gray-500 mt-0.5">Questions about a client, payouts or the programme? Send a message.</p>
-      {sent ? (
-        <div role="status" className="mt-4 rounded-lg border border-emerald-200 bg-success-100 p-4">
-          <div className="flex items-start gap-2.5">
-            <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-success" />
-            <div className="min-w-0">
-              <h3 className="text-sm font-medium text-gray-900">{sent.preview ? "Support request preview" : "Support request received"}</h3>
-              <p className="mt-1 text-sm text-gray-600">{sent.preview ? "Preview only: no message was sent." : "Your message has been sent to the PulseFX partnerships team."}</p>
-              {!sent.preview && <p className="mt-2 break-words text-sm text-gray-700">Your reference: <span className="font-medium">{sent.supportId}</span></p>}
-            </div>
-          </div>
-        </div>
-      ) : (
-        <form onSubmit={submit} aria-busy={busy} className="flex flex-col gap-3 mt-4">
-          <div><label htmlFor="ct-s" className={lab}>Subject *</label><input id="ct-s" required maxLength={200} disabled={busy || uncertain} className={field} value={m.subject} onChange={(e) => setM({ ...m, subject: e.target.value })} /></div>
-          <div><label htmlFor="ct-b" className={lab}>Message *</label><textarea id="ct-b" required maxLength={10000} disabled={busy || uncertain} rows={4} className={field} value={m.body} onChange={(e) => setM({ ...m, body: e.target.value })} /></div>
-          {error && <p role="alert" className="text-sm text-danger">{error}</p>}
-          <div className="flex justify-end"><button type="submit" disabled={!ok || busy || uncertain} className={primary}>{busy ? "Sending…" : "Send message"}</button></div>
-        </form>
-      )}
-    </div>
-    </div>
-  );
+  const close = () => { if (!submitting.current) go("home"); };
+  const supportField = "w-full rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent-100";
+  const supportLabel = "mb-1.5 block text-sm font-medium text-gray-700";
+  return <PortalDialog title="Help & support" subtitle="Get in touch with the partnerships team." icon={<Headset className="h-5 w-5" />} maxWidth="max-w-2xl" onClose={close}>
+    {sent ? <div role="status" className="p-6 sm:p-8">
+      <div className="flex items-center gap-2.5 pr-5"><CheckCircle2 aria-hidden="true" className="h-6 w-6 shrink-0 text-success" /><h3 className="text-base font-semibold text-gray-900">{sent.preview ? "Support request preview" : "Support request received"}</h3></div>
+      <p className="mt-2 text-sm text-gray-500">{sent.preview ? "Preview only: no message was sent." : "Your message has been sent to the PulseFX partnerships team."}</p>
+      {!sent.preview && <p className="mt-2 break-words text-sm text-gray-700">Your reference: <span className="font-medium">{sent.supportId}</span></p>}
+      <div className="mt-5 flex flex-wrap justify-end gap-2"><button type="button" className={ghost} onClick={() => { setSent(null); setM({ subject: "", body: "" }); setError(""); setUncertain(false); }}>Send another</button><button type="button" className={primary} onClick={close}>Done</button></div>
+    </div> : <form onSubmit={submit} aria-busy={busy}>
+      <fieldset disabled={busy || uncertain} className="space-y-6 px-6 py-6 sm:px-8">
+        <section aria-labelledby="support-message-heading">
+          <h3 id="support-message-heading" className="mb-1 flex items-center gap-2 text-sm font-semibold"><MessageSquare className="h-4 w-4 text-accent" />How can we help?</h3>
+          <p className="mb-5 text-sm text-gray-500">Questions about a client, payouts or the programme? Send your partner manager a message.</p>
+          <div><label htmlFor="ct-s" className={supportLabel}>Subject</label><input autoFocus id="ct-s" required maxLength={200} placeholder="What would you like help with?" className={supportField} value={m.subject} onChange={event => setM({ ...m, subject: event.target.value })} /></div>
+          <div className="mt-4"><label htmlFor="ct-b" className={supportLabel}>Message</label><textarea id="ct-b" required maxLength={10000} rows={5} placeholder="Share the details so we can help you." className={`${supportField} resize-y`} value={m.body} onChange={event => setM({ ...m, body: event.target.value })} /></div>
+        </section>
+        <section aria-labelledby="support-direct-heading" className="border-t border-gray-100 pt-5">
+          <h3 id="support-direct-heading" className="text-sm font-semibold text-gray-900">Prefer to reach us directly?</h3>
+          <div className="mt-3 flex flex-wrap gap-2"><a href={`tel:${PHONE.tel}`} className={ghost}><Phone className="h-4 w-4 text-accent" />Call {PHONE.display}</a><a href={`sms:${PHONE.tel}`} className={ghost}><MessageSquare className="h-4 w-4 text-accent" />Text {PHONE.display}</a><a href={`mailto:${EMAIL}`} className={`${ghost} break-all`}><Mail className="h-4 w-4 shrink-0 text-accent" />{EMAIL}</a></div>
+        </section>
+      </fieldset>
+      <footer className="sticky bottom-0 border-t border-gray-200 bg-white px-6 py-4 sm:px-8">
+        {error && <p role="alert" className="mb-3 text-sm text-danger">{error}</p>}
+        <div className="flex flex-wrap justify-end gap-3"><button type="button" disabled={busy} onClick={close} className="rounded-lg border border-gray-200 px-4 py-2.5 text-sm font-medium hover:bg-gray-50 disabled:opacity-50">Cancel</button><button type="submit" disabled={!ok || busy || uncertain} className="rounded-lg bg-brand px-5 py-2.5 text-sm font-semibold text-navy hover:bg-[#009a7d] disabled:cursor-not-allowed disabled:opacity-50">{busy ? "Sending…" : "Send message"}</button></div>
+      </footer>
+    </form>}
+  </PortalDialog>;
 }
 
 /* --------------------------------------------------------------- Shell */
@@ -616,10 +597,10 @@ export default function PartnerPortal({ onExit, user, isAdmin = false, signingOu
           disabled: signingOut,
         }}
       />
-      <main className="flex-1 bg-gray-50 min-w-0 p-4 pt-[72px] md:p-6">
-        <div className="flex items-center justify-between mb-4">
+      <main className={`flex-1 min-w-0 p-4 pt-[72px] md:p-6 ${tab === "add" || tab === "contact" ? "bg-white" : "bg-gray-50"}`}>
+        {tab !== "add" && tab !== "contact" && <div className="flex items-center justify-between mb-4">
           <div><h1 className="text-xl font-semibold text-gray-900">{title}</h1>{PAGE_SUBTITLES[tab] && <p className="mt-0.5 text-sm text-gray-500">{PAGE_SUBTITLES[tab]}</p>}</div>
-        </div>
+        </div>}
         {signOutError && <p role="alert" className="text-sm text-danger mb-4">{signOutError}</p>}
         {tab === "admin" && canAdmin && <PartnerAdmin />}
         {tab === "banking-approvals" && canAdmin && <BankingApprovals />}
@@ -631,8 +612,8 @@ export default function PartnerPortal({ onExit, user, isAdmin = false, signingOu
         {tab === "payouts" && <PayoutHistory authenticated={!!user} showDescription={false} />}
         {tab === "brand" && <BrandKit />}
         {tab === "guide" && <Guide />}
-        {tab === "contact" && !canAdmin && <Contact key={user?.id || "demo"} authenticated={!!user} />}
-        {tab !== "admin" && !user && <p className="text-xs text-gray-400 mt-4">Portal preview: all names and figures are sample data.</p>}
+        {tab === "contact" && !canAdmin && <Contact key={user?.id || "demo"} authenticated={!!user} go={setTab} />}
+        {tab !== "admin" && tab !== "add" && tab !== "contact" && !user && <p className="text-xs text-gray-400 mt-4">Portal preview: all names and figures are sample data.</p>}
       </main>
     </div>
   );

@@ -3,13 +3,14 @@ import { latestBankingDecision, latestPendingBanking } from "../lib/pendingBanki
 import { useEffect, useRef, useState } from "react";
 import { CheckCircle2, ChevronDown, Clock3, Eye, History, Landmark, X, XCircle } from "lucide-react";
 import ActionButton from "./ActionButton";
+import PortalDialog from "./PortalDialog";
 import { loadBanking, submitBanking } from "../lib/banking";
 
 const card = "rounded-xl border border-gray-200/70 bg-white p-5";
 const secondary = "inline-flex items-center justify-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-900 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed";
 const primary = "inline-flex items-center justify-center gap-2 rounded-lg bg-brand px-4 py-2.5 text-sm font-medium text-navy hover:bg-[#009a7d] disabled:opacity-50 disabled:cursor-not-allowed";
-const field = "w-full rounded-md border border-gray-200 bg-white px-2.5 py-2 text-sm focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent-100";
-const label = "mb-1 block text-xs text-gray-600";
+const field = "w-full rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent-100";
+const label = "mb-1.5 block text-sm font-medium text-gray-700";
 const blank = () => ({ submissionId: crypto.randomUUID(), bank: "", holder: "", account: "", institutionCode: "", transitNumber: "", currency: "CAD", comments: "" });
 const date = formatAirtableDateTime;
 const styles = { Verified: "bg-success-100 text-success", "Pending verification": "bg-warning-100 text-amber-800", Rejected: "bg-danger-100 text-danger" };
@@ -38,22 +39,6 @@ function AccountHistoryDetails({ account, isCurrent, onClose }) {
     {account.rejectionReason && <div className="mt-4 rounded-lg bg-gray-50 p-3"><p className="text-xs font-medium text-accent">Reason for rejection</p><p className="mt-1 whitespace-pre-wrap break-words text-sm text-gray-700">{account.rejectionReason}</p></div>}
     {account.reviewNotes && <div className="mt-4 rounded-lg bg-gray-50 p-3"><p className="text-xs font-medium text-accent">Approval reason</p><p className="mt-1 whitespace-pre-wrap break-words text-sm text-gray-700">{account.reviewNotes}</p></div>}
     <div className="mt-5 flex justify-end"><button type="button" className={secondary} onClick={onClose}>Close</button></div>
-  </dialog>;
-}
-
-function BankDetailsDialog({ title, saving, onClose, children }) {
-  const dialog = useRef(null);
-  useEffect(() => {
-    const element = dialog.current, previous = document.activeElement;
-    element.showModal();
-    return () => { element.close(); previous?.focus?.(); };
-  }, []);
-  return <dialog ref={dialog} aria-labelledby="bank-details-title" aria-describedby="bank-details-description"
-    onCancel={(event) => { event.preventDefault(); if (!saving) onClose(); }}
-    className="m-auto max-h-[90vh] w-[calc(100%-2rem)] max-w-xl overflow-y-auto rounded-2xl bg-white p-5 text-gray-900 shadow-xl backdrop:bg-navy/50">
-    <div className="flex items-center justify-between gap-3"><h2 id="bank-details-title" className="text-lg font-semibold text-gray-900">{title}</h2><button type="button" aria-label="Close bank details form" disabled={saving} onClick={onClose} className="rounded-md p-1.5 text-gray-500 hover:bg-gray-100 disabled:opacity-50"><X className="h-5 w-5" /></button></div>
-    <p id="bank-details-description" className="mt-2 text-sm text-gray-500">Enter the complete details. Previous submissions are kept in your account history.</p>
-    {children}
   </dialog>;
 }
 
@@ -94,7 +79,7 @@ export default function BankingDetails({ authenticated = false }) {
   }
   function closeEdit() {
     if (submitting.current) return;
-    setForm(blank()); setSaveError(""); setEdit(false);
+    setForm(blank()); setSaveError(""); setSaved(false); setEdit(false);
   }
   function refresh() { setLoading(true); setError(""); setAttempt((value) => value + 1); }
   function change(key, value) {
@@ -109,7 +94,7 @@ export default function BankingDetails({ authenticated = false }) {
       const input = { submissionId: form.submissionId, bank: form.bank.trim(), holder: form.holder.trim(), account: form.account, institutionCode: form.institutionCode, transitNumber: form.transitNumber, currency: form.currency, comments: form.comments.trim() };
       const account = authenticated ? await submitBanking(input) : { id: input.submissionId, bank: input.bank, holder: input.holder, account: input.account, institutionCode: form.institutionCode, transitNumber: form.transitNumber, last4: input.account.slice(-4), currency: "CAD", status: "Pending verification", current: false, submittedAt: new Date().toISOString(), reviewNotes: "", comments: input.comments };
       setData((previous) => ({ ...previous, accounts: [account, ...previous.accounts.filter((item) => item.id !== account.id)] }));
-      setForm(blank()); setEdit(false); setSaved(true);
+      setForm(blank()); setSaved(true);
     } catch (failure) { setSaveError(failure.message); }
     finally { submitting.current = false; setSaving(false); }
   }
@@ -127,7 +112,7 @@ export default function BankingDetails({ authenticated = false }) {
           <div className="flex items-start gap-2.5">{decisionApproved ? <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-success" /> : <XCircle className="mt-0.5 h-5 w-5 shrink-0 text-danger" />}<div className="min-w-0"><h3 className="text-sm font-medium text-gray-900">{decisionApproved ? "Bank details approved" : "Bank update rejected"}</h3><p className="mt-1 text-sm text-gray-600">{decisionApproved ? "PulseFX approved your bank details." : "PulseFX rejected your bank update. You can submit a new update."}{decisionDate ? ` ${date(decisionDate)}` : ""}</p>{decisionReason && <p className="mt-2 whitespace-pre-wrap break-words text-sm text-gray-700"><span className="font-medium">{decisionApproved ? "Approval reason: " : "Reason for rejection: "}</span>{decisionReason}</p>}<button type="button" onClick={() => setViewId(lastDecision.id)} className="mt-3 inline-flex items-center gap-1.5 text-sm font-medium text-accent hover:underline"><Eye className="h-4 w-4" />View reviewed details</button></div></div>
         </div>}
         {current ? <div className="mt-4"><div className="flex items-center justify-between gap-3"><h3 className="text-sm font-medium text-accent">Current account</h3><Status status="Verified" /></div><Account account={current} /></div> : !data.currentIssue && <div className="mt-5 rounded-lg bg-gray-50 p-4"><Landmark className="mb-2 h-5 w-5 text-gray-400" /><p className="text-sm font-medium text-accent">No verified payout account yet</p><p className="mt-1 text-xs text-gray-500">{data.accounts.length ? "View submitted details and approval or rejection reasons in Account change history." : "Submit your bank details for PulseFX to review."}</p></div>}
-        {saved && <p role="status" className="mt-4 flex items-center gap-2 text-sm text-success"><CheckCircle2 className="h-4 w-4 shrink-0" />{authenticated ? "Bank details submitted for verification." : "Bank details updated in this preview only."}</p>}
+
 
 
       </>}
@@ -139,25 +124,36 @@ export default function BankingDetails({ authenticated = false }) {
         {history && (loading ? <p role="status" className="mt-4 text-sm text-gray-500">Loading account history…</p> : error ? <p className="mt-4 text-sm text-gray-500">Account history is unavailable. Try loading your banking details again.</p> : data.accounts.length ? <ul className="mt-3 space-y-3">{data.accounts.map((account) => <li key={account.id} className="flex items-center justify-between gap-3 rounded-lg border border-gray-100 p-3"><div className="min-w-0 flex-1"><p className="break-words text-sm text-gray-900">{account.bank} · {account.account || "—"}{account.id === current?.id ? " · Current account" : ""}</p><p className="mt-1 text-xs text-gray-500">{date(account.submittedAt)}</p>{account.comments && <p className="mt-2 whitespace-pre-wrap break-words text-sm text-gray-600"><span className="font-medium">Your comments: </span>{account.comments}</p>}{account.rejectionReason && <p className="mt-2 whitespace-pre-wrap break-words text-sm text-gray-600"><span className="font-medium">Reason for rejection: </span>{account.rejectionReason}</p>}{account.reviewNotes && <p className="mt-2 whitespace-pre-wrap break-words text-sm text-gray-600"><span className="font-medium">Approval reason: </span>{account.reviewNotes}</p>}</div><div className="flex shrink-0 flex-wrap items-center justify-end gap-2"><Status status={account.status} /><ActionButton label={`View bank details from ${date(account.submittedAt)}`} tooltip="View bank details" className="inline-flex shrink-0 items-center justify-center rounded-md p-1.5 text-gray-500 hover:text-accent hover:bg-gray-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent" onClick={() => setViewId(account.id)}><Eye className="h-4 w-4" /></ActionButton></div></li>)}</ul> : <p className="mt-4 text-sm text-gray-500">No bank submissions yet.</p>)}
       </div>
     </section>
-    {edit && <BankDetailsDialog title={latest || current ? "Update bank details" : "Add bank details"} saving={saving} onClose={closeEdit}>
-      <form onSubmit={save} aria-label="Update bank details" aria-busy={saving} className="mt-5">
-          <fieldset disabled={saving} className="flex flex-col gap-3">
-            <div className="w-full max-w-md"><label htmlFor="bk-h" className={label}>Account holder *</label><input id="bk-h" required maxLength={200} className={field} value={form.holder} onChange={(e) => change("holder", e.target.value)} autoFocus /></div>
-            <div className="grid w-full max-w-xl grid-cols-[120px_minmax(0,1fr)] gap-3">
-              <div><label htmlFor="bk-i" className={label}>Institution code *</label><input id="bk-i" required inputMode="numeric" autoComplete="off" minLength={3} maxLength={3} className={field} value={form.institutionCode} onChange={(e) => change("institutionCode", e.target.value.replace(/\D/g, ""))} /></div>
-              <div><label htmlFor="bk-b" className={label}>Institution name *</label><input id="bk-b" required maxLength={200} className={field} value={form.bank} onChange={(e) => change("bank", e.target.value)} /></div>
+    {edit && <PortalDialog title={latest || current ? "Update bank details" : "Add bank details"} subtitle="Manage the account used to receive your payouts." icon={<Landmark className="h-5 w-5" />} maxWidth="max-w-2xl" onClose={closeEdit}>
+      {saved ? <div role="status" className="p-6 sm:p-8">
+        <div className="flex items-center gap-2.5 pr-5"><CheckCircle2 aria-hidden="true" className="h-6 w-6 shrink-0 text-success" /><h3 className="text-base font-semibold text-gray-900">{authenticated ? "Bank details submitted" : "Bank details preview updated"}</h3></div>
+        <p className="mt-2 text-sm text-gray-500">{authenticated ? "Your bank details have been submitted for verification. You can follow the review in Account change history." : "Your changes were saved in this preview only."}</p>
+        {authenticated && current && <p className="mt-2 text-sm text-gray-500">Your current payout account stays active until the update is approved.</p>}
+        <div className="mt-5 flex justify-end"><button type="button" className={primary} onClick={closeEdit}>Done</button></div>
+      </div> : <form onSubmit={save} aria-label="Update bank details" aria-busy={saving}>
+        <fieldset disabled={saving} className="space-y-6 px-6 py-6 sm:px-8">
+          <p className="text-sm text-gray-500">Enter the complete details for PulseFX to review. Previous submissions are kept in your account history.</p>
+          <section aria-labelledby="bank-account-heading">
+            <h3 id="bank-account-heading" className="mb-4 flex items-center gap-2 text-sm font-semibold"><Landmark className="h-4 w-4 text-accent" />Account details</h3>
+            <div><label htmlFor="bk-h" className={label}>Account holder</label><input id="bk-h" required maxLength={200} placeholder="Name on the bank account" className={field} value={form.holder} onChange={event => change("holder", event.target.value)} autoFocus /></div>
+            <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-[140px_minmax(0,1fr)]">
+              <div><label htmlFor="bk-i" className={label}>Institution code</label><input id="bk-i" required inputMode="numeric" autoComplete="off" minLength={3} maxLength={3} placeholder="3 digits" className={field} value={form.institutionCode} onChange={event => change("institutionCode", event.target.value.replace(/\D/g, ""))} /></div>
+              <div><label htmlFor="bk-b" className={label}>Institution name</label><input id="bk-b" required maxLength={200} placeholder="e.g. RBC Royal Bank" className={field} value={form.bank} onChange={event => change("bank", event.target.value)} /></div>
             </div>
-            <div className="grid w-full max-w-xl grid-cols-[120px_minmax(0,1fr)] gap-3">
-              <div><label htmlFor="bk-t" className={label}>Transit number *</label><input id="bk-t" required inputMode="numeric" autoComplete="off" minLength={5} maxLength={5} className={field} value={form.transitNumber} onChange={(e) => change("transitNumber", e.target.value.replace(/\D/g, ""))} /></div>
-              <div><label htmlFor="bk-a" className={label}>Account number *</label><input id="bk-a" required inputMode="numeric" autoComplete="off" minLength={4} maxLength={34} className={field} value={form.account} onChange={(e) => change("account", e.target.value.replace(/\D/g, ""))} /></div>
+            <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-[140px_minmax(0,1fr)]">
+              <div><label htmlFor="bk-t" className={label}>Transit number</label><input id="bk-t" required inputMode="numeric" autoComplete="off" minLength={5} maxLength={5} placeholder="5 digits" className={field} value={form.transitNumber} onChange={event => change("transitNumber", event.target.value.replace(/\D/g, ""))} /></div>
+              <div><label htmlFor="bk-a" className={label}>Account number</label><input id="bk-a" required inputMode="numeric" autoComplete="off" minLength={4} maxLength={34} placeholder="4–34 digits" className={field} value={form.account} onChange={event => change("account", event.target.value.replace(/\D/g, ""))} /></div>
             </div>
-            <p className="text-xs text-gray-500">Payout currency: CAD</p>
-            <div><label htmlFor="bk-comments" className={label}>Your comments (optional)</label><textarea id="bk-comments" rows={3} maxLength={2000} className={field} value={form.comments} onChange={event => change("comments", event.target.value)} /></div>
-            <div className="flex flex-wrap justify-end gap-2"><button type="button" disabled={saving} className={secondary} onClick={closeEdit}>Cancel</button><button type="submit" disabled={!valid || saving} className={primary}>{saving ? "Submitting…" : "Submit for verification"}</button></div>
-          </fieldset>
-          {saveError && <p role="alert" className="mt-3 text-sm text-danger">{saveError}</p>}
-        </form>
-    </BankDetailsDialog>}
+            <p className="mt-3 text-xs text-gray-500">Payout currency: CAD. All account fields are required.</p>
+          </section>
+          <div className="border-t border-gray-100 pt-5"><label htmlFor="bk-comments" className={label}>Your comments <span className="font-normal text-gray-400">(optional)</span></label><textarea id="bk-comments" rows={3} maxLength={2000} placeholder="Add any details that may help our team review this update." className={`${field} resize-y`} value={form.comments} onChange={event => change("comments", event.target.value)} /></div>
+        </fieldset>
+        <footer className="sticky bottom-0 border-t border-gray-200 bg-white px-6 py-4 sm:px-8">
+          {saveError && <p role="alert" className="mb-3 text-sm text-danger">{saveError}</p>}
+          <div className="flex flex-wrap justify-end gap-3"><button type="button" disabled={saving} className={secondary} onClick={closeEdit}>Cancel</button><button type="submit" disabled={!valid || saving} className={primary}>{saving ? "Submitting…" : "Submit for verification"}</button></div>
+        </footer>
+      </form>}
+    </PortalDialog>}
     {viewed && <AccountHistoryDetails key={viewed.id} account={viewed} isCurrent={viewed.id === current?.id} onClose={() => setViewId(null)} />}
   </div>;
 }
