@@ -1,4 +1,5 @@
 import { airtableFieldValue, formatAirtableDateTime, inAirtableDateRange } from "../lib/airtableDates.mjs";
+import { createSupportRequest } from "../lib/support";
 import SearchFilter from "./SearchFilter";
 import ActionButton from "./ActionButton";
 import DateRangeFilter from "./DateRangeFilter";
@@ -498,10 +499,25 @@ function Guide() {
 }
 
 /* ------------------------------------------------------------- Contact */
-function Contact() {
+function Contact({ authenticated }) {
   const [m, setM] = useState({ subject: "", body: "" });
-  const [sent, setSent] = useState(false);
-  const ok = m.subject.trim() && m.body.trim();
+  const [sent, setSent] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const [uncertain, setUncertain] = useState(false);
+  const submitting = useRef(false);
+  const ok = m.subject.trim() && m.body.trim() && m.subject.length <= 200 && m.body.length <= 10000;
+  async function submit(event) {
+    event.preventDefault();
+    if (!ok || submitting.current || uncertain) return;
+    if (!authenticated) { setSent({ supportId: "DEMO", preview: true }); return; }
+    submitting.current = true;
+    setBusy(true);
+    setError("");
+    try { setSent(await createSupportRequest({ subject: m.subject.trim(), message: m.body.trim() })); }
+    catch (failure) { setError(failure.message); setUncertain(failure.uncertain === true); }
+    finally { submitting.current = false; setBusy(false); }
+  }
   return (
     <div className="flex flex-col gap-4 max-w-xl">
     <div className={`${card} p-5`}>
@@ -516,12 +532,22 @@ function Contact() {
       <p className="text-sm font-medium text-accent">Contact your partner manager</p>
       <p className="text-xs text-gray-500 mt-0.5">Questions about a client, payouts or the programme? Send a message.</p>
       {sent ? (
-        <p role="status" className="mt-4 text-sm text-success flex items-center gap-1.5"><CheckCircle2 className="w-4 h-4" />Message sent. Demo only: nothing was actually sent.</p>
+        <div role="status" className="mt-4 rounded-lg border border-emerald-200 bg-success-100 p-4">
+          <div className="flex items-start gap-2.5">
+            <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-success" />
+            <div className="min-w-0">
+              <h3 className="text-sm font-medium text-gray-900">{sent.preview ? "Support request preview" : "Support request received"}</h3>
+              <p className="mt-1 text-sm text-gray-600">{sent.preview ? "Preview only: no message was sent." : "Your message has been sent to the PulseFX partnerships team."}</p>
+              {!sent.preview && <p className="mt-2 break-words text-sm text-gray-700">Your reference: <span className="font-medium">{sent.supportId}</span></p>}
+            </div>
+          </div>
+        </div>
       ) : (
-        <form onSubmit={(e) => { e.preventDefault(); if (ok) setSent(true); }} className="flex flex-col gap-3 mt-4">
-          <div><label htmlFor="ct-s" className={lab}>Subject *</label><input id="ct-s" className={field} value={m.subject} onChange={(e) => setM({ ...m, subject: e.target.value })} /></div>
-          <div><label htmlFor="ct-b" className={lab}>Message *</label><textarea id="ct-b" rows={4} className={field} value={m.body} onChange={(e) => setM({ ...m, body: e.target.value })} /></div>
-          <div><button type="submit" disabled={!ok} className={primary}>Send message</button></div>
+        <form onSubmit={submit} aria-busy={busy} className="flex flex-col gap-3 mt-4">
+          <div><label htmlFor="ct-s" className={lab}>Subject *</label><input id="ct-s" required maxLength={200} disabled={busy || uncertain} className={field} value={m.subject} onChange={(e) => setM({ ...m, subject: e.target.value })} /></div>
+          <div><label htmlFor="ct-b" className={lab}>Message *</label><textarea id="ct-b" required maxLength={10000} disabled={busy || uncertain} rows={4} className={field} value={m.body} onChange={(e) => setM({ ...m, body: e.target.value })} /></div>
+          {error && <p role="alert" className="text-sm text-danger">{error}</p>}
+          <div className="flex justify-end"><button type="submit" disabled={!ok || busy || uncertain} className={primary}>{busy ? "Sending…" : "Send message"}</button></div>
         </form>
       )}
     </div>
@@ -605,7 +631,7 @@ export default function PartnerPortal({ onExit, user, isAdmin = false, signingOu
         {tab === "payouts" && <PayoutHistory authenticated={!!user} showDescription={false} />}
         {tab === "brand" && <BrandKit />}
         {tab === "guide" && <Guide />}
-        {tab === "contact" && <Contact />}
+        {tab === "contact" && !canAdmin && <Contact key={user?.id || "demo"} authenticated={!!user} />}
         {tab !== "admin" && !user && <p className="text-xs text-gray-400 mt-4">Portal preview: all names and figures are sample data.</p>}
       </main>
     </div>
