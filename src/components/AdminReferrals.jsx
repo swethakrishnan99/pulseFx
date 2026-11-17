@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { ChevronDown, Pencil, RefreshCw } from "lucide-react";
+import { ChevronDown, Pencil, RefreshCw, Send, UserCheck, Files, Clock3, CheckCircle2, XCircle } from "lucide-react";
 import { loadAdminReferrals, updateReferralStatus } from "../lib/referrals";
 import { REFERRAL_STATUSES, REFERRAL_STATUS_STYLE } from "../lib/referralStatuses.mjs";
 import { formatAirtableDateTime } from "../lib/airtableDates.mjs";
@@ -12,6 +12,15 @@ import TablePager from "./TablePager";
 import ActionButton from "./ActionButton";
 import ClearFiltersButton from "./ClearFiltersButton";
 import ReferralDetail from "./ReferralDetail";
+
+const SUMMARY_STAGES = [
+  ["Invited", "Invite sent", Send],
+  ["Account created", "Account created", UserCheck],
+  ["Documents submitted", "Documents submitted", Files],
+  ["Under review", "Under review", Clock3],
+  ["Onboarded", "Onboarded", CheckCircle2],
+  ["Rejected", "Rejected", XCircle],
+];
 
 function StatusEditor({ referral, onClose, onSaved }) {
   const [status, setStatus] = useState(referral.status);
@@ -68,8 +77,14 @@ export default function AdminReferrals() {
   const onSort = key => setSort(previous => ({ key, dir: previous.key === key && previous.dir === "asc" ? "desc" : "asc" }));
   const th = "px-3 py-3 text-left text-xs font-medium text-gray-400 whitespace-nowrap";
   const td = "px-3 py-3 text-sm text-gray-700";
-  return <div className="max-w-6xl space-y-5">
+  return <div className="w-full space-y-5">
     <div className="flex flex-wrap items-center justify-end gap-3"><button type="button" onClick={refresh} disabled={remote.loading} className="inline-flex items-center justify-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"><RefreshCw className="h-4 w-4" />Refresh</button></div>
+    <div role="group" aria-label="Referral summary" aria-busy={remote.loading} className="grid max-w-7xl grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-6">
+      {SUMMARY_STAGES.map(([stage, label, Icon]) => <div key={stage} className="flex min-w-0 items-center justify-between gap-3 rounded-xl border border-gray-200/70 bg-white p-5">
+        <div className="min-w-0"><p className="text-xs text-gray-500">{label}</p><p className="mt-2 text-2xl font-semibold text-gray-900">{remote.loading || remote.error ? "—" : remote.records.filter(row => row.status === stage).length}</p></div>
+        <span aria-hidden="true" className={`shrink-0 rounded-xl p-3 ${REFERRAL_STATUS_STYLE[stage]}`}><Icon className="h-5 w-5" /></span>
+      </div>)}
+    </div>
     <div className="rounded-xl border border-gray-200/70 bg-white">
     <div className="p-4">
       <fieldset disabled={remote.loading || !!remote.error} className="flex flex-wrap items-end gap-3">

@@ -71,7 +71,7 @@ returning user_id, partner_id;
 ```
 
 The membership table uses row-level security. Authenticated users can read only their own membership and cannot create or change assignments.
-The UI restores and revalidates the session on reload at `#partner`; logout clears this browser's partner session.
+The UI restores and revalidates the session on reload at `#partner`; logout clears this browser's partner session. The portal signs out after one hour without pointer, keyboard, scroll or touch interaction. Activity is shared across tabs and survives reloads for the same Auth session. Expiration blocks the portal with a blurred backdrop and a “Session expired” dialog asking the user to sign in again. This is a browser inactivity policy; hosted Supabase Auth session settings are managed separately.
 `#partner-demo` opens the public partner demo. Use the Explore a demo dropdown for either public demo.
 
 ## Partner referrals: Airtable setup and deployment
