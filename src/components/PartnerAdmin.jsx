@@ -18,7 +18,7 @@ import PartnerEdit from "./PartnerEdit";
 const input = "w-full rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent-100";
 const primary = "inline-flex items-center justify-center gap-2 rounded-lg bg-brand px-4 py-2.5 text-sm font-medium text-navy hover:bg-[#009a7d] disabled:opacity-50 disabled:cursor-not-allowed";
 const secondary = "inline-flex items-center justify-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed";
-const badge = { Active: "bg-success-100 text-success", "Awaiting activation": "bg-blue-100 text-blue-600", "Setup incomplete": "bg-warning-100 text-warning", Deactivated: "bg-gray-100 text-gray-500" };
+const badge = { Active: "bg-success-100 text-success", "Awaiting activation": "bg-warning-100 text-warning", "Setup incomplete": "bg-warning-100 text-warning", Deactivated: "bg-gray-100 text-gray-500" };
 const iconButton = "inline-flex shrink-0 items-center justify-center rounded-md p-1.5 hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent";
 
 async function listManagedUsers(signal) {
@@ -251,7 +251,7 @@ export default function PartnerAdmin() {
     { label: showingAdmins ? "Administrators" : "Partner contacts", value: users.length, icon: showingAdmins ? ShieldCheck : Users, tone: "bg-blue-100 text-blue-600" },
     { label: "Active accounts", value: users.filter((partner) => partner.status === "Active").length, icon: CheckCircle2, tone: "bg-success-100 text-success" },
     { label: "Deactivated", value: users.filter((partner) => partner.status === "Deactivated").length, icon: Power, tone: "bg-gray-100 text-gray-500" },
-    { label: "Pending invitations", value: users.filter((partner) => partner.status === "Awaiting activation").length, icon: Clock3, tone: "bg-warning-100 text-warning" },
+    { label: "Awaiting activation", value: users.filter((partner) => partner.status === "Awaiting activation").length, icon: Clock3, tone: "bg-warning-100 text-warning" },
   ];
 
   async function invite(partner) {
@@ -374,7 +374,7 @@ export default function PartnerAdmin() {
         <div className="p-4 flex flex-wrap items-end gap-3">
           <SearchFilter id="admin-search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder={showingAdmins ? "Admin name or email" : "Partner, contact or email"} />
           <div className="filter-field"><label htmlFor="admin-status" className="block text-xs text-gray-500 mb-1.5">Account status</label><select id="admin-status" aria-label="Filter by account status" value={status} onChange={(event) => setStatus(event.target.value)} className={`${input} filter-control w-full`}>
-            {["All statuses", ...(showingAdmins ? ["Active", "Awaiting activation", "Deactivated"] : ["Active", "Awaiting activation", "Setup incomplete", "Deactivated"]).sort()].map((value) => <option key={value}>{value}</option>)}
+            {["All statuses", ...["Active", "Awaiting activation", "Deactivated"].sort()].map((value) => <option key={value}>{value}</option>)}
           </select></div>
         </div>
         <div className="border-b border-gray-100 px-4 pb-4"><ClearFiltersButton onClick={() => { setQuery(""); setStatus("All statuses"); }} /></div>

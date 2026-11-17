@@ -99,7 +99,9 @@ export default function Login({ onSignIn, initialPortal = null, onBack }) {
       onSignIn?.(partner ? "partner" : "client");
     } catch (error) {
       let message = "Unable to sign in. Please try again.";
-      if (error.code === "invalid_credentials") message = "Invalid email or password.";
+      if (error.code === "user_banned" || error.message === "This account is deactivated.") {
+        message = "Your account has been deactivated. Please contact us for assistance.";
+      } else if (error.code === "invalid_credentials") message = "Invalid email or password.";
       else if (error.code === "email_not_confirmed") message = "Please confirm your email before signing in.";
       else if (error.message === "Your account does not have partner access. Please contact PulseFX." ||
                error.message === "Partner sign-in is not configured. Please contact PulseFX.") {
