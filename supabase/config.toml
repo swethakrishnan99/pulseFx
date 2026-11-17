@@ -42,3 +42,7 @@ verify_jwt = false
 [functions.pulsefx-documents]
 # Live Auth user, admin role and active session are verified inside the handler.
 verify_jwt = false
+
+[functions.partner-login-support]
+# Public login support accepts contact details without requiring a partner session.
+verify_jwt = false
