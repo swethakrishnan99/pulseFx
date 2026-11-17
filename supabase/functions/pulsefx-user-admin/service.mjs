@@ -1,4 +1,4 @@
-import { createAccountAudit } from "../_shared/account-audit.mjs";
+import { createAdminAccountAudit } from "../_shared/account-audit.mjs";
 import { adminSessionValid } from "../_shared/admin-session.mjs";
 import { administratorAccount, manageAdministrator } from "./actions.mjs";
 import { createAdministrator } from "./invite.mjs";
@@ -33,7 +33,7 @@ export function createStore(admin) {
     },
   };
 }
-export function createPulsefxUserAdminHandler({ env, admin, auth = admin?.auth, store = admin ? createStore(admin) : null, audit = admin ? createAccountAudit(admin) : null }) {
+export function createPulsefxUserAdminHandler({ env, admin, auth = admin?.auth, store = admin ? createStore(admin) : null, audit = admin ? createAdminAccountAudit(auth) : null }) {
   return async (request) => {
     if (request.method === "OPTIONS") return json(null);
     if (!["GET", "POST"].includes(request.method)) return json({ error: "Method not allowed." }, 405);

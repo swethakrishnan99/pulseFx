@@ -433,6 +433,14 @@ Writes use a server-only per-record lease and check the expected status/timestam
 
 ### Account audit details
 
-User details in both administration tabs show Created by, and, for deactivated accounts, Deactivated at / Deactivated by. Audit snapshots are written only by verified administration handlers, with actor ID/email taken from Auth. Existing accounts without recorded audit details display an em dash; no historical values are inferred. Reactivation clears the current deactivation snapshot; creation attribution is retained. This is a current-state snapshot, not a full event history.
+User details in both administration tabs show Created by, and, for deactivated accounts, Deactivated at / Deactivated by. Partners read/write the existing Airtable Partners fields `Created by email` (Email), `Deactivated at` (Date with time), and `Deactivated by email` (Email). Only verified administration handlers write these values, using the verified caller's email and a server-generated timestamp. The sync worker leaves these three fields untouched. Internal admins have no Airtable partner record; their snapshots use server-managed Auth app metadata.
 
-Before deploying the matching frontend, create the server-only audit table and deploy `partner-admin`, `partner-invitations` and `pulsefx-user-admin` using the English instructions in [the Omni prompt](docs/omni-account-audit-prompt.md). No local migrations directory is required.
+Missing historical information displays an em dash; no dates or actors are inferred. Reactivation clears the current deactivation snapshot while creation attribution is retained. These are current-state snapshots, not a full event history. Incomplete partner registrations without an Airtable record cannot record deactivation details there.
+
+Create the three Airtable fields, then deploy `partner-admin`, `partner-invitations` and `pulsefx-user-admin` with their shared account-audit module before deploying the matching frontend. No new Supabase table or database migration is required.
+
+## Password setup completion
+
+The existing Supabase database tracks password setup through the server-owned `portal_password_setup` table and the `track_portal_password_setup()` and `portal_password_is_set()` functions. New Auth accounts remain awaiting activation when an invitation is opened, even if Auth already contains a generated password hash. Saving a password after confirmation completes setup in the same database transaction. The partner list, administrator list and Airtable snapshots use that completion record. Password reset continues to work without a second frontend activation request, and existing Auth sync triggers enqueue status updates.
+
+Accounts created before this change retain their previous activation rule because their password completion history is unavailable. Reported false activations require individual review; Walmart was explicitly marked awaiting activation and its Airtable sync completed. No password hashes or completion records are exposed to browser roles. `supabase/tests/password_setup.sql` checks invitation opening with a generated hash, metadata spoofing, password completion and recovery in a rolled-back transaction against the configured database. Database changes are applied directly; this repository does not keep a local migrations directory or a fresh-database bootstrap.

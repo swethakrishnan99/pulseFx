@@ -99,7 +99,7 @@ function setup(options = {}) {
     },
     async release(value, token) { events.push("release"); assert.equal(value, id); assert.equal(token, rows[0].lock_token); delete rows[0].lock_token; },
   };
-  const dependencies = { env: { ...env, ...options.env }, auth, store,
+  const dependencies = { env: { ...env, ...options.env }, auth, store, audit: options.audit,
     fetchImpl: async (url, input) => {
       if (url === "https://api.airtable.com/v0/app-test/Invitations") {
         events.push("queue-invitation");
@@ -461,4 +461,17 @@ test("failed invitation delivery preserves the partner and does not return a cre
   assert.ok(!(await response.text()).includes("private-token"));
   assert.equal(fixture.rows()[0].ready, true);
   assert.equal(fixture.invitationWrites.length, 1);
+});
+
+test("partner audit receives verified actor and existing Airtable ID for creation and deactivation", async () => {
+  const caller = { id: "30000000-0000-4000-8000-000000000001", email: "operator@example.test", app_metadata: { role: "partner_admin" } };
+  for (const action of ["create", "disable"]) {
+    const writes = [];
+    const audit = { record: async (...args) => writes.push(args), enrich: async (_, rows) => rows.map(row => ({ ...row, createdByEmail: caller.email })) };
+    const fixture = setup({ caller, audit, ...(action === "disable" ? { row: registered, user: registeredUser } : {}) });
+    const response = await fixture.request(action === "create" ? { action, ...values } : { action, id, actor_email: "spoof@example.test" });
+    assert.equal(response.status, 200);
+    assert.equal((await response.json()).partner.createdByEmail, caller.email);
+    assert.deepEqual(writes, [["partner", id, action === "create" ? "created" : "deactivated", caller, partnerId]]);
+  }
 });

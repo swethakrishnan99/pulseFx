@@ -1,4 +1,4 @@
-import { createAccountAudit } from "../_shared/account-audit.mjs";
+import { createPartnerAccountAudit } from "../_shared/account-audit.mjs";
 import { adminSessionValid } from "../_shared/admin-session.mjs";
 import { editPartner } from "./edit.mjs";
 
@@ -128,7 +128,7 @@ async function upsertAirtable(env, row, fetchImpl) {
   return partnerId;
 }
 
-export function createPartnerAdminHandler({ env, admin, auth = admin?.auth, store = admin ? createStore(admin) : null, fetchImpl = fetch, invitationDelivery = null, invitationsOnly = false, audit = admin ? createAccountAudit(admin) : null }) {
+export function createPartnerAdminHandler({ env, admin, auth = admin?.auth, store = admin ? createStore(admin) : null, fetchImpl = fetch, invitationDelivery = null, invitationsOnly = false, audit = admin ? createPartnerAccountAudit({ env, fetchImpl }) : null }) {
   return async (request) => {
     if (request.method === "OPTIONS") return json(null, 200);
     if (!["GET", "POST"].includes(request.method)) return json({ error: "Method not allowed." }, 405);
@@ -227,14 +227,14 @@ export function createPartnerAdminHandler({ env, admin, auth = admin?.auth, stor
           if (user) check(await auth.admin.updateUserById(user.id, { ban_duration: "none" }), "Unable to reactivate this account. Please try again.");
           if (row.ready) await store.setAccess(row.id, token, true);
           else await store.save(row.id, token, { disabled: false });
-          await audit?.reactivate("partner", row.id);
+          await audit?.reactivate("partner", row.id, row.partner_id);
           return await respond({ partner: account({ ...current, ...row, disabled: false }) });
         }
         // Revoke data access before banning/deleting. Failed Auth operations
         // remain closed to data access and may be safely retried.
         await store.setAccess(row.id, token, false);
         if (body.action === "disable") {
-          await audit?.record("partner", row.id, "deactivated", verification.data.user);
+          await audit?.record("partner", row.id, "deactivated", verification.data.user, row.partner_id);
           if (user) check(await auth.admin.updateUserById(user.id, { ban_duration: "876000h" }), "Data access is blocked, but sign-in could not be disabled. Please retry deactivation.");
           const partner = account({ ...current, ...row, disabled: true });
           return await respond({ partner });
@@ -261,8 +261,8 @@ export function createPartnerAdminHandler({ env, admin, auth = admin?.auth, stor
         }
         row = await store.save(row.id, token, { user_id: user.id });
       }
-      if (body.action === "create") await audit?.record("partner", row.id, "created", verification.data.user);
       if (!row.partner_id) row = await store.save(row.id, token, { partner_id: await upsertAirtable(env, row, fetchImpl) });
+      if (body.action === "create") await audit?.record("partner", row.id, "created", verification.data.user, row.partner_id);
       await store.membership(row.user_id, row.partner_id);
       row = await store.save(row.id, token, { ready: true });
       // If a previous invitation was opened without setting a password, use recovery.
