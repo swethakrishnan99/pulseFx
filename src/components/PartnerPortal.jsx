@@ -1,3 +1,6 @@
+import { dialogDanger } from "../lib/dialogStyles";
+import { referralEmailConflict } from "../../supabase/functions/_shared/referral-duplicates.mjs";
+import { DEMO_REFERRALS, DEMO_BRAND_KIT, DEMO_BRAND_ASSETS, DEMO_ONE_PAGERS } from "../lib/partnerDemo";
 import { REFERRAL_STATUSES as STATUSES, REFERRAL_STATUS_STYLE as STATUS_STYLE } from "../lib/referralStatuses.mjs";
 import PartnerSupport from "./PartnerSupport";
 import useViewFocus from "../lib/useViewFocus";
@@ -22,7 +25,7 @@ import { sortTableRows } from "../lib/tableSort.mjs";
 import ClearFiltersButton from "./ClearFiltersButton";
 import { useEffect, useState, useMemo, useRef } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { Home, Users, DollarSign, Landmark, BookOpen, Headset, Copy, Check, Eye, Download, UserPlus, ChevronDown, CheckCircle2, Palette, ArrowRight, Upload, FileText, RefreshCw } from "lucide-react";
+import { AlertTriangle, Home, Users, DollarSign, Landmark, BookOpen, Headset, Copy, Check, Eye, Download, UserPlus, ChevronDown, CheckCircle2, Palette, ArrowRight, Upload, FileText, RefreshCw } from "lucide-react";
 import Sidebar from "./Sidebar";
 import PartnerAdmin from "./PartnerAdmin";
 import BankingDetails from "./BankingDetails";
@@ -48,17 +51,8 @@ const referralDateValue = (record, field) => airtableFieldValue(record, field ==
 
 
 // Module-level so a new client survives moving between tabs (resets on reload).
-const REFERRALS = [
-  { id: 1, company: "Northwind Machining Ltd.", contact: "Ana Costa", email: "ana@northwind.example", country: "Canada", status: "Documents submitted", created: iso(-6), modified: iso(-2) },
-  { id: 2, company: "Harbour Street Foods", contact: "Tom Reyes", email: "tom@harbourstreet.example", country: "Canada", status: "Under review", created: iso(-20), modified: iso(-3) },
-  { id: 3, company: "Lakeside Imports Inc.", contact: "Mei Lin", email: "mei@lakeside.example", country: "Canada", status: "Invited", created: iso(-40), modified: iso(-40) },
-  { id: 4, company: "Pinecrest Logistics", contact: "Sam Okafor", email: "sam@pinecrest.example", country: "United States", status: "Account created", created: iso(-47), modified: iso(-44) },
-  { id: 5, company: "Redline Outdoor Gear", contact: "Julia Park", email: "julia@redline.example", country: "Canada", status: "Onboarded", created: iso(-62), modified: iso(-50) },
-  { id: 6, company: "Summit Dental Group", contact: "Raj Patel", email: "raj@summitdental.example", country: "Canada", status: "Onboarded", created: iso(-96), modified: iso(-80) },
-  { id: 7, company: "Cobalt Packaging Co.", contact: "Elena Rossi", email: "elena@cobalt.example", country: "Italy", status: "Rejected", created: iso(-120), modified: iso(-110) },
-  { id: 8, company: "Birchwood Furniture", contact: "Dan Wu", email: "dan@birchwood.example", country: "Canada", status: "Onboarded", created: iso(-170), modified: iso(-150) },
-];
-let nextId = 9;
+const REFERRALS = [...DEMO_REFERRALS];
+let nextId = 19;
 
 const card = "bg-white rounded-xl border border-gray-200/70";
 const field = "w-full text-sm border border-gray-200 rounded-md px-2.5 py-2 bg-white focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent-100";
@@ -275,16 +269,17 @@ function AddClient({ go, authenticated = false }) {
 
 function AddClientForm({ go, authenticated = false, onClose }) {
   const empty = { company: "", contact: "", email: "", country: "", volume: "", cur: [], otherCur: "", notes: "" };
-  const [v, setV] = useState(empty);
+  const [v, setV] = useState(authenticated ? empty : { company: "Westbridge Consulting Inc.", contact: "Alex Morgan", email: "alex@westbridge.example", country: "Canada", volume: "CAD 50,000 to 250,000", cur: ["CAD", "USD", "EUR", "Other"], otherCur: "CHF", notes: "Consulting firm receiving international client payments and paying European software suppliers. Interested in scheduled transfers and exchange rate protection." });
   const [done, setDone] = useState(null);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState("");
   const submitting = useRef(false);
-  const dup = !authenticated && REFERRALS.some((r) => r.company.toLowerCase() === v.company.trim().toLowerCase()) && v.company.trim() !== "";
+  const [rejection, setRejection] = useState(null);
+  const [duplicate, setDuplicate] = useState(false);
   const emailOk = /^\S+@\S+\.\S+$/.test(v.email);
   const otherOk = !v.cur.includes("Other") || v.otherCur.trim() !== "";
-  const ok = v.company.trim() && !dup && v.contact.trim() && emailOk && v.country && v.volume && v.cur.length > 0 && otherOk;
-  async function submit(e) {
+  const ok = v.company.trim() && v.contact.trim() && emailOk && v.country && v.volume && v.cur.length > 0 && otherOk;
+  async function submit(e, confirmedRejection = null) {
     e.preventDefault();
     if (submitting.current) return;
     if (!ok) {
@@ -297,19 +292,57 @@ function AddClientForm({ go, authenticated = false, onClose }) {
     try {
       const details = { ...v, company: v.company.trim(), contact: v.contact.trim(), email: v.email.trim(), otherCur: v.cur.includes("Other") ? v.otherCur.trim() : "", notes: v.notes.trim() };
       if (authenticated) {
-        await createPartnerReferral(details);
+        await createPartnerReferral({ ...details, ...(confirmedRejection ? { confirmedRejection } : {}) });
       } else {
+        const conflict = referralEmailConflict(REFERRALS, details.email);
+        if (conflict.blocked) {
+          setRejection(null);
+          setDuplicate(true);
+          return;
+        }
+        if (conflict.rejection && (confirmedRejection?.id !== conflict.rejection.id || confirmedRejection?.statusChangedAt !== conflict.rejection.statusChangedAt)) {
+          setRejection(conflict.rejection);
+          return;
+        }
         REFERRALS.unshift({ ...details, id: nextId++, status: "Invited", created: iso(0), modified: iso(0) });
       }
+      setRejection(null);
       setDone(details.company);
       setV(empty);
     } catch (error) {
-      setSaveError(error.message || "Unable to save the client. Please try again.");
+      if (error.duplicate) { setRejection(null); setDuplicate(true); }
+      else if (error.rejection) setRejection(error.rejection);
+      else setSaveError(error.message || "Unable to save the client. Please try again.");
     } finally {
       submitting.current = false;
       setSaving(false);
     }
   }
+  if (rejection || duplicate) return (
+    <div className="p-6 sm:p-8" aria-busy={saving}>
+      <div role="alert" className="rounded-xl border border-amber-300 bg-amber-50 p-4">
+        <div className="flex items-start gap-3">
+          <AlertTriangle aria-hidden="true" className="mt-0.5 h-6 w-6 shrink-0 text-amber-700" />
+          <div className="min-w-0">
+            <h3 className="text-base font-semibold text-amber-950">{duplicate ? "Client already referred" : "Previously rejected referral"}</h3>
+            {duplicate ? <>
+              <p className="mt-2 text-sm text-amber-900">You have already referred a client with this email address.</p>
+              <p className="mt-2 break-all text-sm font-semibold text-amber-950">{v.email.trim()}</p>
+            </> : <>
+              <p className="mt-2 text-sm text-amber-900">A previous referral for <span className="font-semibold break-all">{v.email.trim()}</span> was rejected.</p>
+              <p className="mt-2 text-sm text-amber-900">{rejection.statusChangedAt ? <>The most recent rejection was on <span className="font-semibold">{prettyDateTime(rejection.statusChangedAt)}</span>.</> : "The date and time of the rejection are unavailable."}</p>
+              <p className="mt-4 border-t border-amber-200 pt-3 text-sm font-medium text-amber-950">Would you like to add this client again?</p>
+            </>}
+          </div>
+        </div>
+      </div>
+      {saveError && <p role="alert" className="mt-3 text-sm text-danger">{saveError}</p>}
+      <div className="mt-5 flex justify-end gap-3">
+        <button type="button" disabled={saving} onClick={() => { setRejection(null); setDuplicate(false); setSaveError(""); }} className={ghost}>Back</button>
+        {duplicate ? <button type="button" disabled={saving} onClick={onClose} className={dialogDanger}>Cancel</button> : <button type="button" disabled={saving} onClick={event => submit(event, rejection)} className={primary}>{saving ? "Adding…" : "Continue and add client"}</button>}
+      </div>
+    </div>
+  );
   if (done) return (
     <div role="status" className="p-6 sm:p-8">
       <div className="flex items-center gap-2.5">
@@ -320,7 +353,7 @@ function AddClientForm({ go, authenticated = false, onClose }) {
       <div className="flex flex-wrap justify-end gap-2 mt-4"><button type="button" className="inline-flex items-center gap-2 rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-900 hover:border-gray-400 hover:bg-gray-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent" onClick={() => setDone(null)}><UserPlus className="w-4 h-4" />Add another</button><button type="button" className={primary} onClick={() => go("referrals")}>View referrals</button></div>
     </div>
   );
-  return <AddClientFormFields values={v} setValues={setV} duplicate={dup} canSubmit={!!ok} saving={saving} saveError={saveError} onSubmit={submit} onClose={() => { if (!submitting.current) onClose(); }} />;
+  return <AddClientFormFields values={v} setValues={setV} canSubmit={!!ok} saving={saving} saveError={saveError} onSubmit={submit} onClose={() => { if (!submitting.current) onClose(); }} />;
 }
 
 /* --------------------------------------------------------------- Brand kit */
@@ -393,7 +426,7 @@ function Uploader({ id, label, hint, kind, accept, maxMB, file, disabled, onUplo
 }
 
 function BrandAssets({ authenticated }) {
-  const [assets, setAssets] = useState([]);
+  const [assets, setAssets] = useState(authenticated ? [] : DEMO_BRAND_ASSETS);
   const [preview, setPreview] = useState(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(authenticated);
@@ -407,7 +440,7 @@ function BrandAssets({ authenticated }) {
   async function openPreview(asset) {
     if (!canPreviewFile(asset.file?.name)) return;
     try {
-      const current = (await loadBrandAssets()).find(item => item.id === asset.id);
+      const current = (authenticated ? await loadBrandAssets() : DEMO_BRAND_ASSETS).find(item => item.id === asset.id);
       if (!current) throw new Error("This asset is no longer available.");
       if (!canPreviewFile(current.file?.name)) throw new Error("Preview is available only for PDF and images.");
       setPreview(current);
@@ -416,7 +449,7 @@ function BrandAssets({ authenticated }) {
   async function download(asset) {
     try {
       // Refresh the attachment URL before downloading because Airtable links expire.
-      const current = (await loadBrandAssets()).find(item => item.id === asset.id);
+      const current = (authenticated ? await loadBrandAssets() : DEMO_BRAND_ASSETS).find(item => item.id === asset.id);
       if (!current) throw new Error("This asset is no longer available.");
       const response = await fetch(current.file.url);
       if (!response.ok) throw new Error("Unable to download this asset. Please try again.");
@@ -428,7 +461,7 @@ function BrandAssets({ authenticated }) {
   return <div className={`${card} p-5`}>
     <p className="text-sm font-medium text-accent">PulseFX brand assets</p>
     <p className="text-xs text-gray-500 mt-0.5">Use these when you talk about PulseFX to your clients.</p>
-    {!authenticated ? <p className="mt-3 text-sm text-gray-500">Sign in to download PulseFX brand assets.</p> : loading ? <p className="mt-3 text-sm text-gray-500">Loading assets…</p> : <>
+    {loading ? <p className="mt-3 text-sm text-gray-500">Loading assets…</p> : <>
       {error && <div role="alert" className="mt-3 text-sm text-danger">{error}<button type="button" className={ghost} onClick={() => { setLoading(true); setRevision(value => value + 1); }}>Try again</button></div>}
       {!error && !assets.length && <p className="mt-3 text-sm text-gray-500">No brand assets are available yet.</p>}
       <ul className="mt-3 divide-y divide-gray-100">{assets.map(asset => <li key={asset.id} className="flex flex-wrap items-center gap-3 py-3">
@@ -446,8 +479,8 @@ function BrandAssets({ authenticated }) {
   </div>;
 }
 function BrandKit({ authenticated }) {
-  const [kit, setKit] = useState({ logo: null, headshot: null, description: "" });
-  const [desc, setDesc] = useState("");
+  const [kit, setKit] = useState(authenticated ? { logo: null, headshot: null, description: "" } : DEMO_BRAND_KIT);
+  const [desc, setDesc] = useState(authenticated ? "" : DEMO_BRAND_KIT.description);
   const [loading, setLoading] = useState(authenticated);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -511,7 +544,7 @@ const GUIDE = [
 ];
 function Guide({ authenticated }) {
   const [open, setOpen] = useState(0);
-  const [onePagers, setOnePagers] = useState([]);
+  const [onePagers, setOnePagers] = useState(authenticated ? [] : DEMO_ONE_PAGERS);
   const [loading, setLoading] = useState(authenticated);
   const [error, setError] = useState("");
   const [revision, setRevision] = useState(0);
@@ -525,7 +558,7 @@ function Guide({ authenticated }) {
   }, [authenticated, revision]);
   async function download(item) {
     try {
-      const current = (await loadOnePagers()).find(record => record.id === item.id);
+      const current = (authenticated ? await loadOnePagers() : DEMO_ONE_PAGERS).find(record => record.id === item.id);
       if (!current) throw new Error("This one-pager is no longer available.");
       const response = await fetch(current.file.url);
       if (!response.ok) throw new Error("Unable to download this one-pager. Please try again.");
@@ -550,7 +583,7 @@ function Guide({ authenticated }) {
     <div className={`${card} p-5`}>
       <p className="text-sm font-medium text-accent">One-pagers</p>
       <p className="text-xs text-gray-500 mt-0.5">Download and share these with your clients.</p>
-      {!authenticated ? <p className="mt-3 text-sm text-gray-500">Sign in to download one-pagers.</p> : loading ? <p className="mt-3 text-sm text-gray-500">Loading one-pagers…</p> : <>
+      {loading ? <p className="mt-3 text-sm text-gray-500">Loading one-pagers…</p> : <>
         {error && <div role="alert" className="mt-3 text-sm text-danger">{error}<button type="button" className={ghost} onClick={() => { setLoading(true); setRevision(value => value + 1); }}>Try again</button></div>}
         {!error && !onePagers.length && <p className="mt-3 text-sm text-gray-500">No one-pagers are available yet.</p>}
         <ul className="mt-3 divide-y divide-gray-100">
@@ -621,7 +654,7 @@ export default function PartnerPortal({ onExit, user, isAdmin = false, signingOu
         onNavigate={setTab}
         items={canAdmin ? ADMIN_NAV_ITEMS : PARTNER_NAV_ITEMS}
         helpKey={canAdmin ? null : "contact"}
-        portalLabel={canAdmin ? "Administration" : "Partner portal"}
+        portalLabel={canAdmin ? "Administration" : user ? "Partner portal" : "DEMO Partner Portal"}
         account={{
           name: username,
           email: user?.email || "partner@pulsefx.example",

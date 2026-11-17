@@ -18,7 +18,7 @@ export default function AddClientFormFields({ values: v, setValues: setV, duplic
         <section aria-labelledby="preview-business">
           <h3 id="preview-business" className="mb-4 flex items-center gap-2 text-sm font-semibold"><Building2 className="h-4 w-4 text-accent" />Company details</h3>
           <div className="grid gap-4 sm:grid-cols-[1.5fr_1fr]">
-            <div><label htmlFor="preview-company" className={label}>Company name *</label><input autoFocus id="preview-company" required maxLength={200} placeholder="e.g. Northwind Trading Ltd." className={input} value={v.company} onChange={set("company")} aria-invalid={duplicate} aria-describedby={duplicate ? "preview-duplicate" : undefined} />{duplicate && <p id="preview-duplicate" role="alert" className="mt-1 text-xs text-danger">You have already referred this company.</p>}</div>
+            <div><label htmlFor="preview-company" className={label}>Company name *</label><input autoFocus id="preview-company" required maxLength={200} placeholder="e.g. Northwind Trading Ltd." className={input} value={v.company} onChange={set("company")} /></div>
             <div><label htmlFor="preview-country" className={label}>Country *</label><select id="preview-country" required className={`${input} filter-control`} value={v.country} onChange={set("country")}><option value="">Select country</option><option>Canada</option><option>United States</option></select></div>
           </div>
         </section>
@@ -27,7 +27,7 @@ export default function AddClientFormFields({ values: v, setValues: setV, duplic
           <p className="mb-4 text-xs text-gray-500">Who should our team connect with?</p>
           <div className="grid gap-4 sm:grid-cols-2">
             <div><label htmlFor="preview-name" className={label}>Full name *</label><input id="preview-name" required maxLength={200} autoComplete="name" placeholder="e.g. Alex Morgan" className={input} value={v.contact} onChange={set("contact")} /></div>
-            <div><label htmlFor="preview-email" className={label}>Work email *</label><input id="preview-email" required type="email" maxLength={254} autoComplete="email" placeholder="alex@company.com" className={input} value={v.email} onChange={set("email")} /></div>
+            <div><label htmlFor="preview-email" className={label}>Work email *</label><input id="preview-email" required type="email" maxLength={254} autoComplete="email" placeholder="alex@company.com" className={input} value={v.email} onChange={set("email")} aria-invalid={duplicate} aria-describedby={duplicate ? "preview-duplicate" : undefined} />{duplicate && <p id="preview-duplicate" role="alert" className="mt-1 text-xs text-danger">You have already referred a client with this email address.</p>}</div>
           </div>
         </section>
         <section aria-labelledby="preview-fx" className="border-t border-gray-100 pt-6">

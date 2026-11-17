@@ -20,11 +20,19 @@ export async function createPartnerReferral(details) {
   const { data, error } = await supabase.functions.invoke("partner-referrals", { method: "POST", body: details });
   if (error) {
     let message = "Unable to confirm the client was saved. Check Referrals before trying again.";
+    let rejection;
+    let duplicate = false;
     if (error.context instanceof Response) {
       const body = await error.context.json().catch(() => null);
       if (typeof body?.error === "string") message = body.error;
+      if (body?.code === "rejection_confirmation_required" && body.rejection &&
+          typeof body.rejection.id === "string" && typeof body.rejection.statusChangedAt === "string") rejection = body.rejection;
+      duplicate = error.context.status === 409 && !rejection;
     }
-    throw new Error(message);
+    const failure = new Error(message);
+    failure.rejection = rejection;
+    failure.duplicate = duplicate;
+    throw failure;
   }
   if (!data?.referral?.id) throw new Error("Unable to confirm the client was saved. Check Referrals before trying again.");
   return data.referral;

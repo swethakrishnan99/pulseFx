@@ -19,7 +19,7 @@ const referral = (index, overrides = {}) => ({
     Company: "Northwind Machining Ltd.", Partner: [partnerId],
     Contact: "Ana Costa", Email: "ana@northwind.example", Country: "Canada",
     Status: "Documents submitted", Created: "2026-11-07T18:00:00.000Z",
-    "Last modified": "2026-11-08T19:30:00.000Z", ...overrides,
+    "Last modified": "2026-11-08T19:30:00.000Z", "Last status change at": "2026-11-08T19:30:00.000Z", ...overrides,
   },
 });
 const request = (suffix = "", options = {}) => new Request(`https://example.supabase.co/functions/v1/partner-referrals${suffix}`, {
@@ -63,7 +63,7 @@ test("validates the session and membership, then returns normalized partner refe
   assert.deepEqual(await response.json(), { referrals: [{
     id: referralId(1), company: "Northwind Machining Ltd.", contact: "Ana Costa",
     email: "ana@northwind.example", country: "Canada", status: "Documents submitted",
-    created: "2026-11-07", modified: "2026-11-08", createdAt: "2026-11-07T18:00:00.000Z", modifiedAt: "2026-11-08T19:30:00.000Z", volume: "", cur: [], otherCur: "", notes: "",
+    created: "2026-11-07", modified: "2026-11-08", createdAt: "2026-11-07T18:00:00.000Z", modifiedAt: "2026-11-08T19:30:00.000Z", statusChangedAt: "2026-11-08T19:30:00.000Z", volume: "", cur: [], otherCur: "", notes: "",
   }] });
   assert.equal(calls.length, 4);
   assert.equal(calls[3].url.searchParams.get("filterByFormula"), `OR(RECORD_ID()='${referralId(1)}')`);
@@ -173,6 +173,7 @@ test("missing optional fields and timestamps are handled without inventing statu
   assert.equal(referrals[0].modified, "2026-11-07");
   assert.equal(referrals[0].createdAt, "2026-11-07T00:00:00.000Z");
   assert.equal(referrals[0].modifiedAt, "");
+  assert.equal(referrals[0].statusChangedAt, "");
 });
 
 test("missing configuration is reported without using Airtable", async () => {
@@ -271,10 +272,32 @@ test("optional notes can be empty and hidden other-currency text is discarded", 
   assert.equal(writes[0].records[0].fields["Other currency"], "");
 });
 
-test("duplicate company names are rejected within the authenticated partner", async () => {
+test("duplicate emails with active referrals are blocked within the authenticated partner", async () => {
+  for (const status of ["Invited", "Account created", "Documents submitted", "Under review", "Onboarded"]) {
+    const { handler, writes } = setupWrite({
+      partner: { id: partnerId, fields: { Referrals: [referralId(1)] } },
+      page: () => ({ records: [referral(1, { Email: "  ANA@northwind.example ", Status: status })] }),
+    });
+    const response = await handler(post(clientDetails({ company: "Different company", email: "  Ana@Northwind.Example  " })));
+    assert.equal(response.status, 409);
+    assert.deepEqual(await response.json(), { error: "You have already referred a client with this email address." });
+    assert.equal(writes.length, 0);
+  }
+});
+
+test("the same company with a different email is allowed", async () => {
   const { handler, writes } = setupWrite({ partner: { id: partnerId, fields: { Referrals: [referralId(1)] } } });
-  assert.equal((await handler(post(clientDetails({ company: "  NORTHWIND MACHINING LTD. " })))).status, 409);
-  assert.equal(writes.length, 0);
+  assert.equal((await handler(post(clientDetails({ company: "Northwind Machining Ltd." })))).status, 201);
+  assert.equal(writes.length, 1);
+});
+
+test("the same email belonging to another partner does not block creation", async () => {
+  const { handler, writes } = setupWrite({
+    partner: { id: partnerId, fields: { Referrals: [referralId(1)] } },
+    page: () => ({ records: [referral(1, { Partner: [otherPartnerId], Email: "contact@example.com" })] }),
+  });
+  assert.equal((await handler(post(clientDetails()))).status, 201);
+  assert.equal(writes.length, 1);
 });
 
 test("write failures return a safe message without claiming a successful save", async () => {
@@ -304,4 +327,72 @@ test("Airtable lookup outages do not claim a write was attempted", async () => {
   assert.equal(response.status, 503);
   assert.match((await response.json()).error, /Unable to check existing referrals/);
   assert.equal(writes.length, 0);
+});
+
+
+test("rejected referrals require confirmation of the most recent rejection, independent of list order", async () => {
+  const latestAt = "2026-11-16T17:45:00.000Z";
+  const { handler, writes } = setupWrite({
+    partner: { id: partnerId, fields: { Referrals: [referralId(1), referralId(3)] } },
+    page: () => ({ records: [
+      referral(3, { Email: "ana@northwind.example", Status: "Rejected", "Last status change at": latestAt }),
+      referral(1, { Email: "ana@northwind.example", Status: "Rejected", "Last modified": "2026-11-17T22:00:00.000Z" }),
+    ] }),
+  });
+  const details = clientDetails({ email: " ANA@northwind.example " });
+  const response = await handler(post(details));
+  assert.equal(response.status, 409);
+  const body = await response.json();
+  assert.equal(body.code, "rejection_confirmation_required");
+  assert.deepEqual(body.rejection, { id: referralId(3), statusChangedAt: latestAt });
+  assert.equal(writes.length, 0);
+  assert.equal((await handler(post({ ...details, confirmedRejection: body.rejection }))).status, 201);
+  assert.equal(writes.length, 1);
+  assert.equal(writes[0].records[0].fields.Status, "Invited");
+  assert.equal(writes[0].records[0].fields.confirmedRejection, undefined);
+});
+
+test("stale or unrelated rejection confirmation requires a fresh confirmation", async () => {
+  for (const confirmedRejection of [
+    { id: referralId(1), statusChangedAt: "2026-11-01T00:00:00.000Z" },
+    { id: referralId(4), statusChangedAt: "2026-11-08T19:30:00.000Z" },
+  ]) {
+    const { handler, writes } = setupWrite({
+      partner: { id: partnerId, fields: { Referrals: [referralId(1)] } },
+      page: () => ({ records: [referral(1, { Status: "Rejected" })] }),
+    });
+    const response = await handler(post(clientDetails({ email: "ana@northwind.example", confirmedRejection })));
+    assert.equal(response.status, 409);
+    assert.equal((await response.json()).code, "rejection_confirmation_required");
+    assert.equal(writes.length, 0);
+  }
+});
+
+test("an active duplicate still blocks a confirmed historical rejection", async () => {
+  const { handler, writes } = setupWrite({
+    partner: { id: partnerId, fields: { Referrals: [referralId(1), referralId(3)] } },
+    page: () => ({ records: [referral(1, { Status: "Rejected" }), referral(3, { Status: "Invited" })] }),
+  });
+  const response = await handler(post(clientDetails({ email: "ana@northwind.example", confirmedRejection: { id: referralId(1), statusChangedAt: "2026-11-08T19:30:00.000Z" } })));
+  assert.equal(response.status, 409);
+  assert.equal((await response.json()).code, undefined);
+  assert.equal(writes.length, 0);
+});
+
+test("missing historical rejection timestamp stays unknown", async () => {
+  const { handler, writes } = setupWrite({
+    partner: { id: partnerId, fields: { Referrals: [referralId(1)] } },
+    page: () => ({ records: [referral(1, { Status: "Rejected", "Last status change at": "" })] }),
+  });
+  const response = await handler(post(clientDetails({ email: "ana@northwind.example" })));
+  assert.deepEqual((await response.json()).rejection, { id: referralId(1), statusChangedAt: "" });
+  assert.equal(writes.length, 0);
+});
+
+test("malformed rejection confirmations cannot bypass validation", async () => {
+  for (const confirmedRejection of [true, [], null, { id: "bad", statusChangedAt: "" }, { id: referralId(1), statusChangedAt: 1 }, { id: referralId(1), statusChangedAt: "", partnerId: otherPartnerId }]) {
+    const { handler, writes } = setupWrite();
+    assert.equal((await handler(post(clientDetails({ confirmedRejection })))).status, 400);
+    assert.equal(writes.length, 0);
+  }
 });

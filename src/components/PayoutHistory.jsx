@@ -1,3 +1,4 @@
+import { DEMO_PAYOUTS } from "../lib/partnerDemo";
 import PortalDialog from "./PortalDialog";
 import { dialogSecondary } from "../lib/dialogStyles";
 import { formatAirtableDateTime } from "../lib/airtableDates.mjs";
@@ -45,7 +46,7 @@ function PayoutDetails({ payout, onClose }) {
 export default function PayoutHistory({ authenticated = false, showDescription = true }) {
   const { sort, toggleSort, sortRows } = useTableSort({ key: "createdAt", dir: "desc" });
   const [selected, setSelected] = useState(null);
-  const [rows, setRows] = useState([]);
+  const [rows, setRows] = useState(authenticated ? [] : DEMO_PAYOUTS);
   const [loading, setLoading] = useState(authenticated);
   const [error, setError] = useState("");
   const [attempt, setAttempt] = useState(0);

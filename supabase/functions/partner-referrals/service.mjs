@@ -1,3 +1,4 @@
+import { referralEmailConflict } from "../_shared/referral-duplicates.mjs";
 import { findPartnerMembership } from "../_shared/partner-membership.mjs";
 import { adminReferrals } from "./admin.mjs";
 
@@ -7,7 +8,7 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
 };
 const recordId = /^rec[A-Za-z0-9]{14}$/;
-const referralFields = ["Company", "Partner", "Contact", "Email", "Country", "Status", "Created", "Last modified", "Expected monthly volume", "Currencies", "Other currency", "Notes"];
+const referralFields = ["Company", "Partner", "Contact", "Email", "Country", "Status", "Created", "Last modified", "Last status change at", "Expected monthly volume", "Currencies", "Other currency", "Notes"];
 
 function json(body, status = 200) {
   return Response.json(body, {
@@ -44,6 +45,7 @@ export function normalizeReferral(record) {
     created,
     createdAt: timestamp(fields.Created) || timestamp(record.createdTime),
     modifiedAt: timestamp(fields["Last modified"]),
+    statusChangedAt: timestamp(fields["Last status change at"]),
     modified: dateOnly(fields["Last modified"]) || created,
   };
 }
@@ -107,14 +109,21 @@ const currencies = ["CAD", "USD", "EUR", "GBP", "AUD", "MXN", "Other"];
 
 function validateReferral(input) {
   if (!input || typeof input !== "object" || Array.isArray(input)) return null;
-  // Explicitly allow only form fields. The caller cannot assign a partner or status.
-  const allowed = new Set(["company", "contact", "email", "country", "volume", "cur", "otherCur", "notes"]);
+  // The caller can acknowledge a rejected referral, but cannot assign a partner or status.
+  const allowed = new Set(["company", "contact", "email", "country", "volume", "cur", "otherCur", "notes", "confirmedRejection"]);
   if (Object.keys(input).some((key) => !allowed.has(key))) return null;
   const result = {};
   for (const [key, max] of [["company", 200], ["contact", 200], ["email", 254], ["country", 60], ["volume", 60], ["otherCur", 60], ["notes", 5000]]) {
     const value = input[key] ?? "";
     if (typeof value !== "string" || value.length > max) return null;
     result[key] = value.trim();
+  }
+  if (input.confirmedRejection !== undefined) {
+    const confirmation = input.confirmedRejection;
+    if (!confirmation || typeof confirmation !== "object" || Array.isArray(confirmation) ||
+        Object.keys(confirmation).some(key => !["id", "statusChangedAt"].includes(key)) ||
+        !recordId.test(confirmation.id || "") || typeof confirmation.statusChangedAt !== "string") return null;
+    result.confirmedRejection = confirmation;
   }
   result.email = result.email.toLowerCase();
   if (!result.company || !result.contact || !/^\S+@\S+\.\S+$/.test(result.email) ||
@@ -202,8 +211,13 @@ export function createReferralsHandler({ env, admin = null, fetchImpl = fetch })
       stage = "read-referrals";
       const referrals = await readReferrals({ env, partnerId, fetchImpl });
       if (input) {
-        if (referrals.some((row) => row.company.trim().toLowerCase() === input.company.toLowerCase())) {
-          return json({ error: "You have already referred this company." }, 409);
+        const { blocked, rejection } = referralEmailConflict(referrals, input.email);
+        if (blocked) {
+          return json({ error: "You have already referred a client with this email address." }, 409);
+        }
+        if (rejection && (input.confirmedRejection?.id !== rejection.id || input.confirmedRejection?.statusChangedAt !== rejection.statusChangedAt)) {
+          return json({ code: "rejection_confirmation_required", rejection,
+            error: "A previous referral for this email was rejected. Confirm whether you want to continue." }, 409);
         }
         stage = "write-referral";
         const referral = await writeReferral({ env, partnerId, input, fetchImpl });
