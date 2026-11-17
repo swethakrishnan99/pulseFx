@@ -31,6 +31,9 @@ jobs:
       - run: npm run test:tables
       - run: npm run lint:auth
       - run: npm run lint:referrals
+      - run: npm run lint:referral-form
+      - run: npm run test:referral-form
+      - run: npm run test:referral-form:ui
       - run: npm run test:referrals
       - run: npm run lint:banking
       - run: npm run test:banking

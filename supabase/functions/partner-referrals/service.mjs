@@ -1,5 +1,6 @@
 import { referralEmailConflict } from "../_shared/referral-duplicates.mjs";
 import { findPartnerMembership } from "../_shared/partner-membership.mjs";
+import { readReferralSubmission } from "./submission.mjs";
 import { adminReferrals } from "./admin.mjs";
 
 const corsHeaders = {
@@ -8,7 +9,7 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
 };
 const recordId = /^rec[A-Za-z0-9]{14}$/;
-const referralFields = ["Company", "Partner", "Contact", "Email", "Country", "Status", "Created", "Last modified", "Last status change at", "Expected monthly volume", "Currencies", "Other currency", "Notes"];
+const referralFields = ["Company", "Partner", "Contact", "Email", "Country", "Status", "Source", "Created", "Last modified", "Last status change at", "Expected monthly volume", "Currencies", "Other currency", "Notes"];
 
 function json(body, status = 200) {
   return Response.json(body, {
@@ -41,6 +42,7 @@ export function normalizeReferral(record) {
     cur: Array.isArray(fields.Currencies) ? fields.Currencies.filter((value) => typeof value === "string") : [],
     otherCur: text("Other currency"),
     notes: text("Notes"),
+    source: text("Source"),
     status: text("Status") || "Unknown",
     created,
     createdAt: timestamp(fields.Created) || timestamp(record.createdTime),
@@ -141,7 +143,7 @@ async function writeReferral({ env, partnerId, input, fetchImpl }) {
   const fields = {
     Company: input.company, Contact: input.contact, Email: input.email, Country: input.country,
     "Expected monthly volume": input.volume, Currencies: input.cur,
-    "Other currency": input.otherCur, Notes: input.notes, Partner: [partnerId], Status: "Invited",
+    "Other currency": input.otherCur, Notes: input.notes, Partner: [partnerId], Status: "Invited", Source: "Partner Portal",
   };
   const response = await fetchImpl(url, {
     method: "POST",
@@ -188,6 +190,10 @@ export function createReferralsHandler({ env, admin = null, fetchImpl = fetch })
       const user = await authResponse.json();
       if (!user.id) return json({ error: "Please sign in to view your referrals." }, 401);
       const view = new URL(request.url).searchParams.get("view");
+      if (view === "submission") {
+        if (request.method !== "GET") return json({ error: "Method not allowed." }, 405);
+        return await readReferralSubmission({ request, env, user, admin, fetchImpl, json });
+      }
       if (view === "admin") return await adminReferrals({ request, env, user, admin, fetchImpl, json, normalizeReferral });
       if (view) return json({ error: "Invalid referral view." }, 400);
       stage = "membership";
