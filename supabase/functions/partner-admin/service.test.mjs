@@ -30,6 +30,8 @@ function setup(options = {}) {
         events.push("create-user");
         assert.equal(input.email, values.email);
         assert.equal(input.password, undefined);
+        assert.equal(input.app_metadata.role, "partner");
+        assert.ok(input.app_metadata.partner_registration_id);
         user = { id: userId, email: input.email, app_metadata: input.app_metadata };
         return success({ user });
       },
@@ -111,7 +113,7 @@ function setup(options = {}) {
       assert.equal(input.method, "PATCH");
       const body = JSON.parse(input.body);
       assert.deepEqual(body.performUpsert.fieldsToMergeOn, ["Portal ID"]);
-      assert.deepEqual(body.records[0].fields, { Name: values.company, "Portal ID": id });
+      assert.deepEqual(body.records[0].fields, { Name: values.company, "Portal ID": id, Role: "Partner" });
       if (airtableFailures-- > 0) return Response.json({ error: env.AIRTABLE_TOKEN }, { status: 429 });
       return Response.json({ records: [{ id: partnerId }] });
     },

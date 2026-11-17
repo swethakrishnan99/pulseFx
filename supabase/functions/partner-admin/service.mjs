@@ -118,7 +118,7 @@ async function upsertAirtable(env, row, fetchImpl) {
   const response = await fetchImpl(url, {
     method: "PATCH",
     headers: { Authorization: `Bearer ${env.AIRTABLE_TOKEN}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ performUpsert: { fieldsToMergeOn: ["Portal ID"] }, records: [{ fields: { Name: row.company, "Portal ID": row.id } }] }),
+    body: JSON.stringify({ performUpsert: { fieldsToMergeOn: ["Portal ID"] }, records: [{ fields: { Name: row.company, "Portal ID": row.id, Role: "Partner" } }] }),
     signal: AbortSignal.timeout(15000),
   });
   if (!response.ok) throw new Failure("Unable to save the partner record. Generate the link again from the partner list to resume.");
@@ -152,7 +152,7 @@ export function createPartnerAdminHandler({ env, admin, auth = admin?.auth, stor
           if (!uuid.test(referralUrlFor)) throw new Failure("Invalid partner.", 400);
           const row = (await store.list()).find(value => value.id === referralUrlFor && !value.deleted_at);
           if (!row) throw new Failure("Partner not found.", 404);
-          if (!recordId.test(row.partner_id || "")) return json({ referralUrl: "" });
+          if (!recordId.test(row.partner_id || "")) return json({ referralUrl: "", partnerRole: "" });
           if (!env.AIRTABLE_TOKEN || !env.AIRTABLE_BASE_ID) throw new Failure("Referral links are not configured.", 503);
           const response = await fetchImpl(`https://api.airtable.com/v0/${encodeURIComponent(env.AIRTABLE_BASE_ID)}/${encodeURIComponent(env.AIRTABLE_PARTNERS_TABLE_ID || "Partners_api")}/${row.partner_id}`, {
             headers: { Authorization: `Bearer ${env.AIRTABLE_TOKEN}` }, signal: AbortSignal.timeout(15000),
@@ -160,12 +160,13 @@ export function createPartnerAdminHandler({ env, admin, auth = admin?.auth, stor
           if (!response.ok) throw new Failure("Unable to load the referral URL.");
           const record = await response.json();
           if (record.id !== row.partner_id) throw new Failure("Unable to verify the partner.");
+          const partnerRole = typeof record.fields?.Role === "string" ? record.fields.Role : "";
           const value = record.fields?.["Referral URL"];
-          if (!value) return json({ referralUrl: "" });
+          if (!value) return json({ referralUrl: "", partnerRole });
           let url;
           try { url = new URL(value); } catch { throw new Failure("Invalid referral URL."); }
           if (!["https:", "http:"].includes(url.protocol)) throw new Failure("Invalid referral URL.");
-          return json({ referralUrl: url.href });
+          return json({ referralUrl: url.href, partnerRole });
         }
         const partners = (await store.list()).map(account);
         return json({ partners: audit ? await audit.enrich("partner", partners) : partners });
@@ -273,7 +274,7 @@ export function createPartnerAdminHandler({ env, admin, auth = admin?.auth, stor
       } else {
         user = await findOwnedUser(auth, row);
         if (!user) {
-          const created = await auth.admin.createUser({ email: row.email, user_metadata: { full_name: row.name }, app_metadata: { partner_registration_id: row.id } });
+          const created = await auth.admin.createUser({ email: row.email, user_metadata: { full_name: row.name }, app_metadata: { partner_registration_id: row.id, role: "partner" } });
           if (created.error) {
             user = await findOwnedUser(auth, row);
             if (!user) throw new Failure("Unable to create the partner account. Generate the link again to retry.");

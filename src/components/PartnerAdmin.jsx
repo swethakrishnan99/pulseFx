@@ -9,7 +9,7 @@ import { formatAirtableDateTime } from "../lib/airtableDates.mjs";
 import ClearFiltersButton from "./ClearFiltersButton";
 import { useEffect, useRef, useState } from "react";
 import { Building2, Check, CheckCircle2, Clock3, Copy, Eye, KeyRound, Link2, LoaderCircle, Pencil, Play, Power, RefreshCw, ShieldCheck, Trash2, UserPlus, Users, X } from "lucide-react";
-import { changePartnerAccess, createPartner, deletePartnerUser, editPartnerProfile, generatePartnerInvite, generatePartnerRecovery, listPartners, loadPartnerReferralUrl } from "../lib/partnerAdmin";
+import { changePartnerAccess, createPartner, deletePartnerUser, editPartnerProfile, generatePartnerInvite, generatePartnerRecovery, listPartners, loadPartnerAirtableDetails } from "../lib/partnerAdmin";
 import { createAdmin, listAdmins, manageAdmin } from "../lib/pulsefxUserAdmin";
 import PartnerAccountConfirmation from "./PartnerAccountConfirmation";
 import ActionButton from "./ActionButton";
@@ -41,8 +41,8 @@ function PartnerDetails({ partner, onClose }) {
   useEffect(() => {
     if (!isPartner || !partner.airtableId) return;
     const controller = new AbortController();
-    loadPartnerReferralUrl(partner.id, controller.signal).then(url => {
-      if (!controller.signal.aborted) setReferral({ loading: false, url, error: "" });
+    loadPartnerAirtableDetails(partner.id, controller.signal).then(details => {
+      if (!controller.signal.aborted) setReferral({ loading: false, ...details, error: "" });
     }).catch(error => {
       if (!controller.signal.aborted) setReferral({ loading: false, url: "", error: error.message });
     });
@@ -57,7 +57,7 @@ function PartnerDetails({ partner, onClose }) {
   const details = [
     ["Contact name", partner.name],
     ["Email address", partner.email, true],
-    ...(partner.role === "partner_admin" ? [["Role", "Administrator"]] : [["Company", partner.company]]),
+    ...(partner.role === "partner_admin" ? [["Role", "Administrator"]] : [["Role", partner.airtableId ? referral.loading ? "Loading…" : referral.role || "—" : "—"], ["Company", partner.company]]),
     ["Account status", partner.status],
     ["Supabase ID", partner.supabaseId, true],
     ...(partner.role === "partner_admin" ? [] : [["Airtable ID", partner.airtableId, true], ["Referral URL", partner.airtableId ? referral.loading ? "Loading…" : referral.url : "—", !!referral.url && !referral.loading]]),

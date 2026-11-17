@@ -1,4 +1,4 @@
-export const MIRROR_FIELDS = ["Name", "Portal ID", "Contact", "Email", "Supabase User ID", "Account status", "Registered at", "Deleted at"];
+export const MIRROR_FIELDS = ["Name", "Role", "Portal ID", "Contact", "Email", "Supabase User ID", "Account status", "Registered at", "Deleted at"];
 const recordId = /^rec[A-Za-z0-9]{14}$/;
 const statuses = new Set(["Setup incomplete", "Awaiting activation", "Active", "Deactivated", "Deleted"]);
 class SyncFailure extends Error {
@@ -24,7 +24,7 @@ export function mirrorFields(row) {
   if (!row.id || !row.company || !row.email || !statuses.has(row.account_status)) throw new SyncFailure("invalid_source_record");
   // Deliberately whitelist fields: never copy auth metadata, tokens or hashes.
   return {
-    Name: row.company, "Portal ID": row.id, Contact: row.name || null, Email: row.email,
+    Name: row.company, Role: "Partner", "Portal ID": row.id, Contact: row.name || null, Email: row.email,
     "Supabase User ID": row.user_id || null, "Account status": row.account_status,
     "Registered at": row.created_at || null, "Deleted at": row.deleted_at || null,
   };
