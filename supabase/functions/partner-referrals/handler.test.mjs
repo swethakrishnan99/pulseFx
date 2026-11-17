@@ -62,7 +62,7 @@ test("validates the session and membership, then returns normalized partner refe
   assert.equal(response.headers.get("Cache-Control"), "no-store");
   assert.deepEqual(await response.json(), { referrals: [{
     id: referralId(1), company: "Northwind Machining Ltd.", contact: "Ana Costa",
-    email: "ana@northwind.example", country: "Canada", status: "Documents submitted",
+    email: "ana@northwind.example", country: "Canada", status: "Documents submitted", source: "",
     created: "2026-11-07", modified: "2026-11-08", createdAt: "2026-11-07T18:00:00.000Z", modifiedAt: "2026-11-08T19:30:00.000Z", statusChangedAt: "2026-11-08T19:30:00.000Z", volume: "", cur: [], otherCur: "", notes: "",
   }] });
   assert.equal(calls.length, 4);
@@ -225,7 +225,7 @@ test("creates a referral with all form fields and the verified partner only", as
   assert.deepEqual(writes[0], { records: [{ fields: {
     Company: "New client", Contact: "Client Contact", Email: "contact@example.com", Country: "Canada",
     "Expected monthly volume": "CAD 50,000 to 250,000", Currencies: ["USD", "Other"],
-    "Other currency": "JPY, CHF", Notes: "Call in the afternoon", Partner: [partnerId], Status: "Invited",
+    "Other currency": "JPY, CHF", Notes: "Call in the afternoon", Partner: [partnerId], Status: "Invited", Source: "Partner Portal",
   } }] });
   const { referral: saved } = await response.json();
   assert.equal(saved.otherCur, "JPY, CHF");

@@ -54,3 +54,7 @@ verify_jwt = false
 [functions.partner-invitations]
 # Only live administrators can create partners and queue invitation emails.
 verify_jwt = false
+
+[functions.partner-referral-form]
+# Public load/submit use a signed partner link; link creation verifies Auth + RLS.
+verify_jwt = false

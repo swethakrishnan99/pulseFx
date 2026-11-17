@@ -1,7 +1,9 @@
+import ReferralSourceBadge from "./ReferralSourceBadge";
 import { dialogDanger } from "../lib/dialogStyles";
 import { referralEmailConflict } from "../../supabase/functions/_shared/referral-duplicates.mjs";
 import { DEMO_REFERRALS, DEMO_BRAND_KIT, DEMO_BRAND_ASSETS, DEMO_ONE_PAGERS } from "../lib/partnerDemo";
 import { REFERRAL_STATUSES as STATUSES, REFERRAL_STATUS_STYLE as STATUS_STYLE } from "../lib/referralStatuses.mjs";
+import PartnerReferralLink from "./PartnerReferralLink";
 import PartnerSupport from "./PartnerSupport";
 import useViewFocus from "../lib/useViewFocus";
 import DocumentPreview from "./DocumentPreview";
@@ -105,6 +107,7 @@ function PartnerHome({ go, authenticated }) {
   function copy() { navigator.clipboard?.writeText(LINK); setCopied(true); setTimeout(() => setCopied(false), 1500); }
   return (
     <div className="flex flex-col gap-4">
+      {authenticated && <PartnerReferralLink />}
       {!authenticated && <div className={`${card} p-5`}>
         <p className="text-sm font-medium text-accent">Referral link</p>
         <p className="text-xs text-gray-500 mt-0.5">Share this link with your clients. Anyone who signs up with it appears under Referrals.</p>
@@ -158,8 +161,8 @@ function PartnerHome({ go, authenticated }) {
 function exportReferrals(rows) {
   const cell = (v) => { const t = String(v); const safe = /^[=+\-@\t\r]/.test(t) ? `'${t}` : t; return `"${safe.replace(/"/g, '""')}"`; };
   const lines = [
-    ["Company", "Contact", "Email", "Country", "Expected monthly volume", "Currencies", "Other currency", "Notes", "Status", "Onboarded", "Created at", "Last modified at"],
-    ...rows.map((r) => [r.company, r.contact, r.email, r.country, r.volume || "", (r.cur || []).join(", "), r.otherCur || "", r.notes || "", r.status, r.status === "Onboarded" ? "Yes" : "No", referralDateValue(r, "created"), referralDateValue(r, "modified")]),
+    ["Company", "Contact", "Email", "Country", "Expected monthly volume", "Currencies", "Other currency", "Notes", "Source", "Status", "Onboarded", "Created at", "Last modified at"],
+    ...rows.map((r) => [r.company, r.contact, r.email, r.country, r.volume || "", (r.cur || []).join(", "), r.otherCur || "", r.notes || "", r.source || "—", r.status, r.status === "Onboarded" ? "Yes" : "No", referralDateValue(r, "created"), referralDateValue(r, "modified")]),
   ].map((r) => r.map(cell).join(","));
   const url = URL.createObjectURL(new Blob(["\ufeff" + lines.join("\r\n")], { type: "text/csv;charset=utf-8;" }));
   const a = document.createElement("a");
@@ -249,6 +252,7 @@ function Referrals({ authenticated = false, go }) {
             <ReferralSortHeader column="company" sort={sort} onSort={sortBy}>Company</ReferralSortHeader>
             <ReferralSortHeader column="contact" sort={sort} onSort={sortBy}>Contact</ReferralSortHeader>
             <ReferralSortHeader column="email" sort={sort} onSort={sortBy}>Email</ReferralSortHeader>
+            <ReferralSortHeader column="source" sort={sort} onSort={sortBy}>Source</ReferralSortHeader>
             <ReferralSortHeader column="status" sort={sort} onSort={sortBy}>Status</ReferralSortHeader>
             <ReferralSortHeader column="onboarded" sort={sort} onSort={sortBy}>Onboarded</ReferralSortHeader>
             <ReferralSortHeader column="created" sort={sort} onSort={sortBy}>Created at</ReferralSortHeader>
@@ -261,20 +265,21 @@ function Referrals({ authenticated = false, go }) {
                 <td className={`${td} font-medium text-gray-900`}>{r.company}</td>
                 <td className={td}>{r.contact || "—"}</td>
                 <td className={td}>{r.email || "—"}</td>
+                <td className={td}><ReferralSourceBadge source={r.source} /></td>
                 <td className={td}><Badge s={r.status} /></td>
                 <td className={td}>{r.status === "Onboarded" ? "Yes" : "No"}</td>
                 <td className={td}>{prettyDateTime(referralDateValue(r, "created"))}</td><td className={td}>{prettyDateTime(referralDateValue(r, "modified"))}</td>
                 <td className={td}><ActionButton label={`View referral ${r.company}`} tooltip="View referral details" onClick={() => setOpen(r)} className="inline-flex shrink-0 items-center justify-center rounded-md p-1.5 text-gray-500 hover:text-accent hover:bg-gray-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"><Eye className="h-4 w-4" /></ActionButton></td>
               </tr>
             ))}
-            {remote.loading && <tr><td colSpan={8} className="px-3 py-8 text-center text-sm text-gray-500"><span role="status">Loading referrals…</span></td></tr>}
-            {remote.error && <tr><td colSpan={8} className="px-3 py-8 text-center text-sm"><p role="alert" className="text-danger">{remote.error}</p><button type="button" onClick={reload} className="mt-3 font-medium text-accent hover:underline">Try again</button></td></tr>}
-            {!remote.loading && !remote.error && rows.length === 0 && <tr><td colSpan={8} className="px-3 py-8 text-center text-sm text-gray-400">{referrals.length === 0 ? "No referrals yet." : "No referrals match those filters."}</td></tr>}
+            {remote.loading && <tr><td colSpan={9} className="px-3 py-8 text-center text-sm text-gray-500"><span role="status">Loading referrals…</span></td></tr>}
+            {remote.error && <tr><td colSpan={9} className="px-3 py-8 text-center text-sm"><p role="alert" className="text-danger">{remote.error}</p><button type="button" onClick={reload} className="mt-3 font-medium text-accent hover:underline">Try again</button></td></tr>}
+            {!remote.loading && !remote.error && rows.length === 0 && <tr><td colSpan={9} className="px-3 py-8 text-center text-sm text-gray-400">{referrals.length === 0 ? "No referrals yet." : "No referrals match those filters."}</td></tr>}
           </tbody>
         </table>
       </div>
       <TablePager pager={pager} noun="referrals" overall={referrals.length} />
-      {open && <Detail r={open} onClose={() => setOpen(null)} />}
+      {open && <Detail authenticated={authenticated} r={open} onClose={() => setOpen(null)} />}
     </div>
   );
 }

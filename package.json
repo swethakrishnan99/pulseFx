@@ -27,7 +27,10 @@
     "test:documents": "node --test supabase/functions/pulsefx-documents/*.test.mjs supabase/functions/pulsefx-one-pagers/*.test.mjs supabase/functions/pulsefx-brand-assets/*.test.mjs",
     "lint:support": "eslint src/lib/support.js supabase/functions/partner-support/service.mjs",
     "test:support": "node --test supabase/functions/partner-support/*.test.mjs",
-    "test:keyboard": "vite build --config tests/vite.config.mjs && node --test dist-ssr/keyboard/keyboard.test.js"
+    "test:keyboard": "vite build --config tests/vite.config.mjs && node --test dist-ssr/keyboard/keyboard.test.js",
+    "test:referral-form": "node --test supabase/functions/partner-referral-form/*.test.mjs",
+    "lint:referral-form": "eslint src/components/PartnerReferralForm.jsx src/components/PartnerReferralLink.jsx src/lib/referralForm.js",
+    "test:referral-form:ui": "vite build --config tests/referralForm.vite.config.mjs && node --test --test-force-exit dist-ssr/referral-form/referralForm.test.js"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.119.0",

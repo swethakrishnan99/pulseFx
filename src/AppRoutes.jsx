@@ -4,6 +4,7 @@ import PulseMark from "./components/PulseMark";
 import ClientApp from "./ClientApp";
 import PartnerPortal from "./components/PartnerPortal";
 import PartnerSession from "./components/PartnerSession";
+import PartnerReferralForm from "./components/PartnerReferralForm";
 import PartnerActivation from "./components/PartnerActivation";
 
 // Addresses used before the router existed (https://site/#partner) still work.
@@ -18,6 +19,8 @@ const LEGACY_HASH = {
 function Entry() {
   const navigate = useNavigate();
   const { search } = useLocation();
+  const referralToken = new URLSearchParams(search).get("ref");
+  if (referralToken !== null) return <PartnerReferralForm key={referralToken} token={referralToken} />;
   // Invitation and reset links open the site address with ?token_hash=...&type=... so this must keep working.
   if (new URLSearchParams(search).has("token_hash")) {
     return <PartnerActivation onExit={() => navigate("/", { replace: true })} />;
@@ -55,6 +58,7 @@ export default function AppRoutes() {
   return (
     <Routes>
       <Route path="/" element={<Entry />} />
+      <Route path="/pulseFx" element={<Entry />} />
       <Route path="/partner/sign-in" element={<PartnerSignIn />} />
       <Route path="/partner/:page?" element={<PartnerSession onExit={toStart} />} />
       <Route path="/demo/:page?" element={<PartnerPortal onExit={toStart} basePath="/demo" />} />

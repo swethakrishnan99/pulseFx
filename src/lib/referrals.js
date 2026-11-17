@@ -68,3 +68,10 @@ export async function updateReferralStatus(referral, status) {
   if (!data?.referral?.id) throw new Error("Unable to confirm the status was saved. Close the details and refresh before trying again.");
   return data.referral;
 }
+
+export async function loadReferralSubmission(id, signal) {
+  if (!supabase) throw new Error("Partner sign-in is not configured.");
+  const { data, error } = await supabase.functions.invoke(`partner-referrals?view=submission&id=${encodeURIComponent(id)}`, { method: "GET", signal });
+  if (error || !data || !("submission" in data)) throw new Error("Unable to load form details. Please try again.");
+  return data.submission;
+}
