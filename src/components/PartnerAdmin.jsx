@@ -242,7 +242,7 @@ export default function PartnerAdmin() {
     && [partner.company, partner.name, partner.email].some((value) => (value || "").toLowerCase().includes(normalizedQuery))), { identity: (row) => showingAdmins ? row.name : row.company, contact: (row) => showingAdmins ? row.email : row.name });
   const pager = usePagination(filtered, [query, status, showingAdmins, sort?.key, sort?.dir].join("|"));
   const stats = [
-    { label: showingAdmins ? "Administrators" : "Partner contacts", value: users.length, icon: showingAdmins ? ShieldCheck : Users, tone: "bg-gray-100 text-gray-500" },
+    { label: showingAdmins ? "Administrators" : "Partner contacts", value: users.length, icon: showingAdmins ? ShieldCheck : Users, tone: "bg-blue-100 text-blue-600" },
     { label: "Active accounts", value: users.filter((partner) => partner.status === "Active").length, icon: CheckCircle2, tone: "bg-success-100 text-success" },
     { label: "Pending invitations", value: users.filter((partner) => partner.status === "Awaiting activation").length, icon: Clock3, tone: "bg-warning-100 text-warning" },
   ];
