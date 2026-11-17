@@ -1,16 +1,18 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { createPartnerInvitationsHandler } from "../partner-invitations/service.mjs";
 import { createPartnerAdminHandler } from "./service.mjs";
 
 const id = "10000000-0000-4000-8000-000000000001";
 const userId = "20000000-0000-4000-8000-000000000001";
 const partnerId = "rec12345678901234";
-const env = { PORTAL_URL: "https://partners.example/portal/", AIRTABLE_TOKEN: "airtable-secret", AIRTABLE_BASE_ID: "app-test" };
+const env = { PORTAL_URL: "https://partners.example/portal/", AIRTABLE_TOKEN: "airtable-secret", AIRTABLE_BASE_ID: "app-test", AIRTABLE_PARTNER_INVITATIONS_TABLE_ID: "Invitations" };
 const values = { company: "New Partner", name: "Alex Morgan", email: "alex@example.com" };
 const success = (data) => ({ data, error: null });
 
 function setup(options = {}) {
   const events = [];
+  const invitationWrites = [];
   let rows = options.row ? [{ ...options.row }] : [];
   let user = options.user;
   let airtableFailures = options.airtableFailures || 0;
@@ -97,8 +99,13 @@ function setup(options = {}) {
     },
     async release(value, token) { events.push("release"); assert.equal(value, id); assert.equal(token, rows[0].lock_token); delete rows[0].lock_token; },
   };
-  const handler = createPartnerAdminHandler({ env: { ...env, ...options.env }, auth, store,
+  const dependencies = { env: { ...env, ...options.env }, auth, store,
     fetchImpl: async (url, input) => {
+      if (url === "https://api.airtable.com/v0/app-test/Invitations") {
+        events.push("queue-invitation");
+        invitationWrites.push(JSON.parse(input.body));
+        return Response.json({ records: [{ id: "recABCDEFGHIJKLMN" }] }, { status: options.invitationFailure ? 500 : 200 });
+      }
       events.push("airtable");
       assert.equal(url, "https://api.airtable.com/v0/app-test/Partners");
       assert.equal(input.method, "PATCH");
@@ -108,12 +115,14 @@ function setup(options = {}) {
       if (airtableFailures-- > 0) return Response.json({ error: env.AIRTABLE_TOKEN }, { status: 429 });
       return Response.json({ records: [{ id: partnerId }] });
     },
-  });
-  const request = (body, method = "POST", token = "session") => handler(new Request("https://project.example/functions/v1/partner-admin", {
+  };
+  const handler = createPartnerAdminHandler(dependencies);
+  const invitations = createPartnerInvitationsHandler(dependencies);
+  const request = (body, method = "POST", token = "session") => (body?.action === "create" ? invitations : handler)(new Request("https://project.example/functions/v1/partner-admin", {
     method, headers: token ? { authorization: `Bearer ${token}`, "Content-Type": "application/json" } : {},
     ...(method === "POST" ? { body: typeof body === "string" ? body : JSON.stringify(body) } : {}),
   }));
-  return { request, events, rows: () => rows };
+  return { request, events, invitationWrites, rows: () => rows };
 }
 
 test("missing or expired credentials cannot query or mutate partner records", async () => {
@@ -149,12 +158,16 @@ test("missing invitation configuration, invalid input and malformed JSON fail be
   }
 });
 
-test("creation returns a private activation link only after Auth, Airtable and membership are ready", async () => {
+test("creation queues an invitation email only after Auth, Airtable and membership are ready", async () => {
   const fixture = setup();
   const response = await fixture.request({ action: "create", ...values, email: " Alex@Example.com " });
   assert.equal(response.status, 200);
   const body = await response.json();
-  assert.equal(body.link, "https://partners.example/portal/?token_hash=private-token&type=invite");
+  assert.equal(body.link, undefined);
+  assert.equal(body.emailQueued, true);
+  assert.equal(fixture.invitationWrites[0].records[0].fields.Email, values.email);
+  assert.equal(fixture.invitationWrites[0].records[0].fields["Invitation link"], "https://partners.example/portal/?token_hash=private-token&type=invite");
+  assert.ok(fixture.events.indexOf("generate-link") < fixture.events.indexOf("queue-invitation"));
   assert.equal(body.partner.status, "Awaiting activation");
   assert.equal(body.partner.email, values.email);
   assert.equal(body.partner.lock_token, undefined);
@@ -434,4 +447,18 @@ test("partner-admin no longer accepts internal PulseFX account actions", async (
     assert.equal((await fixture.request({ action, id: userId, ...values })).status, 400);
     assert.deepEqual(fixture.events, ["verify"]);
   }
+});
+
+test("missing invitation email configuration fails before creating an account", async () => {
+  const fixture = setup({ env: { AIRTABLE_PARTNER_INVITATIONS_TABLE_ID: "" } });
+  assert.equal((await fixture.request({ action: "create", ...values })).status, 503);
+  assert.ok(!fixture.events.includes("create-user"));
+});
+test("failed invitation delivery preserves the partner and does not return a credential", async () => {
+  const fixture = setup({ invitationFailure: true });
+  const response = await fixture.request({ action: "create", ...values });
+  assert.equal(response.status, 502);
+  assert.ok(!(await response.text()).includes("private-token"));
+  assert.equal(fixture.rows()[0].ready, true);
+  assert.equal(fixture.invitationWrites.length, 1);
 });

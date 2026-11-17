@@ -200,7 +200,7 @@ for (const [mode, payout] of [['create', null], ['edit', { id: 'payout', ref: 'P
 
 test('Add partner confirmation has no icon and all controls can be traversed', async () => {
   await mount(<InviteDialog partners={[]} onClose={() => {}} />);
-  const create = button('Create and generate link');
+  const create = button('Create');
   assert.equal(create.querySelector('svg'), null);
   assert.equal(create.disabled, true);
   await fill(document.getElementById('admin-company'), 'Example Partner');

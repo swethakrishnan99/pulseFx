@@ -402,3 +402,23 @@ on document creation, title/attachment-name edits and file replacement; visibili
 and deletion preserve that identity. The automatic Last updated at field remains
 read-only. Historical actor fields stay empty. Direct edits in Airtable cannot
 capture a Supabase identity and should not be attributed to the current portal reader.
+
+### Partner login password recovery via Airtable
+
+`Forgot password?` opens `PasswordRecoveryModal` and pre-fills the login email. The public `partner-password-recovery` function verifies the partner registration, Auth identity and enabled membership, generates the same private recovery URL used by administration, and queues it in Airtable. The browser receives only a generic acknowledgement. Requests for the same account within five minutes are deduplicated using `Requested at`; the registration lock serializes link generation with account administration. Failed/ambiguous writes are not automatically retried.
+
+Configure `AIRTABLE_RECOVERY_TABLE_ID` with the new table ID. The function also uses the existing `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `AIRTABLE_TOKEN`, `AIRTABLE_BASE_ID` and `PORTAL_URL` secrets. The Airtable token must have record access to this table. Deploy `partner-password-recovery` separately after configuring the table and secrets.
+
+Required Airtable fields (exact names): `Email` (email), `Recovery link` (URL), `Requested at` (date/time), `Supabase user ID` (single-line text), `Partner Airtable ID` (single-line text), `Source` (single select: `Partner Login Page`), `Status` (single select: `Pending`, `Sent`, `Failed`). Optional operational fields: `Request ID` (autonumber primary), `Sent at` (date/time), `Error` (long text). The automation should trigger only when Status is Pending and both Email and Recovery link are populated, send the link to that record's Email, and set Status to Sent and Sent at after success. Recovery links are credentials: restrict table access to the operational team and avoid public views. Supabase controls link expiry. Requests for unknown partner emails are recorded with Status `Account not found`; inactive or ineligible accounts use `Account inactive`. Both include an explanatory `Error`, leave `Recovery link` empty, and return the same generic acknowledgement as eligible requests. The recovery Status field must include these two options.
+
+Validation: `node --test supabase/functions/partner-password-recovery/*.test.mjs`.
+
+### Add Partner invitation emails
+
+The Add Partner action queues the private invitation URL in a separate Airtable table and returns `{ partner, emailQueued: true }`, without returning the credential to the browser. Set `AIRTABLE_PARTNER_INVITATIONS_TABLE_ID` to `Partner_invitations_api` before deploying `partner-invitations`. Add Partner calls this dedicated endpoint; `partner-admin` retains account administration and no longer accepts creation requests. The two handlers reuse account provisioning, session validation and locking code. The existing Airtable token needs read/write access to that table. Missing configuration fails before partner creation.
+
+Required fields: `Portal ID` (single-line text, primary/upsert key), `Partner name` (single-line text), `Contact name` (single-line text), `Email` (email), `Invitation link` (URL), `Requested at` (date/time), `Supabase user ID` (single-line text), `Partner Airtable ID` (single-line text), `Status` (single select: Pending, Sent, Failed). Optional: `Sent at` (date/time), `Error` (long text). Trigger the invitation automation when Status is Pending and Email and Invitation link are populated. Send only to the record's Email and mark Sent only after successful delivery. Do not use the password recovery automation for invitation records. Existing manual invitation/recovery actions remain available in the administrator Actions menu.
+
+### Brand Kit timestamps
+
+`partner-brand-kit` exposes `kit.createdAt`, `kit.updatedAt` and `uploadedAt` on each existing asset. In `Brand_kit_api`, add `Created at` (Created time), `Updated at` (Last modified time watching only Brand logo, Brand headshot and Brand description), `Logo uploaded at` (Last modified time watching only Brand logo) and `Headshot uploaded at` (Last modified time watching only Brand headshot). Enable time and use the same timezone for all collaborators. These are computed fields; the API never writes them. Upload dates describe the current attachment, including replacements. Staging changes must not update the content timestamps. Missing date fields return null; record createdTime is used as a fallback for createdAt.

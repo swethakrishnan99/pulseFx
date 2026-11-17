@@ -46,3 +46,11 @@ verify_jwt = false
 [functions.partner-login-support]
 # Public login support accepts contact details without requiring a partner session.
 verify_jwt = false
+
+[functions.partner-password-recovery]
+# Public recovery requests return a generic acknowledgement; private links go only to Airtable.
+verify_jwt = false
+
+[functions.partner-invitations]
+# Only live administrators can create partners and queue invitation emails.
+verify_jwt = false
