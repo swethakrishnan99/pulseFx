@@ -19,15 +19,14 @@ import { usePagination } from "../lib/usePagination";
 import { sortTableRows } from "../lib/tableSort.mjs";
 import ClearFiltersButton from "./ClearFiltersButton";
 import { useEffect, useState, useMemo, useRef } from "react";
-import { useLocation, useNavigate, useParams } from "react-router-dom";
-import { ChartColumn, Users, DollarSign, Landmark, BookOpen, Headset, Copy, Check, X, Eye, Download, UserPlus, ChevronDown, CheckCircle2, Palette, ArrowRight, Upload, Phone, MessageSquare, Mail, FileText, RefreshCw } from "lucide-react";
+import { useNavigate, useParams } from "react-router-dom";
+import { Home, Users, DollarSign, Landmark, BookOpen, Headset, Copy, Check, X, Eye, Download, UserPlus, ChevronDown, CheckCircle2, Palette, ArrowRight, Upload, Phone, MessageSquare, Mail, FileText, RefreshCw } from "lucide-react";
 import Sidebar from "./Sidebar";
 import PartnerAdmin from "./PartnerAdmin";
 import BankingDetails from "./BankingDetails";
 import PayoutHistory from "./PayoutHistory";
 import BankingApprovals from "./BankingApprovals";
 import AdminPayouts from "./AdminPayouts";
-import AdminDashboard from "./AdminDashboard";
 import { createPartnerReferral, loadPartnerReferrals, loadPartnerProfile } from "../lib/referrals";
 
 // Partner portal demo for referral partners (for example an accounting firm that refers its clients to PulseFX).
@@ -77,9 +76,8 @@ function Badge({ s }) {
   return <span className={`inline-block text-xs font-medium px-2 py-0.5 rounded-full whitespace-nowrap ${STATUS_STYLE[s] || STATUS_STYLE.Invited}`}>{s}</span>;
 }
 
-const NAV = [["home", "Home", ChartColumn], ["referrals", "Referrals", Users], ["add", "Add a client", UserPlus], ["banking", "Banking details", Landmark], ["payouts", "Payout history", DollarSign], ["brand", "Brand kit", Palette], ["guide", "Partner guide", BookOpen], ["contact", "Contact", Headset]];
+const NAV = [["home", "Home", Home], ["referrals", "Referrals", Users], ["add", "Add a client", UserPlus], ["banking", "Banking details", Landmark], ["payouts", "Payout history", DollarSign], ["brand", "Brand kit", Palette], ["guide", "Partner guide", BookOpen], ["contact", "Contact", Headset]];
 const PAGE_SUBTITLES = {
-  dashboard: "Explore partner growth, referral performance and payments.",
   admin: "Manage portal access for partners and PulseFX administrators.",
   "banking-approvals": "Review banking updates and approve or reject partner submissions.",
   "admin-payouts": "Manage partner payouts and review payment history.",
@@ -663,24 +661,23 @@ const PARTNER_NAV_ITEMS = NAV
     icon,
   }));
 
-const ADMIN_NAV_ITEMS = [{ key: "dashboard", label: "Dashboard", icon: ChartColumn }, { key: "admin", label: "User management", icon: Users }, { key: "banking-approvals", label: "Banking approvals", icon: Landmark }, { key: "admin-payouts", label: "Payouts", icon: DollarSign }, { key: "documents", label: "Documents", icon: FileText }];
+const ADMIN_NAV_ITEMS = [{ key: "admin", label: "User management", icon: Users }, { key: "banking-approvals", label: "Banking approvals", icon: Landmark }, { key: "admin-payouts", label: "Payouts", icon: DollarSign }, { key: "documents", label: "Documents", icon: FileText }];
 
 export default function PartnerPortal({ onExit, user, isAdmin = false, signingOut = false, signOutError = "", basePath = "/demo" }) {
   const canAdmin = !!user && isAdmin;
   // The current page comes from the address (for example /partner/referrals), so back, forward, refresh and bookmarks work.
   const { page } = useParams();
   const navigate = useNavigate();
-  const location = useLocation();
-  const defaultTab = canAdmin ? "dashboard" : "home";
+  const defaultTab = canAdmin ? "admin" : "home";
   const allowedTabs = canAdmin ? [...ADMIN_NAV_ITEMS.map((item) => item.key), "contact"] : NAV.map((item) => item[0]);
   const tab = page && allowedTabs.includes(page) ? page : defaultTab;
   useViewFocus(tab);
-  const setTab = (key, state = null) => navigate(key === defaultTab ? basePath : `${basePath}/${key}`, { state });
+  const setTab = (key) => navigate(key === defaultTab ? basePath : `${basePath}/${key}`);
   useEffect(() => {
     // An unknown or not-permitted page goes back to the start page.
     if (page && !allowedTabs.includes(page)) navigate(basePath, { replace: true });
   }, [page, canAdmin]); // eslint-disable-line react-hooks/exhaustive-deps
-  const title = tab === "dashboard" ? "Dashboard" : tab === "documents" ? "Documents" : tab === "admin" ? "User management" : tab === "banking-approvals" ? "Banking approvals" : tab === "admin-payouts" ? "Payouts" : tab === "home" ? "Dashboard" : NAV.find((n) => n[0] === tab)?.[1];
+  const title = tab === "documents" ? "Documents" : tab === "admin" ? "User management" : tab === "banking-approvals" ? "Banking approvals" : tab === "admin-payouts" ? "Payouts" : tab === "home" ? "Dashboard" : NAV.find((n) => n[0] === tab)?.[1];
   useEffect(() => {
     document.title = `${title || "Partner portal"} · PulseFX`;
     window.scrollTo(0, 0);
@@ -722,9 +719,8 @@ export default function PartnerPortal({ onExit, user, isAdmin = false, signingOu
           <div><h1 className="text-xl font-semibold text-gray-900">{title}</h1>{PAGE_SUBTITLES[tab] && <p className="mt-0.5 text-sm text-gray-500">{PAGE_SUBTITLES[tab]}</p>}</div>
         </div>}
         {signOutError && <p role="alert" className="text-sm text-danger mb-4">{signOutError}</p>}
-        {tab === "dashboard" && canAdmin && <AdminDashboard go={setTab} />}
         {tab === "documents" && canAdmin && <Documents key={user?.id} />}
-        {tab === "admin" && canAdmin && <PartnerAdmin initialPartnerId={location.state?.partnerId} />}
+        {tab === "admin" && canAdmin && <PartnerAdmin />}
         {tab === "banking-approvals" && canAdmin && <BankingApprovals />}
         {tab === "admin-payouts" && canAdmin && <AdminPayouts />}
         {tab === "home" && <PartnerHome go={setTab} />}

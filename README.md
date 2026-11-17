@@ -402,20 +402,3 @@ on document creation, title/attachment-name edits and file replacement; visibili
 and deletion preserve that identity. The automatic Last updated at field remains
 read-only. Historical actor fields stay empty. Direct edits in Airtable cannot
 capture a Supabase identity and should not be attributed to the current portal reader.
-
-### Administration dashboard
-
-The admin landing page combines partner registrations with Airtable referrals,
-banking readiness, brand-kit readiness and payouts. Filters use Toronto calendar
-dates. The activity period filters referral submission dates and the chosen payout
-date basis. The partner account creation range is independent. Partner counts and
-setup readiness describe the currently selected base. A complete brand kit has a
-logo, headshot and description. Referral activity requires reciprocal partner links.
-Payment totals remain separated by currency, and unknown amounts are excluded.
-
-The read-only dashboard uses the dedicated `pulsefx-admin-dashboard` function,
-with live administrator session verification. Deploy `pulsefx-admin-dashboard`
-before publishing the frontend. It also reads
-`AIRTABLE_BRAND_KIT_TABLE_ID`, defaulting to `Brand_kit_api`. No new database or
-Airtable fields are required. Run `npm run test:dashboard`, `npm run test:payouts`,
-`npm run test:keyboard` and the frontend build when changing these calculations.
