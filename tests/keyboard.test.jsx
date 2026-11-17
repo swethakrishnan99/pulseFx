@@ -423,3 +423,38 @@ test('Referrals: Created at descends by default and date labels use at consisten
   assert.ok([...document.querySelectorAll('th')].some(header => header.textContent.includes('Last modified at')));
   assert.ok(button('Last modified at date range'));
 });
+
+test('Admin dashboard: setup filters update partner records and drill into the selected account', async () => {
+  const { AdminDashboardContent } = await import('../src/components/AdminDashboard');
+  const today = new Date().toISOString();
+  const data = { loadedAt: today, partners: [
+    { id: 'partner-a', registrationId: 'registration-a', name: 'Ana Dashboard', email: 'ana@dashboard.test', company: 'Company A', createdAt: today, status: 'Active', banking: 'Missing', brand: 'Partial' },
+    { id: 'partner-b', registrationId: 'registration-b', name: 'Bob Dashboard', email: 'bob@dashboard.test', company: 'Company B', createdAt: today, status: 'Active', banking: 'Verified', brand: 'Complete' },
+  ], referrals: [{ id: 'referral-a', partnerId: 'partner-a', validOwnership: true, company: 'Client A', email: 'client@test.example', status: 'Onboarded', country: 'Canada', currencies: ['CAD'], volume: 'Low', createdAt: today }], payouts: [] };
+  const navigations = [];
+  await mount(<AdminDashboardContent data={data} go={(...args) => navigations.push(args)} refresh={() => {}} />);
+  const missingBanking = [...document.querySelectorAll('button')].find(element => element.textContent.startsWith('Missing banking'));
+  await click(missingBanking);
+  assert.equal(missingBanking.getAttribute('aria-pressed'), 'true');
+  const records = [...document.querySelectorAll('section')].find(element => element.textContent.startsWith('Explore records'));
+  assert.ok(records.textContent.includes('ana@dashboard.test'));
+  assert.ok(!records.textContent.includes('bob@dashboard.test'));
+  await click(button('View partner'));
+  assert.deepEqual(navigations, [['admin', { partnerId: 'registration-a' }]]);
+  await click([...records.querySelectorAll('button')].find(element => element.textContent === 'Referrals'));
+  assert.ok(records.textContent.includes('Client A'));
+  await click(button('Clear all filters'));
+  await click(button('Partners'));
+  assert.ok(records.textContent.includes('bob@dashboard.test'));
+});
+
+test('Admin dashboard: an empty base renders zero metrics and usable filter controls', async () => {
+  const { AdminDashboardContent } = await import('../src/components/AdminDashboard');
+  await mount(<AdminDashboardContent data={{ loadedAt: new Date().toISOString(), partners: [], referrals: [], payouts: [] }} go={() => {}} refresh={() => {}} />);
+  assert.ok(document.body.textContent.includes('No activity in this period.'));
+  assert.ok(document.body.textContent.includes('No matching partners.'));
+  assert.ok(!document.body.textContent.includes('NaN'));
+  assert.ok(!document.body.textContent.includes('Infinity'));
+  await click(button('Payments'));
+  assert.ok(document.body.textContent.includes('No matching payments.'));
+});

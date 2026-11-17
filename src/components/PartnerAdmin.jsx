@@ -195,7 +195,7 @@ export function InviteDialog({ partners, onClose, onInvite }) {
   );
 }
 
-export default function PartnerAdmin() {
+export default function PartnerAdmin({ initialPartnerId = null }) {
   const { sort, toggleSort, sortRows } = useTableSort({ key: "identity", dir: "asc" });
   const [partners, setPartners] = useState([]);
   const [admins, setAdmins] = useState([]);
@@ -218,14 +218,20 @@ export default function PartnerAdmin() {
   useEffect(() => {
     const controller = new AbortController();
     listManagedUsers(controller.signal).then((data) => {
-      if (!controller.signal.aborted) { setPartners(data.partners); setAdmins(data.admins); setCurrentUserId(data.currentUserId); setError(""); }
+      if (!controller.signal.aborted) {
+        setPartners(data.partners);
+        setAdmins(data.admins);
+        setCurrentUserId(data.currentUserId);
+        setError("");
+        if (initialPartnerId) setViewing(data.partners.find(partner => partner.id === initialPartnerId) || null);
+      }
     }).catch(() => {
       if (!controller.signal.aborted) setError("Unable to load users. Check the administration setup and try again.");
     }).finally(() => {
       if (!controller.signal.aborted) setLoading(false);
     });
     return () => controller.abort();
-  }, []);
+  }, [initialPartnerId]);
 
   async function refresh() {
     setLoading(true);
@@ -242,7 +248,7 @@ export default function PartnerAdmin() {
     && [partner.company, partner.name, partner.email].some((value) => (value || "").toLowerCase().includes(normalizedQuery))), { identity: (row) => showingAdmins ? row.name : row.company, contact: (row) => showingAdmins ? row.email : row.name });
   const pager = usePagination(filtered, [query, status, showingAdmins, sort?.key, sort?.dir].join("|"));
   const stats = [
-    { label: showingAdmins ? "Administrators" : "Partner contacts", value: users.length, icon: showingAdmins ? ShieldCheck : Users, tone: "bg-gray-100 text-gray-500" },
+    { label: showingAdmins ? "Administrators" : "Partner contacts", value: users.length, icon: showingAdmins ? ShieldCheck : Users, tone: "bg-blue-100 text-blue-600" },
     { label: "Active accounts", value: users.filter((partner) => partner.status === "Active").length, icon: CheckCircle2, tone: "bg-success-100 text-success" },
     { label: "Pending invitations", value: users.filter((partner) => partner.status === "Awaiting activation").length, icon: Clock3, tone: "bg-warning-100 text-warning" },
   ];

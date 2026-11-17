@@ -27,6 +27,8 @@
     "test:documents": "node --test supabase/functions/pulsefx-documents/*.test.mjs supabase/functions/pulsefx-one-pagers/*.test.mjs supabase/functions/pulsefx-brand-assets/*.test.mjs",
     "lint:support": "eslint src/lib/support.js supabase/functions/partner-support/service.mjs",
     "test:support": "node --test supabase/functions/partner-support/*.test.mjs",
+    "lint:dashboard": "eslint src/components/AdminDashboard.jsx src/lib/pulsefxAdminDashboard.js",
+    "test:dashboard": "node --test src/lib/adminDashboard.test.mjs supabase/functions/pulsefx-admin-dashboard/*.test.mjs",
     "test:keyboard": "vite build --config tests/vite.config.mjs && node --test dist-ssr/keyboard/keyboard.test.js"
   },
   "dependencies": {

@@ -42,3 +42,7 @@ verify_jwt = false
 [functions.pulsefx-documents]
 # Live Auth user, admin role and active session are verified inside the handler.
 verify_jwt = false
+
+[functions.pulsefx-admin-dashboard]
+# Live Auth user, administrator role and active session are verified inside the handler.
+verify_jwt = false
