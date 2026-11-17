@@ -1,3 +1,5 @@
+import { readReferrals } from "../partner-referrals/service.mjs";
+import { referralEmailConflict } from "../_shared/referral-duplicates.mjs";
 import { findPartnerMembership } from "../_shared/partner-membership.mjs";
 import { BUSINESS_INTERESTS } from "../_shared/referral-form-fields.mjs";
 const cors = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "authorization, apikey, x-client-info, content-type", "Access-Control-Allow-Methods": "POST, OPTIONS" };
@@ -17,8 +19,12 @@ async function validToken(token, secret) {
   return difference === 0 ? id : null;
 }
 export function validateSubmission(input) {
-  const allowed = ["action", "token", "submissionId", "firstName", "lastName", "company", "email", "phone", "interests", "website"];
+  const allowed = ["action", "token", "submissionId", "firstName", "lastName", "company", "email", "phone", "interests", "website", "confirmedRejection"];
   if (Object.keys(input).some(key => !allowed.includes(key))) return null;
+  if (input.confirmedRejection !== undefined) {
+    const confirmation = input.confirmedRejection;
+    if (!confirmation || typeof confirmation !== "object" || Array.isArray(confirmation) || Object.keys(confirmation).some(key => !["id", "statusChangedAt"].includes(key)) || !recordId.test(confirmation.id || "") || typeof confirmation.statusChangedAt !== "string") return null;
+  }
   const result = {};
   for (const [name, length, required] of [["firstName", 100, true], ["lastName", 100, true], ["company", 200, false], ["email", 254, true], ["phone", 60, false]]) {
     const value = input[name] ?? "";
@@ -28,7 +34,7 @@ export function validateSubmission(input) {
   result.email = result.email.toLowerCase();
   if (!/^\S+@\S+\.\S+$/.test(result.email) || !/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(input.submissionId || "") ||
       !Array.isArray(input.interests) || input.interests.length > 4 || new Set(input.interests).size !== input.interests.length || input.interests.some(value => !BUSINESS_INTERESTS.includes(value)) || typeof (input.website ?? "") !== "string" || input.website) return null;
-  return { ...result, interests: input.interests, submissionId: input.submissionId };
+  return { ...result, confirmedRejection: input.confirmedRejection, interests: input.interests, submissionId: input.submissionId };
 }
 export function createReferralFormHandler({ env, admin, fetchImpl = fetch }) {
   return async request => {
@@ -92,6 +98,12 @@ export function createReferralFormHandler({ env, admin, fetchImpl = fetch }) {
       if (input.action === "load") return json({ partner: { name: partner.fields.Name.trim() } });
       const values = validateSubmission(input);
       if (!values) return json({ error: "Enter your first name, last name, a valid email and valid business interests." }, 400);
+      const referrals = await readReferrals({ env, partnerId, fetchImpl: call });
+      const { blocked, rejection } = referralEmailConflict(referrals, values.email);
+      if (blocked) return json({ error: "A referral already exists for this email. Please contact the PulseFX team before submitting again." }, 409);
+      if (rejection && (values.confirmedRejection?.id !== rejection.id || values.confirmedRejection?.statusChangedAt !== rejection.statusChangedAt)) {
+        return json({ code: "rejection_confirmation_required", rejection, error: "A previous referral for this email was rejected. Confirm whether you want to continue." }, 409);
+      }
       // Durable rate limits and submission IDs work across edge instances and retries.
       const address = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
       const clientHash = hex(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(`${env.PARTNER_REFERRAL_LINK_SECRET}:${address}`)));

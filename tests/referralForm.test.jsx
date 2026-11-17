@@ -8,12 +8,14 @@ const { createRoot } = await import('react-dom/client');
 let root;
 const calls = [];
 let submitError = false;
+let rejectionRequired = false;
 async function mount() {
   calls.length = 0;
   globalThis.fetch = async (_url, options) => {
     assert.equal(options.headers.Authorization, undefined, 'public requests never use browser session tokens');
     const body = JSON.parse(options.body); calls.push(body);
     if (body.action === 'load') return Response.json({ partner: { name: 'Partner Test' } });
+    if (rejectionRequired && !body.confirmedRejection) return Response.json({ code: 'rejection_confirmation_required', rejection: { id: 'recDDDDDDDDDDDDDD', statusChangedAt: '' }, error: 'Confirmation required' }, { status: 409 });
     return submitError ? Response.json({ error: 'Please contact PulseFX before submitting again.' }, { status: 502 }) : Response.json({ submitted: true }, { status: 201 });
   };
   root = createRoot(document.getElementById('root'));
@@ -33,7 +35,7 @@ async function fill(id, value) {
 async function submit() {
   await act(async () => { document.querySelector('form').dispatchEvent(new window.Event('submit', { bubbles: true, cancelable: true })); });
 }
-afterEach(async () => { await act(async () => root?.unmount()); root = null; resetDom(); submitError = false; });
+afterEach(async () => { await act(async () => root?.unmount()); root = null; resetDom(); submitError = false; rejectionRequired = false; });
 after(() => supabase?.auth.stopAutoRefresh());
 test('public link opens the existing modal with read-only partner and required fields', async () => {
   await mount();
@@ -77,4 +79,19 @@ test('Submit stays disabled until mandatory names and a valid email are filled',
   assert.equal(button().disabled, false);
   await fill('public-firstName', '   ');
   assert.equal(button().disabled, true);
+});
+
+test('a previously rejected referral is submitted only after explicit confirmation', async () => {
+  rejectionRequired = true;
+  await mount();
+  await fill('public-firstName', 'Ana'); await fill('public-lastName', 'Costa'); await fill('public-email', 'ana@example.com');
+  await submit();
+  assert.match(document.querySelector('[role="alert"]').textContent, /Previously rejected/);
+  assert.equal(document.querySelector('button[type="submit"]').disabled, true);
+  const confirm = [...document.querySelectorAll('button')].find(button => button.textContent === 'Continue and submit');
+  await act(async () => confirm.click());
+  const sent = calls.filter(call => call.action === 'submit');
+  assert.equal(sent.length, 2); assert.equal(sent[0].confirmedRejection, undefined);
+  assert.equal(sent[1].confirmedRejection.id, 'recDDDDDDDDDDDDDD');
+  assert.match(document.querySelector('[role="status"]').textContent, /Thank you/);
 });

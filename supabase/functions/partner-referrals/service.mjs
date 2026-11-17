@@ -52,7 +52,7 @@ export function normalizeReferral(record) {
   };
 }
 
-async function readReferrals({ env, partnerId, fetchImpl }) {
+export async function readReferrals({ env, partnerId, fetchImpl }) {
   const baseUrl = `https://api.airtable.com/v0/${encodeURIComponent(env.AIRTABLE_BASE_ID)}`;
   const partnersTable = env.AIRTABLE_PARTNERS_TABLE_ID || "Partners";
   async function airtable(url) {

@@ -14,6 +14,7 @@ export default function PartnerReferralForm({ token }) {
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState(false);
   const [error, setError] = useState("");
+  const [rejection, setRejection] = useState(null);
   const submitting = useRef(false);
   const submissionId = useRef(crypto.randomUUID());
   useEffect(() => {
@@ -26,16 +27,16 @@ export default function PartnerReferralForm({ token }) {
   }, [token, attempt]);
   useEffect(() => { document.title = `${remote.partner?.name || "Referral"} & PulseFX`; }, [remote.partner]);
   const valid = !!(values.firstName.trim() && values.lastName.trim() && /^\S+@\S+\.\S+$/.test(values.email.trim()));
-  const set = name => event => setValues(previous => ({ ...previous, [name]: event.target.value }));
-  async function submit(event) {
+  const set = name => event => { setRejection(null); setValues(previous => ({ ...previous, [name]: event.target.value })); };
+  async function submit(event, confirmedRejection = null) {
     event.preventDefault();
     if (submitting.current || !valid) return;
     submitting.current = true; setBusy(true); setError("");
     try {
-      const result = await publicReferralRequest({ action: "submit", token, submissionId: submissionId.current, ...values });
+      const result = await publicReferralRequest({ action: "submit", token, submissionId: submissionId.current, ...values, ...(confirmedRejection ? { confirmedRejection } : {}) });
       if (!result?.submitted) throw new Error("Unable to confirm your submission. Please contact PulseFX.");
       setDone(true);
-    } catch (failure) { setError(failure.message); }
+    } catch (failure) { setRejection(failure.rejection || null); setError(failure.rejection ? "" : failure.message); }
     finally { submitting.current = false; setBusy(false); }
   }
   return <main id="main-content" className="flex min-h-screen items-center justify-center bg-gray-50 p-6">
@@ -51,8 +52,9 @@ export default function PartnerReferralForm({ token }) {
             <fieldset className="sm:col-span-2"><legend className="mb-2 text-sm font-medium">Select what applies to your business</legend><div className="space-y-2">{BUSINESS_INTERESTS.map((interest, index) => <label key={interest} className="flex items-center gap-2 text-sm"><input type="checkbox" checked={values.interests.includes(interest)} onChange={event => setValues(previous => ({ ...previous, interests: event.target.checked ? [...previous.interests, interest] : previous.interests.filter(value => value !== interest) }))} className="h-4 w-4 accent-accent" /><span className={`rounded-full px-2 py-0.5 ${["bg-blue-100", "bg-sky-100", "bg-teal-100", "bg-green-100"][index]}`}>{interest}</span></label>)}</div></fieldset>
             <div className="hidden" aria-hidden="true"><label htmlFor="public-website">Website</label><input id="public-website" tabIndex={-1} autoComplete="off" value={values.website} onChange={set("website")} /></div>
           </fieldset>
+          {rejection && <div role="alert" className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950"><p className="font-medium">Previously rejected referral</p><p className="mt-1">A previous referral for this email was rejected. Do you want to continue and submit a new referral?</p><div className="mt-3 flex justify-end gap-2"><button type="button" disabled={busy} onClick={() => setRejection(null)} className={dialogSecondary}>Cancel</button><button type="button" disabled={busy || !valid} onClick={event => submit(event, rejection)} className={dialogPrimary}>{busy ? "Submitting…" : "Continue and submit"}</button></div></div>}
           {error && <p role="alert" className="mt-4 text-sm text-danger">{error}</p>}
-          <div className="mt-6 flex items-center justify-end gap-3"><button type="button" disabled={busy} onClick={() => { setValues(empty); setError(""); }} className={dialogSecondary}>Clear form</button><button type="submit" disabled={busy || !valid} className={dialogPrimary}>{busy ? "Submitting…" : "Submit"}</button></div>
+          <div className="mt-6 flex items-center justify-end gap-3"><button type="button" disabled={busy} onClick={() => { setValues(empty); setError(""); setRejection(null); }} className={dialogSecondary}>Clear form</button><button type="submit" disabled={busy || !valid || !!rejection} className={dialogPrimary}>{busy ? "Submitting…" : "Submit"}</button></div>
         </form>)}
       </div>
     </PortalDialog>}

@@ -22,6 +22,10 @@ export async function publicReferralRequest(body, signal) {
     throw new Error(body.action === "submit" ? "We could not confirm your submission. Please contact PulseFX before submitting again." : "Unable to load the form. Please try again.", { cause: error });
   }
   const result = await response.json().catch(() => null);
-  if (!response.ok) throw new Error(result?.error || "Unable to complete this request.");
+  if (!response.ok) {
+    const error = new Error(result?.error || "Unable to complete this request.");
+    if (result?.code === "rejection_confirmation_required" && typeof result.rejection?.id === "string" && typeof result.rejection?.statusChangedAt === "string") error.rejection = result.rejection;
+    throw error;
+  }
   return result;
 }
