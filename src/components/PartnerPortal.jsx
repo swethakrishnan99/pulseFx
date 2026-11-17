@@ -1,4 +1,3 @@
-import ReferralSourceBadge from "./ReferralSourceBadge";
 import { dialogDanger } from "../lib/dialogStyles";
 import { referralEmailConflict } from "../../supabase/functions/_shared/referral-duplicates.mjs";
 import { DEMO_REFERRALS, DEMO_BRAND_KIT, DEMO_BRAND_ASSETS, DEMO_ONE_PAGERS } from "../lib/partnerDemo";
@@ -265,7 +264,7 @@ function Referrals({ authenticated = false, go }) {
                 <td className={`${td} font-medium text-gray-900`}>{r.company}</td>
                 <td className={td}>{r.contact || "—"}</td>
                 <td className={td}>{r.email || "—"}</td>
-                <td className={td}><ReferralSourceBadge source={r.source} /></td>
+                <td className={td}>{r.source || "—"}</td>
                 <td className={td}><Badge s={r.status} /></td>
                 <td className={td}>{r.status === "Onboarded" ? "Yes" : "No"}</td>
                 <td className={td}>{prettyDateTime(referralDateValue(r, "created"))}</td><td className={td}>{prettyDateTime(referralDateValue(r, "modified"))}</td>
