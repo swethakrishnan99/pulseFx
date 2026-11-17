@@ -21,7 +21,7 @@ export default function PartnerAccountConfirmation({ action, partner, onClose, o
     {error && <p role="alert" className="text-sm text-danger mt-3">{error}</p>}
     <div className="flex justify-end gap-2 mt-5">
       <button type="button" onClick={onClose} disabled={busy} className={dialogSecondary}>Cancel</button>
-      <button type="button" onClick={confirm} disabled={busy} className={action === "delete" ? dialogDanger : dialogPrimary}>{busy ? "Updating…" : label}</button>
+      <button type="button" onClick={confirm} disabled={busy} className={action === "enable" ? dialogPrimary : dialogDanger}>{busy ? "Updating…" : label}</button>
     </div>
     </div>
   </PortalDialog>;

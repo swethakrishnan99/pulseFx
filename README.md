@@ -71,7 +71,7 @@ returning user_id, partner_id;
 ```
 
 The membership table uses row-level security. Authenticated users can read only their own membership and cannot create or change assignments.
-The UI restores and revalidates the session on reload at `#partner`; logout clears this browser's partner session.
+The UI restores and revalidates the session on reload at `#partner`; logout clears this browser's partner session. The portal signs out after one hour without pointer, keyboard, scroll or touch interaction. Activity is shared across tabs and survives reloads for the same Auth session. Expiration blocks the portal with a blurred backdrop and a “Session expired” dialog asking the user to sign in again. This is a browser inactivity policy; hosted Supabase Auth session settings are managed separately.
 `#partner-demo` opens the public partner demo. Use the Explore a demo dropdown for either public demo.
 
 ## Partner referrals: Airtable setup and deployment
@@ -430,3 +430,17 @@ Administrators can open **Referral follow-up** (`/partner/admin-referrals`), sea
 The Airtable fields and Supabase follow-up lock schema have been configured in the connected project, and `partner-referrals` has been deployed. Local migration files have been removed; this repository does not currently provide a fresh-database bootstrap. Existing Airtable secrets/table IDs remain in use; the function now also needs the Supabase service-role key (server only). Status and `Last modified by user ID` / `Last modified by email` are patched together. Airtable maintains `Last modified` automatically; no write is made to this computed column. New audit columns may be empty on older records and initial partner submissions.
 
 Writes use a server-only per-record lease and check the expected status/timestamp after acquiring it. A stale screen receives a conflict and must refresh. Unchanged statuses do not update attribution or timestamps. These fields describe the most recent modifier, not a complete movement history. Airtable edits outside this endpoint are not covered by its lease.
+
+### Account audit details
+
+User details in both administration tabs show Created by, and, for deactivated accounts, Deactivated at / Deactivated by. Partners read/write the existing Airtable Partners fields `Created by email` (Email), `Deactivated at` (Date with time), and `Deactivated by email` (Email). Only verified administration handlers write these values, using the verified caller's email and a server-generated timestamp. The sync worker leaves these three fields untouched. Internal admins have no Airtable partner record; their snapshots use server-managed Auth app metadata.
+
+Missing historical information displays an em dash; no dates or actors are inferred. Reactivation clears the current deactivation snapshot while creation attribution is retained. These are current-state snapshots, not a full event history. Incomplete partner registrations without an Airtable record cannot record deactivation details there.
+
+Create the three Airtable fields, then deploy `partner-admin`, `partner-invitations` and `pulsefx-user-admin` with their shared account-audit module before deploying the matching frontend. No new Supabase table or database migration is required.
+
+## Password setup completion
+
+The existing Supabase database tracks password setup through the server-owned `portal_password_setup` table and the `track_portal_password_setup()` and `portal_password_is_set()` functions. New Auth accounts remain awaiting activation when an invitation is opened, even if Auth already contains a generated password hash. Saving a password after confirmation completes setup in the same database transaction. The partner list, administrator list and Airtable snapshots use that completion record. Password reset continues to work without a second frontend activation request, and existing Auth sync triggers enqueue status updates.
+
+Accounts created before this change retain their previous activation rule because their password completion history is unavailable. Reported false activations require individual review; Walmart was explicitly marked awaiting activation and its Airtable sync completed. No password hashes or completion records are exposed to browser roles. `supabase/tests/password_setup.sql` checks invitation opening with a generated hash, metadata spoofing, password completion and recovery in a rolled-back transaction against the configured database. Database changes are applied directly; this repository does not keep a local migrations directory or a fresh-database bootstrap.

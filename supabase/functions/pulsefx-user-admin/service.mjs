@@ -1,3 +1,4 @@
+import { createAdminAccountAudit } from "../_shared/account-audit.mjs";
 import { adminSessionValid } from "../_shared/admin-session.mjs";
 import { administratorAccount, manageAdministrator } from "./actions.mjs";
 import { createAdministrator } from "./invite.mjs";
@@ -32,7 +33,7 @@ export function createStore(admin) {
     },
   };
 }
-export function createPulsefxUserAdminHandler({ env, admin, auth = admin?.auth, store = admin ? createStore(admin) : null }) {
+export function createPulsefxUserAdminHandler({ env, admin, auth = admin?.auth, store = admin ? createStore(admin) : null, audit = admin ? createAdminAccountAudit(auth) : null }) {
   return async (request) => {
     if (request.method === "OPTIONS") return json(null);
     if (!["GET", "POST"].includes(request.method)) return json({ error: "Method not allowed." }, 405);
@@ -45,14 +46,19 @@ export function createPulsefxUserAdminHandler({ env, admin, auth = admin?.auth, 
       const actor = verification.data.user;
       if (actor.app_metadata?.role !== "partner_admin") throw new Failure("Administrator access is required.", 403);
       if (!await store.verifyAdminSession(actor.id, bearer)) throw new Failure("Please sign in again.", 401);
-      if (request.method === "GET") return json({ admins: (await store.listAdmins()).map(administratorAccount), currentUserId: actor.id });
+      if (request.method === "GET") {
+        const admins = (await store.listAdmins()).map(administratorAccount);
+        return json({ admins: audit ? await audit.enrich("admin", admins) : admins, currentUserId: actor.id });
+      }
       const raw = await request.text();
       if (raw.length > 5000) throw new Failure("User details are too long.", 413);
       let body;
       try { body = JSON.parse(raw); } catch { throw new Failure("Invalid request.", 400); }
       if (!body || !["create", "edit", "invite", "recovery", "enable", "disable", "delete"].includes(body.action)) throw new Failure("Invalid PulseFX user action.", 400);
-      const args = { body, actor, auth, store, env, Failure, check };
-      return json(body.action === "create" ? await createAdministrator(args) : await manageAdministrator(args));
+      const args = { body, actor, auth, store, env, Failure, check, audit };
+      const result = body.action === "create" ? await createAdministrator(args) : await manageAdministrator(args);
+      if (audit && result.administrator) result.administrator = (await audit.enrich("admin", [result.administrator]))[0];
+      return json(result);
     } catch (error) {
       return json({ error: error instanceof Failure ? error.message : "Unable to complete this request. Refresh the user list before trying again." }, error instanceof Failure ? error.status : 502);
     }

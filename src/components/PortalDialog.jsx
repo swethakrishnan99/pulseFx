@@ -2,7 +2,7 @@ import { dialogTabStops, keepDialogFocus } from "../lib/dialogFocus";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { X } from "lucide-react";
 
-export default function PortalDialog({ onClose, children, title, subtitle, icon, maxWidth = "max-w-3xl", busy = false, closeOnBackdrop = false, collapseOnStatus = true }) {
+export default function PortalDialog({ onClose, children, title, subtitle, icon, maxWidth = "max-w-3xl", busy = false, closeOnBackdrop = false, collapseOnStatus = true, showCloseButton = true }) {
   const dialog = useRef(null);
   const lastFocused = useRef(null);
   // Capture before child autoFocus runs during the commit that mounts the modal.
@@ -59,7 +59,7 @@ export default function PortalDialog({ onClose, children, title, subtitle, icon,
           <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-accent-100 text-accent">{icon}</span>
           <div className="min-w-0"><h2 className="break-words text-lg font-semibold">{title}</h2>{subtitle && <p className="mt-0.5 break-words text-sm text-gray-500">{subtitle}</p>}</div>
         </div>
-        <button type="button" disabled={busy} onClick={requestClose} aria-label={`Close ${title}`} className="rounded-lg p-2 text-gray-500 hover:bg-gray-100 focus-visible:outline-accent disabled:opacity-50 disabled:cursor-not-allowed"><X className="h-5 w-5" /></button>
+        {showCloseButton && <button type="button" disabled={busy} onClick={requestClose} aria-label={`Close ${title}`} className="rounded-lg p-2 text-gray-500 hover:bg-gray-100 focus-visible:outline-accent disabled:opacity-50 disabled:cursor-not-allowed"><X className="h-5 w-5" /></button>}
       </header>
       {children}
     </dialog>

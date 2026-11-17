@@ -5,6 +5,7 @@ import SortableHeader from "./SortableHeader";
 import TablePager from "./TablePager";
 import { usePagination } from "../lib/usePagination";
 import useTableSort from "../lib/useTableSort";
+import { formatAirtableDateTime } from "../lib/airtableDates.mjs";
 import ClearFiltersButton from "./ClearFiltersButton";
 import { useEffect, useRef, useState } from "react";
 import { Building2, Check, CheckCircle2, Clock3, Copy, Eye, KeyRound, Link2, LoaderCircle, Pencil, Play, Power, RefreshCw, ShieldCheck, Trash2, UserPlus, Users, X } from "lucide-react";
@@ -26,7 +27,7 @@ async function listManagedUsers(signal) {
 }
 
 function formatCreatedAt(value) {
-  if (!value || Number.isNaN(new Date(value).getTime())) return "Not available";
+  if (!value || Number.isNaN(new Date(value).getTime())) return "—";
   return new Intl.DateTimeFormat("en-CA", { dateStyle: "medium", timeStyle: "long" }).format(new Date(value));
 }
 
@@ -47,7 +48,12 @@ function PartnerDetails({ partner, onClose }) {
     ["Account status", partner.status],
     ["Supabase ID", partner.supabaseId, true],
     ...(partner.role === "partner_admin" ? [] : [["Airtable ID", partner.airtableId, true]]),
-    ["User created", formatCreatedAt(partner.createdAt)],
+    ["Created at", formatCreatedAt(partner.createdAt)],
+    ["Created by", partner.createdByEmail || "—"],
+    ...(partner.status === "Deactivated" ? [
+      ["Deactivated at", formatCreatedAt(partner.deactivatedAt)],
+      ["Deactivated by", partner.deactivatedByEmail || "—"],
+    ] : []),
   ];
   return <PortalDialog title="User details" subtitle={partner.name} icon={<Eye className="h-5 w-5" />} maxWidth="max-w-xl" closeOnBackdrop collapseOnStatus={false} onClose={onClose}>
     <div className="p-6">
@@ -55,7 +61,7 @@ function PartnerDetails({ partner, onClose }) {
       {details.map(([label, value, copyable]) => <div key={label} className="py-3 first:pt-0">
         <dt className="text-xs text-gray-500">{label}</dt>
         <dd className="mt-1 flex items-start gap-2 text-sm">
-          <span className={`min-w-0 select-text break-all ${label.endsWith("ID") ? "font-mono" : ""}`}>{value || "Not available"}</span>
+          <span className={`min-w-0 select-text break-all ${label.endsWith("ID") ? "font-mono" : ""}`}>{value || "—"}</span>
           {copyable && value && <button type="button" onClick={() => copy(label, value)}
             aria-label={`Copy ${label}`} title={copied === label ? "Copied" : `Copy ${label}`}
             className={`${iconButton} -mt-1 text-accent`}>
@@ -239,11 +245,12 @@ export default function PartnerAdmin() {
   const users = showingAdmins ? admins : partners;
   const normalizedQuery = query.trim().toLowerCase();
   const filtered = sortRows(users.filter((partner) => (status === "All statuses" || partner.status === status)
-    && [partner.company, partner.name, partner.email].some((value) => (value || "").toLowerCase().includes(normalizedQuery))), { identity: (row) => showingAdmins ? row.name : row.company, contact: (row) => showingAdmins ? row.email : row.name });
+    && [partner.company, partner.name, partner.email].some((value) => (value || "").toLowerCase().includes(normalizedQuery))), { identity: (row) => showingAdmins ? row.name : row.company, contact: (row) => row.name, createdAt: { type: "date" } });
   const pager = usePagination(filtered, [query, status, showingAdmins, sort?.key, sort?.dir].join("|"));
   const stats = [
     { label: showingAdmins ? "Administrators" : "Partner contacts", value: users.length, icon: showingAdmins ? ShieldCheck : Users, tone: "bg-blue-100 text-blue-600" },
     { label: "Active accounts", value: users.filter((partner) => partner.status === "Active").length, icon: CheckCircle2, tone: "bg-success-100 text-success" },
+    { label: "Deactivated", value: users.filter((partner) => partner.status === "Deactivated").length, icon: Power, tone: "bg-gray-100 text-gray-500" },
     { label: "Pending invitations", value: users.filter((partner) => partner.status === "Awaiting activation").length, icon: Clock3, tone: "bg-warning-100 text-warning" },
   ];
 
@@ -342,7 +349,7 @@ export default function PartnerAdmin() {
   }
 
   return (
-    <div className="max-w-6xl space-y-5">
+    <div className="w-full space-y-5">
       <div className="flex flex-wrap items-center justify-end gap-3">
         <div className="flex flex-wrap gap-2"><button type="button" className={secondary} disabled={loading || !!busyId} onClick={refresh}><RefreshCw className="w-4 h-4" />Refresh</button>
         <button type="button" className={primary} disabled={loading || !!busyId} onClick={() => setAddingAdmin(true)}><ShieldCheck className="w-4 h-4" />Add admin</button>
@@ -355,7 +362,7 @@ export default function PartnerAdmin() {
           <Icon className="h-4 w-4" />{label}<span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-600">{key === "partners" ? partners.length : admins.length}</span>
         </button>)}
       </nav>
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div className="grid max-w-[1200px] grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
         {stats.map(({ label, value, icon: Icon, tone }) => <div key={label} className="rounded-xl border border-gray-200/70 bg-white p-5 flex items-center justify-between">
           <div><p className="text-xs text-gray-500">{label}</p><p className="text-2xl font-semibold mt-2 text-gray-900">{loading || error ? "—" : value}</p></div>
           <span className={`rounded-xl p-3 ${tone}`}><Icon className="w-5 h-5" /></span>
@@ -371,13 +378,15 @@ export default function PartnerAdmin() {
           </select></div>
         </div>
         <div className="border-b border-gray-100 px-4 pb-4"><ClearFiltersButton onClick={() => { setQuery(""); setStatus("All statuses"); }} /></div>
-        <div className="overflow-x-auto"><table className="w-full min-w-[880px] table-fixed text-sm text-left">
-          <colgroup><col className="w-[26%]" /><col /><col className="w-[190px]" /><col className="w-[240px]" /></colgroup>
-          <thead className="text-xs text-gray-400 border-b border-gray-100"><tr>{[["identity", showingAdmins ? "Administrator" : "Partner"], ["contact", showingAdmins ? "Email" : "Contact"], ["status", "Account status"]].map(([key, label]) => <SortableHeader key={key} column={key} label={label} sort={sort} onSort={toggleSort} className="font-medium px-5 py-3 whitespace-nowrap" />)}<th scope="col" className="font-medium px-5 py-3 whitespace-nowrap">Actions</th></tr></thead>
+        <div className="overflow-x-auto"><table className={`w-full ${showingAdmins ? "min-w-[1100px]" : "min-w-[1280px]"} table-fixed text-sm text-left`}>
+          <colgroup><col />{!showingAdmins && <col />}<col /><col className="w-[230px]" /><col className="w-[190px]" /><col className="w-[240px]" /></colgroup>
+          <thead className="text-xs text-gray-400 border-b border-gray-100"><tr>{[["identity", showingAdmins ? "Administrator" : "Partner"], ...(!showingAdmins ? [["contact", "Contact"]] : []), ["email", "Email"], ["createdAt", "Created at"], ["status", "Account status"]].map(([key, label]) => <SortableHeader key={key} column={key} label={label} sort={sort} onSort={toggleSort} className="font-medium px-5 py-3 whitespace-nowrap" />)}<th scope="col" className="font-medium px-5 py-3 whitespace-nowrap">Actions</th></tr></thead>
           <tbody className="divide-y divide-gray-100 text-gray-700">
             {pager.rows.map((partner) => <tr key={partner.id} className="h-[76px]">
               <td className="px-5 py-4 font-medium text-gray-900"><span className="flex items-center gap-2">{showingAdmins ? <ShieldCheck className="w-4 h-4 text-accent shrink-0" /> : <Building2 className="w-4 h-4 text-gray-400 shrink-0" />}<span className="min-w-0 break-words">{showingAdmins ? partner.name || "Administrator" : partner.company}</span></span></td>
-              <td className="px-5 py-4">{!showingAdmins && <p className="text-gray-700">{partner.name}</p>}<p className={showingAdmins ? "break-all text-gray-700" : "text-xs text-gray-400 mt-1 break-all"}>{partner.email}</p></td>
+              {!showingAdmins && <td className="break-words px-5 py-4">{partner.name}</td>}
+              <td className="break-all px-5 py-4">{partner.email}</td>
+              <td className="whitespace-nowrap px-5 py-4">{formatAirtableDateTime(partner.createdAt)}</td>
               <td className="px-5 py-4"><span className={`inline-flex text-xs rounded-full px-2.5 py-1 whitespace-nowrap ${badge[partner.status]}`}>{partner.status}</span>{partner.profileEditPending && <p className="mt-1 text-xs text-warning">Update pending</p>}{partner.airtableSyncPending && partner.airtableSyncError && <p className="text-xs mt-1.5 text-warning">Airtable update pending — retrying</p>}</td>
               <td className="px-5 py-4">
                 <div className="flex items-center gap-1.5" role="group" aria-label={`Account actions for ${partner.email}`}>
@@ -391,7 +400,7 @@ export default function PartnerAdmin() {
               </td>
 
             </tr>)}
-            {!filtered.length && <tr><td colSpan={4} className="px-5 py-14 text-center"><Users className="w-8 h-8 mx-auto text-gray-300 mb-3" /><p className="font-medium text-gray-700">{loading ? "Loading users…" : error ? "User list unavailable" : users.length ? "No matching users" : showingAdmins ? "No administrators yet" : "No partners yet"}</p><p className="text-xs text-gray-500 mt-1">{loading ? "Please wait." : error ? "Try refreshing the user list." : users.length ? "Try another search or change the status filter." : showingAdmins ? "Add an administrator to generate an invitation link." : "Add your first partner to send an invitation email."}</p></td></tr>}
+            {!filtered.length && <tr><td colSpan={showingAdmins ? 5 : 6} className="px-5 py-14 text-center"><Users className="w-8 h-8 mx-auto text-gray-300 mb-3" /><p className="font-medium text-gray-700">{loading ? "Loading users…" : error ? "User list unavailable" : users.length ? "No matching users" : showingAdmins ? "No administrators yet" : "No partners yet"}</p><p className="text-xs text-gray-500 mt-1">{loading ? "Please wait." : error ? "Try refreshing the user list." : users.length ? "Try another search or change the status filter." : showingAdmins ? "Add an administrator to generate an invitation link." : "Add your first partner to send an invitation email."}</p></td></tr>}
           </tbody>
         </table></div>
         <TablePager pager={pager} noun={showingAdmins ? "administrators" : "contacts"} overall={users.length} className="px-5" />
