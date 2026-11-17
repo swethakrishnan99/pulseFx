@@ -1,3 +1,4 @@
+import PasswordRecoveryModal from "./PasswordRecoveryModal";
 import PartnerSupport from "./PartnerSupport";
 import useViewFocus from "../lib/useViewFocus";
 import { useEffect, useState } from "react";
@@ -261,7 +262,7 @@ export default function Login({ onSignIn, initialPortal = null, onBack }) {
             {errors.password && <p id="lg-pw-err" className="text-xs text-danger mt-1" role="alert">{errors.password}</p>}
 
             <div className="flex justify-end mt-2">
-              <button type="button" onClick={() => setModal(partner ? "password-support" : "reset")} className="text-xs font-medium text-accent hover:underline">
+              <button type="button" onClick={() => setModal(partner ? "recovery" : "reset")} className="text-xs font-medium text-accent hover:underline">
                 Forgot password?
               </button>
             </div>
@@ -286,8 +287,9 @@ export default function Login({ onSignIn, initialPortal = null, onBack }) {
         PulseFX &copy; 2026 &nbsp;|&nbsp; Regulations &amp; Terms of Use
       </p>
 
-      {(modal === "support" || modal === "password-support") && <PartnerSupport key={modal} login passwordReset={modal === "password-support"} onClose={() => setModal(null)} />}
-      {modal && modal !== "support" && modal !== "password-support" && <AccessHelpModal mode={modal} onClose={() => setModal(null)} />}
+      {modal === "recovery" && <PasswordRecoveryModal initialEmail={email} onClose={() => setModal(null)} />}
+      {modal === "support" && <PartnerSupport login onClose={() => setModal(null)} />}
+      {modal && modal !== "support" && modal !== "recovery" && <AccessHelpModal mode={modal} onClose={() => setModal(null)} />}
     </main>
   );
 }

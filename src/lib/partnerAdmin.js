@@ -1,8 +1,8 @@
 import { supabase } from "./supabase";
 
-async function request(method, body, signal) {
+async function request(method, body, signal, functionName = "partner-admin") {
   if (!supabase) throw new Error("Partner administration is not configured.");
-  const { data, error } = await supabase.functions.invoke("partner-admin", { method, body, signal });
+  const { data, error } = await supabase.functions.invoke(functionName, { method, body, signal });
   if (error) {
     let message = "Unable to complete this request. Please try again.";
     if (error.context instanceof Response) {
@@ -21,8 +21,8 @@ export async function listPartners(signal) {
 }
 
 export async function createPartner(partner) {
-  const data = await request("POST", { action: "create", ...partner });
-  if (!data?.partner || !data?.link) throw new Error("The invitation link could not be generated. Refresh the partner list before trying again.");
+  const data = await request("POST", { action: "create", ...partner }, undefined, "partner-invitations");
+  if (!data?.partner || data.emailQueued !== true) throw new Error("Invitation delivery could not be confirmed. Refresh the partner list before trying again.");
   return data;
 }
 

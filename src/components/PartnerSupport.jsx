@@ -7,8 +7,8 @@ const primary = "text-sm font-medium bg-brand text-navy px-4 py-2 rounded-md hov
 const ghost = "inline-flex items-center gap-1.5 text-sm font-medium border border-gray-200 px-3 py-2 rounded-md hover:bg-gray-50";
 const PHONE = { display: "416 848 1028", tel: "+14168481028" };
 const EMAIL = "partnerships@pulsefx.com";
-export default function PartnerSupport({ authenticated = false, login = false, passwordReset = false, onClose }) {
-  const [m, setM] = useState(() => ({ name: "", email: "", category: passwordReset ? "Account & Login" : "", subject: passwordReset ? "Partner portal password reset" : "", body: passwordReset ? "I forgot my password and need help resetting it to access the partner portal. Please send me a password reset link." : "" }));
+export default function PartnerSupport({ authenticated = false, login = false, onClose }) {
+  const [m, setM] = useState(() => ({ name: "", email: "", category: "", subject: "", body: "" }));
   const [sent, setSent] = useState(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");

@@ -127,7 +127,7 @@ async function upsertAirtable(env, row, fetchImpl) {
   return partnerId;
 }
 
-export function createPartnerAdminHandler({ env, admin, auth = admin?.auth, store = admin ? createStore(admin) : null, fetchImpl = fetch }) {
+export function createPartnerAdminHandler({ env, admin, auth = admin?.auth, store = admin ? createStore(admin) : null, fetchImpl = fetch, invitationDelivery = null, invitationsOnly = false }) {
   return async (request) => {
     if (request.method === "OPTIONS") return json(null, 200);
     if (!["GET", "POST"].includes(request.method)) return json({ error: "Method not allowed." }, 405);
@@ -140,12 +140,14 @@ export function createPartnerAdminHandler({ env, admin, auth = admin?.auth, stor
       if (verification.error || !verification.data?.user) throw new Failure("Please sign in again.", 401);
       if (verification.data.user.app_metadata?.role !== "partner_admin") throw new Failure("Administrator access is required.", 403);
       if (!await store.verifyAdminSession(verification.data.user.id, bearer)) throw new Failure("Please sign in again.", 401);
+      if (invitationsOnly && request.method !== "POST") throw new Failure("Method not allowed.", 405);
       if (request.method === "GET") {
         return json({ partners: (await store.list()).map(account) });
       }
 
       const body = await request.json().catch(() => null);
       if (!body || !["create", "invite", "recovery", "disable", "enable", "delete", "edit"].includes(body.action)) throw new Failure("Invalid request.", 400);
+      if ((invitationsOnly && body.action !== "create") || (body.action === "create" && !invitationDelivery)) throw new Failure("Use partner-invitations to create and invite a partner.", 400);
       const editing = body.action === "edit";
       const lifecycle = ["disable", "enable", "delete"].includes(body.action);
       const recovering = body.action === "recovery";
@@ -157,6 +159,7 @@ export function createPartnerAdminHandler({ env, admin, auth = admin?.auth, stor
         portal.search = "";
         portal.hash = "";
       }
+      if (body.action === "create" && !invitationDelivery.configured) throw new Failure("Invitation email delivery is not configured. Contact your administrator.", 503);
       let row;
       let contactName;
       if (body.action === "create") {
@@ -258,7 +261,13 @@ export function createPartnerAdminHandler({ env, admin, auth = admin?.auth, stor
       if (generated.user?.id !== row.user_id || !generated.properties?.hashed_token) throw new Failure("The invitation link could not be verified.");
       portal.searchParams.set("token_hash", generated.properties.hashed_token);
       portal.searchParams.set("type", type);
-      return json({ partner: account({ ...row, user_created_at: user.created_at, activated: false }), link: portal.toString() });
+      const partner = account({ ...row, user_created_at: user.created_at, activated: false });
+      if (body.action === "create") {
+        try { await invitationDelivery.enqueue(row, portal.toString()); }
+        catch { throw new Failure("The partner was saved, but invitation delivery could not be confirmed. Check the invitation table before trying again."); }
+        return json({ partner, emailQueued: true });
+      }
+      return json({ partner, link: portal.toString() });
     } catch (error) {
       return json({ error: error instanceof Failure ? error.message : "Unable to complete this request. Refresh the partner list before trying again." }, error instanceof Failure ? error.status : 502);
     } finally {

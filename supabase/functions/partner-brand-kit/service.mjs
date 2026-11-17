@@ -101,8 +101,8 @@ export function createBrandKitHandler({ env, fetchImpl = fetch }) {
         await patch({ [field]: [{ url: attachment.url, filename: input.filename }], [staging]: [] });
       } else if (input.action !== "load") return json({ error: "Invalid action." }, 400);
       const record = await read();
-      const asset = name => { const a = record.fields?.[name]?.[0]; return a ? { name: a.filename, size: a.size, url: a.url } : null; };
-      return json({ kit: { logo: asset(fields.logo), headshot: asset(fields.headshot), description: record.fields?.["Brand description"] || "" } });
+      const asset = (name, timestampField) => { const a = record.fields?.[name]?.[0]; return a ? { name: a.filename, size: a.size, url: a.url, uploadedAt: record.fields?.[timestampField] || null } : null; };
+      return json({ kit: { logo: asset(fields.logo, "Logo uploaded at"), headshot: asset(fields.headshot, "Headshot uploaded at"), description: record.fields?.["Brand description"] || "", createdAt: record.fields?.["Created at"] || record.createdTime || null, updatedAt: record.fields?.["Updated at"] || null } });
     } catch {
       return json({ error: "Unable to confirm the change. Reload the Brand kit to check the current version before trying again." }, 502);
     }

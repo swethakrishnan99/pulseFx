@@ -17,7 +17,7 @@ import PartnerEdit from "./PartnerEdit";
 const input = "w-full rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent-100";
 const primary = "inline-flex items-center justify-center gap-2 rounded-lg bg-brand px-4 py-2.5 text-sm font-medium text-navy hover:bg-[#009a7d] disabled:opacity-50 disabled:cursor-not-allowed";
 const secondary = "inline-flex items-center justify-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed";
-const badge = { Active: "bg-success-100 text-success", "Awaiting activation": "bg-accent-100 text-accent", "Setup incomplete": "bg-warning-100 text-gray-600", Deactivated: "bg-gray-100 text-gray-500" };
+const badge = { Active: "bg-success-100 text-success", "Awaiting activation": "bg-blue-100 text-blue-600", "Setup incomplete": "bg-warning-100 text-warning", Deactivated: "bg-gray-100 text-gray-500" };
 const iconButton = "inline-flex shrink-0 items-center justify-center rounded-md p-1.5 hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent";
 
 async function listManagedUsers(signal) {
@@ -182,13 +182,13 @@ export function InviteDialog({ partners, onClose, onInvite }) {
           <input id="admin-name" autoComplete="name" required maxLength={120} value={name} onChange={(event) => setName(event.target.value)} className={input} /></div>
         <div><label htmlFor="admin-email" className="block text-xs font-medium mb-1.5">Email address *</label>
           <input id="admin-email" type="email" autoComplete="email" required maxLength={254} value={email} onChange={(event) => setEmail(event.target.value)} className={input} aria-describedby={error ? "admin-invite-error" : "admin-email-hint"} aria-invalid={!!error} />
-          <p id="admin-email-hint" className="mt-1.5 text-xs text-gray-500">You can copy and share the invitation link so the contact can set their own password.</p></div>
+          <p id="admin-email-hint" className="mt-1.5 text-xs text-gray-500">An invitation email will be sent to this address so the contact can set their own password.</p></div>
         <div className="rounded-lg bg-gray-50 p-3 flex gap-2.5 text-xs text-gray-600"><ShieldCheck className="w-4 h-4 text-accent shrink-0" /><p>This invitation grants partner access only. The contact will only see data linked to their account.</p></div>
         </fieldset>
         {error && <p id="admin-invite-error" role="alert" className="text-sm text-danger">{error}</p>}
         <div className="flex justify-end gap-2">
           <button type="button" className={secondary} disabled={busy} onClick={onClose}>Cancel</button>
-          <button type="submit" disabled={busy || !valid} className={primary}>{busy ? "Generating link…" : "Create and generate link"}</button>
+          <button type="submit" disabled={busy || !valid} className={primary}>{busy ? "Creating partner…" : "Create"}</button>
         </div>
       </form>
     </PortalDialog>
@@ -260,7 +260,7 @@ export default function PartnerAdmin() {
     setStatus("All statuses");
     setInviting(false);
     setActiveList("partners");
-    setInvitation(result);
+    setNotice(`Partner created. Invitation queued for delivery to ${result.partner.email}.`);
   }
 
   async function saveEdit(details) {
@@ -391,7 +391,7 @@ export default function PartnerAdmin() {
               </td>
 
             </tr>)}
-            {!filtered.length && <tr><td colSpan={4} className="px-5 py-14 text-center"><Users className="w-8 h-8 mx-auto text-gray-300 mb-3" /><p className="font-medium text-gray-700">{loading ? "Loading users…" : error ? "User list unavailable" : users.length ? "No matching users" : showingAdmins ? "No administrators yet" : "No partners yet"}</p><p className="text-xs text-gray-500 mt-1">{loading ? "Please wait." : error ? "Try refreshing the user list." : users.length ? "Try another search or change the status filter." : showingAdmins ? "Add an administrator to generate an invitation link." : "Add your first partner to generate an invitation link."}</p></td></tr>}
+            {!filtered.length && <tr><td colSpan={4} className="px-5 py-14 text-center"><Users className="w-8 h-8 mx-auto text-gray-300 mb-3" /><p className="font-medium text-gray-700">{loading ? "Loading users…" : error ? "User list unavailable" : users.length ? "No matching users" : showingAdmins ? "No administrators yet" : "No partners yet"}</p><p className="text-xs text-gray-500 mt-1">{loading ? "Please wait." : error ? "Try refreshing the user list." : users.length ? "Try another search or change the status filter." : showingAdmins ? "Add an administrator to generate an invitation link." : "Add your first partner to send an invitation email."}</p></td></tr>}
           </tbody>
         </table></div>
         <TablePager pager={pager} noun={showingAdmins ? "administrators" : "contacts"} overall={users.length} className="px-5" />
