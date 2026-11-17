@@ -36,3 +36,27 @@ export async function loadPartnerProfile(signal) {
   if (error || typeof data?.name !== "string" || !data.name.trim()) throw new Error("Unable to load partner profile.");
   return data;
 }
+
+async function adminReferralRequest(method, body, signal) {
+  if (!supabase) throw new Error("Administrator sign-in is not configured.");
+  const { data, error } = await supabase.functions.invoke("partner-referrals?view=admin", { method, body, signal });
+  if (error) {
+    let message = method === "POST" ? "Unable to confirm the status was saved. Close the details and refresh before trying again." : "Unable to load referrals. Please try again.";
+    if (error.context instanceof Response) {
+      const response = await error.context.json().catch(() => null);
+      if (typeof response?.error === "string") message = response.error;
+    }
+    throw new Error(message);
+  }
+  return data;
+}
+export async function loadAdminReferrals(signal) {
+  const data = await adminReferralRequest("GET", undefined, signal);
+  if (!Array.isArray(data?.referrals)) throw new Error("Unable to load referrals.");
+  return data.referrals;
+}
+export async function updateReferralStatus(referral, status) {
+  const data = await adminReferralRequest("POST", { id: referral.id, status, expectedStatus: referral.status, expectedModifiedAt: referral.modifiedAt });
+  if (!data?.referral?.id) throw new Error("Unable to confirm the status was saved. Close the details and refresh before trying again.");
+  return data.referral;
+}

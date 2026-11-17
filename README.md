@@ -422,3 +422,11 @@ Required fields: `Portal ID` (single-line text, primary/upsert key), `Partner na
 ### Brand Kit timestamps
 
 `partner-brand-kit` exposes `kit.createdAt`, `kit.updatedAt` and `uploadedAt` on each existing asset. In `Brand_kit_api`, add `Created at` (Created time), `Updated at` (Last modified time watching only Brand logo, Brand headshot and Brand description), `Logo uploaded at` (Last modified time watching only Brand logo) and `Headshot uploaded at` (Last modified time watching only Brand headshot). Enable time and use the same timezone for all collaborators. These are computed fields; the API never writes them. Upload dates describe the current attachment, including replacements. Staging changes must not update the content timestamps. Missing date fields return null; record createdTime is used as a fallback for createdAt.
+
+### Admin referral follow-up
+
+Administrators can open **Referral follow-up** (`/partner/admin-referrals`), search/filter referrals by partner and status, review the same details/progress shown to partners, and save any of the six existing onboarding statuses. Partner accounts retain read/create-only access. The server verifies the Auth user, `partner_admin` role and active admin session before reading all referrals or modifying a status; actor ID/email always come from verified Auth, never request data.
+
+The Airtable fields and Supabase follow-up lock schema have been configured in the connected project, and `partner-referrals` has been deployed. Local migration files have been removed; this repository does not currently provide a fresh-database bootstrap. Existing Airtable secrets/table IDs remain in use; the function now also needs the Supabase service-role key (server only). Status and `Last modified by user ID` / `Last modified by email` are patched together. Airtable maintains `Last modified` automatically; no write is made to this computed column. New audit columns may be empty on older records and initial partner submissions.
+
+Writes use a server-only per-record lease and check the expected status/timestamp after acquiring it. A stale screen receives a conflict and must refresh. Unchanged statuses do not update attribution or timestamps. These fields describe the most recent modifier, not a complete movement history. Airtable edits outside this endpoint are not covered by its lease.
