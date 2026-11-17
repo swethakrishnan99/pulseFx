@@ -55,8 +55,8 @@ export async function editPartnerProfile(details) {
   return data;
 }
 
-export async function loadPartnerReferralUrl(id, signal) {
+export async function loadPartnerAirtableDetails(id, signal) {
   const data = await request("GET", undefined, signal, `partner-admin?referralUrlFor=${encodeURIComponent(id)}`);
   if (typeof data?.referralUrl !== "string") throw new Error("Unable to load the referral URL.");
-  return data.referralUrl;
+  return { url: data.referralUrl, role: typeof data.partnerRole === "string" ? data.partnerRole : "" };
 }

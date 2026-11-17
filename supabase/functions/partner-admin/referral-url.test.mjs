@@ -11,14 +11,14 @@ function setup(options = {}) {
     store: { verifyAdminSession: async () => !options.invalidSession, list: async () => options.missing ? [] : [{ id, partner_id: options.unlinked ? null : partnerId }] },
     fetchImpl: async (url, init) => {
       calls.push(url); assert.equal(init.headers.Authorization, 'Bearer private');
-      return Response.json({ id: options.mismatch ? 'recBBBBBBBBBBBBBB' : partnerId, fields: { 'Referral URL': options.url ?? 'https://portal.example/?ref=signed' } });
+      return Response.json({ id: options.mismatch ? 'recBBBBBBBBBBBBBB' : partnerId, fields: { Role: options.airtableRole ?? 'Partner', 'Referral URL': options.url ?? 'https://portal.example/?ref=signed' } });
     },
   });
   return { calls, run: () => handler(new Request(`https://edge.example?referralUrlFor=${id}`, { headers: { Authorization: 'Bearer session' } })) };
 }
 test('admin reads the saved partner referral URL without changing Airtable', async () => {
   const s = setup(); const response = await s.run(); assert.equal(response.status, 200);
-  assert.deepEqual(await response.json(), { referralUrl: 'https://portal.example/?ref=signed' });
+  assert.deepEqual(await response.json(), { referralUrl: 'https://portal.example/?ref=signed', partnerRole: 'Partner' });
   assert.ok(s.calls[0].endsWith(`/partners_api/${partnerId}`));
 });
 test('non-admin and expired admin sessions cannot read URLs', async () => {
@@ -30,5 +30,12 @@ test('missing partners and mismatched or unsafe Airtable values fail safely', as
   for (const options of [{ missing: true }, { mismatch: true }, { url: 'javascript:alert(1)' }]) assert.ok((await setup(options).run()).status >= 400);
 });
 test('unlinked partners and partners with no saved URL return an empty value', async () => {
-  for (const options of [{ unlinked: true }, { url: '' }]) assert.deepEqual(await (await setup(options).run()).json(), { referralUrl: '' });
+  for (const options of [{ unlinked: true }, { url: '' }]) assert.deepEqual(await (await setup(options).run()).json(), { referralUrl: '', partnerRole: options.unlinked ? '' : 'Partner' });
+});
+
+test('partner role is read from Airtable rather than inferred from account type', async () => {
+  for (const role of ['Partner', 'Custom role', '']) {
+    const response = await setup({ airtableRole: role }).run();
+    assert.equal((await response.json()).partnerRole, role);
+  }
 });
