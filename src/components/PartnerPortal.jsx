@@ -1,3 +1,4 @@
+import PartnerSupport from "./PartnerSupport";
 import useViewFocus from "../lib/useViewFocus";
 import { dialogSecondary } from "../lib/dialogStyles";
 import DocumentPreview from "./DocumentPreview";
@@ -7,7 +8,6 @@ import { canPreviewFile, fileFormat } from "../lib/fileFormat.mjs";
 import { loadBrandAssets } from "../lib/brandAssets";
 import { brandKitRequest, encodeBrandFile } from "../lib/brandKit";
 import { airtableFieldValue, formatAirtableDateTime, inAirtableDateRange } from "../lib/airtableDates.mjs";
-import { createSupportRequest } from "../lib/support";
 import SearchFilter from "./SearchFilter";
 import PortalDialog from "./PortalDialog";
 import AddClientFormFields, { AddClientDialog } from "./AddClientModal";
@@ -20,7 +20,7 @@ import { sortTableRows } from "../lib/tableSort.mjs";
 import ClearFiltersButton from "./ClearFiltersButton";
 import { useEffect, useState, useMemo, useRef } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { Home, Users, DollarSign, Landmark, BookOpen, Headset, Copy, Check, X, Eye, Download, UserPlus, ChevronDown, CheckCircle2, Palette, ArrowRight, Upload, Phone, MessageSquare, Mail, FileText, RefreshCw } from "lucide-react";
+import { Home, Users, DollarSign, Landmark, BookOpen, Headset, Copy, Check, X, Eye, Download, UserPlus, ChevronDown, CheckCircle2, Palette, ArrowRight, Upload, FileText, RefreshCw } from "lucide-react";
 import Sidebar from "./Sidebar";
 import PartnerAdmin from "./PartnerAdmin";
 import BankingDetails from "./BankingDetails";
@@ -69,8 +69,6 @@ const lab = "block text-xs text-gray-500 mb-1";
 const primary = "text-sm font-medium bg-brand text-navy px-4 py-2 rounded-md hover:bg-[#009a7d] disabled:opacity-50 disabled:cursor-not-allowed";
 
 const ghost = "inline-flex items-center gap-1.5 text-sm font-medium border border-gray-200 px-3 py-2 rounded-md hover:bg-gray-50";
-const PHONE = { display: "416 848 1028", tel: "+14168481028" };
-const EMAIL = "partnerships@pulsefx.com";
 
 function Badge({ s }) {
   return <span className={`inline-block text-xs font-medium px-2 py-0.5 rounded-full whitespace-nowrap ${STATUS_STYLE[s] || STATUS_STYLE.Invited}`}>{s}</span>;
@@ -603,55 +601,6 @@ function Guide({ authenticated }) {
 }
 
 /* ------------------------------------------------------------- Contact */
-function Contact({ authenticated, go }) {
-  const [m, setM] = useState({ subject: "", body: "" });
-  const [sent, setSent] = useState(null);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState("");
-  const [uncertain, setUncertain] = useState(false);
-  const submitting = useRef(false);
-  const ok = m.subject.trim() && m.body.trim() && m.subject.length <= 200 && m.body.length <= 10000;
-  async function submit(event) {
-    event.preventDefault();
-    if (!ok || submitting.current || uncertain) return;
-    if (!authenticated) { setSent({ supportId: "DEMO", preview: true }); return; }
-    submitting.current = true;
-    setBusy(true);
-    setError("");
-    try { setSent(await createSupportRequest({ subject: m.subject.trim(), message: m.body.trim() })); }
-    catch (failure) { setError(failure.message); setUncertain(failure.uncertain === true); }
-    finally { submitting.current = false; setBusy(false); }
-  }
-  const close = () => { if (!submitting.current) go("home"); };
-  const supportField = "w-full rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent-100";
-  const supportLabel = "mb-1.5 block text-sm font-medium text-gray-700";
-  return <PortalDialog title="Help & support" subtitle="Get in touch with the partnerships team." icon={<Headset className="h-5 w-5" />} maxWidth="max-w-2xl" onClose={close}>
-    {sent ? <div role="status" className="p-6 sm:p-8">
-      <div className="flex items-center gap-2.5 pr-5"><CheckCircle2 aria-hidden="true" className="h-6 w-6 shrink-0 text-success" /><h3 className="text-base font-semibold text-gray-900">{sent.preview ? "Support request preview" : "Support request received"}</h3></div>
-      <p className="mt-2 text-sm text-gray-500">{sent.preview ? "Preview only: no message was sent." : "Your message has been sent to the PulseFX partnerships team."}</p>
-      {!sent.preview && <p className="mt-2 break-words text-sm text-gray-700">Your reference: <span className="font-medium">{sent.supportId}</span></p>}
-      <div className="mt-5 flex flex-wrap justify-end gap-2"><button type="button" className={ghost} onClick={() => { setSent(null); setM({ subject: "", body: "" }); setError(""); setUncertain(false); }}>Send another</button><button type="button" className={primary} onClick={close}>Done</button></div>
-    </div> : <form onSubmit={submit} aria-busy={busy}>
-      <fieldset disabled={busy || uncertain} className="space-y-6 px-6 py-6 sm:px-8">
-        <section aria-labelledby="support-message-heading">
-          <h3 id="support-message-heading" className="mb-1 flex items-center gap-2 text-sm font-semibold"><MessageSquare className="h-4 w-4 text-accent" />How can we help?</h3>
-          <p className="mb-5 text-sm text-gray-500">Questions about a client, payouts or the programme? Send your partner manager a message.</p>
-          <div><label htmlFor="ct-s" className={supportLabel}>Subject</label><input autoFocus id="ct-s" required maxLength={200} placeholder="What would you like help with?" className={supportField} value={m.subject} onChange={event => setM({ ...m, subject: event.target.value })} /></div>
-          <div className="mt-4"><label htmlFor="ct-b" className={supportLabel}>Message</label><textarea id="ct-b" required maxLength={10000} rows={5} placeholder="Share the details so we can help you." className={`${supportField} resize-y`} value={m.body} onChange={event => setM({ ...m, body: event.target.value })} /></div>
-        </section>
-        <section aria-labelledby="support-direct-heading" className="border-t border-gray-100 pt-5">
-          <h3 id="support-direct-heading" className="text-sm font-semibold text-gray-900">Prefer to reach us directly?</h3>
-          <div className="mt-3 flex flex-wrap gap-2"><a href={`tel:${PHONE.tel}`} className={ghost}><Phone className="h-4 w-4 text-accent" />Call {PHONE.display}</a><a href={`sms:${PHONE.tel}`} className={ghost}><MessageSquare className="h-4 w-4 text-accent" />Text {PHONE.display}</a><a href={`mailto:${EMAIL}`} className={`${ghost} break-all`}><Mail className="h-4 w-4 shrink-0 text-accent" />{EMAIL}</a></div>
-        </section>
-      </fieldset>
-      <footer className="sticky bottom-0 border-t border-gray-200 bg-white px-6 py-4 sm:px-8">
-        {error && <p role="alert" className="mb-3 text-sm text-danger">{error}</p>}
-        <div className="flex flex-wrap justify-end gap-3"><button type="button" disabled={busy} onClick={close} className="rounded-lg border border-gray-200 px-4 py-2.5 text-sm font-medium hover:bg-gray-50 disabled:opacity-50">Cancel</button><button type="submit" disabled={!ok || busy || uncertain} className="rounded-lg bg-brand px-5 py-2.5 text-sm font-semibold text-navy hover:bg-[#009a7d] disabled:cursor-not-allowed disabled:opacity-50">{busy ? "Sending…" : "Send message"}</button></div>
-      </footer>
-    </form>}
-  </PortalDialog>;
-}
-
 /* --------------------------------------------------------------- Shell */
 const PARTNER_NAV_ITEMS = NAV
   .filter(([key]) => key !== "contact")
@@ -724,13 +673,13 @@ export default function PartnerPortal({ onExit, user, isAdmin = false, signingOu
         {tab === "banking-approvals" && canAdmin && <BankingApprovals />}
         {tab === "admin-payouts" && canAdmin && <AdminPayouts />}
         {tab === "home" && <PartnerHome go={setTab} />}
-        {tab === "referrals" && <Referrals key={user?.id || "demo"} authenticated={!!user} go={setTab} />}
+        {tab === "referrals" && <Referrals key={user?.id || "demo"} authenticated={!!user} onClose={() => setTab("home")} />}
         {tab === "add" && <AddClient go={setTab} authenticated={!!user} />}
         {tab === "banking" && <BankingDetails authenticated={!!user} />}
         {tab === "payouts" && <PayoutHistory authenticated={!!user} showDescription={false} />}
         {tab === "brand" && <BrandKit key={user?.id || "demo"} authenticated={!!user} />}
         {tab === "guide" && <Guide key={user?.id || "demo"} authenticated={!!user} />}
-        {tab === "contact" && !canAdmin && <Contact key={user?.id || "demo"} authenticated={!!user} go={setTab} />}
+        {tab === "contact" && !canAdmin && <PartnerSupport key={user?.id || "demo"} authenticated={!!user} onClose={() => setTab("home")} />}
         {tab !== "admin" && tab !== "add" && tab !== "contact" && !user && <p className="text-xs text-gray-400 mt-4">Portal preview: all names and figures are sample data.</p>}
       </main>
     </div>
