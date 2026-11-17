@@ -8,7 +8,6 @@ export default function useViewFocus(view, selector = 'main') {
     const target = scope?.querySelector('[data-view-start], h1, h2') || scope;
     if (!target) return;
     target.setAttribute('tabindex', '-1');
-    target.setAttribute('data-view-focus', '');
     target.focus();
   }, [view, selector]);
 }

@@ -133,11 +133,6 @@ select.filter-control {
 
 /* Fallback focus styling; component utilities retain their own rings/outlines. */
 @layer base {
-  /* View headings receive programmatic focus for accessible navigation. */
-  [data-view-focus][tabindex="-1"]:focus {
-    outline: none;
-  }
-
   :where(button, a, input, select, textarea, [tabindex]:not([tabindex="-1"])):focus-visible {
     outline: 2px solid var(--color-accent);
     outline-offset: 3px;
