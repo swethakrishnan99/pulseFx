@@ -25,10 +25,11 @@ export default function PartnerReferralForm({ token }) {
     return () => controller.abort();
   }, [token, attempt]);
   useEffect(() => { document.title = `${remote.partner?.name || "Referral"} & PulseFX`; }, [remote.partner]);
+  const valid = !!(values.firstName.trim() && values.lastName.trim() && /^\S+@\S+\.\S+$/.test(values.email.trim()));
   const set = name => event => setValues(previous => ({ ...previous, [name]: event.target.value }));
   async function submit(event) {
     event.preventDefault();
-    if (submitting.current) return;
+    if (submitting.current || !valid) return;
     submitting.current = true; setBusy(true); setError("");
     try {
       const result = await publicReferralRequest({ action: "submit", token, submissionId: submissionId.current, ...values });
@@ -45,13 +46,13 @@ export default function PartnerReferralForm({ token }) {
         {remote.error && <div><p role="alert" className="text-sm text-danger">{remote.error}</p><button type="button" className={`${dialogSecondary} mt-4`} onClick={() => { setRemote({ loading: true, partner: null, error: "" }); setAttempt(value => value + 1); }}>Try again</button></div>}
         {remote.partner && (done ? <div role="status" className="py-8 text-center"><CheckCircle2 className="mx-auto h-12 w-12 text-accent" /><h3 className="mt-4 text-xl font-semibold">Thank you for your interest</h3><p className="mt-2 text-sm text-gray-500">Your details have been sent to PulseFX. Our team will be in touch.</p><button type="button" onClick={() => setOpen(false)} className={`${dialogPrimary} mt-5`}>Close</button></div> : <form onSubmit={submit}>
           <fieldset disabled={busy} aria-busy={busy} className="grid grid-cols-1 gap-4 rounded-xl bg-gray-50 p-4 sm:grid-cols-2">
-            {[["firstName", "First name", true, "given-name", 100], ["lastName", "Last name", true, "family-name", 100], ["company", "Company name", false, "organization", 200], ["email", "Email", true, "email", 254], ["phone", "Phone number", false, "tel", 60]].map(([name, label, required, autoComplete, maxLength]) => <div key={name}><label htmlFor={`public-${name}`} className="mb-1.5 block text-sm">{label}{required && <span className="text-danger"> *</span>}</label><input id={`public-${name}`} type={name === "email" ? "email" : name === "phone" ? "tel" : "text"} autoComplete={autoComplete} required={required} maxLength={maxLength} value={values[name]} onChange={set(name)} className={dialogInput} /></div>)}
+            {[["firstName", "First name", true, "given-name", 100], ["lastName", "Last name", true, "family-name", 100], ["company", "Company name", false, "organization", 200], ["email", "Email", true, "email", 254], ["phone", "Phone number", false, "tel", 60]].map(([name, label, required, autoComplete, maxLength]) => <div key={name}><label htmlFor={`public-${name}`} className="mb-1.5 block text-sm">{label}{required && <span className="text-danger"> *</span>}</label><input id={`public-${name}`} autoFocus={name === "firstName"} type={name === "email" ? "email" : name === "phone" ? "tel" : "text"} autoComplete={autoComplete} required={required} maxLength={maxLength} value={values[name]} onChange={set(name)} className={dialogInput} /></div>)}
             <div><label htmlFor="public-partner" className="mb-1.5 block text-sm">Partner organization</label><input id="public-partner" value={remote.partner.name} readOnly className={`${dialogInput} text-gray-500`} /></div>
             <fieldset className="sm:col-span-2"><legend className="mb-2 text-sm font-medium">Select what applies to your business</legend><div className="space-y-2">{BUSINESS_INTERESTS.map((interest, index) => <label key={interest} className="flex items-center gap-2 text-sm"><input type="checkbox" checked={values.interests.includes(interest)} onChange={event => setValues(previous => ({ ...previous, interests: event.target.checked ? [...previous.interests, interest] : previous.interests.filter(value => value !== interest) }))} className="h-4 w-4 accent-accent" /><span className={`rounded-full px-2 py-0.5 ${["bg-blue-100", "bg-sky-100", "bg-teal-100", "bg-green-100"][index]}`}>{interest}</span></label>)}</div></fieldset>
             <div className="hidden" aria-hidden="true"><label htmlFor="public-website">Website</label><input id="public-website" tabIndex={-1} autoComplete="off" value={values.website} onChange={set("website")} /></div>
           </fieldset>
           {error && <p role="alert" className="mt-4 text-sm text-danger">{error}</p>}
-          <div className="mt-6 flex items-center justify-between gap-3"><button type="button" disabled={busy} onClick={() => { setValues(empty); setError(""); }} className={dialogSecondary}>Clear form</button><button type="submit" disabled={busy} className={dialogPrimary}>{busy ? "Submitting…" : "Submit"}</button></div>
+          <div className="mt-6 flex items-center justify-end gap-3"><button type="button" disabled={busy} onClick={() => { setValues(empty); setError(""); }} className={dialogSecondary}>Clear form</button><button type="submit" disabled={busy || !valid} className={dialogPrimary}>{busy ? "Submitting…" : "Submit"}</button></div>
         </form>)}
       </div>
     </PortalDialog>}

@@ -1,4 +1,3 @@
-import ReferralSourceBadge from "./ReferralSourceBadge";
 import { dialogDanger } from "../lib/dialogStyles";
 import { referralEmailConflict } from "../../supabase/functions/_shared/referral-duplicates.mjs";
 import { DEMO_REFERRALS, DEMO_BRAND_KIT, DEMO_BRAND_ASSETS, DEMO_ONE_PAGERS } from "../lib/partnerDemo";
@@ -177,7 +176,7 @@ function ReferralSortHeader({ column, sort, onSort, children }) {
 }
 
 function Referrals({ authenticated = false, go }) {
-  const [f, setF] = useState({ query: "", status: "", cFrom: "", cTo: "", mFrom: "", mTo: "" });
+  const [f, setF] = useState({ query: "", status: "", source: "", cFrom: "", cTo: "", mFrom: "", mTo: "" });
   const [filterReset, setFilterReset] = useState(0);
   const [sort, setSort] = useState({ key: "created", dir: "desc" });
   const [open, setOpen] = useState(null);
@@ -202,7 +201,7 @@ function Referrals({ authenticated = false, go }) {
   }
   const rows = useMemo(() => {
     const r = referrals.filter((x) =>
-      (!f.query.trim() || [x.company, x.contact, x.email].some(value => (value || "").toLowerCase().includes(f.query.trim().toLowerCase()))) && (!f.status || x.status === f.status) &&
+      (!f.query.trim() || [x.company, x.contact, x.email].some(value => (value || "").toLowerCase().includes(f.query.trim().toLowerCase()))) && (!f.status || x.status === f.status) && (!f.source || x.source === f.source) &&
       inAirtableDateRange(referralDateValue(x, "created"), f.cFrom, f.cTo) &&
       inAirtableDateRange(referralDateValue(x, "modified"), f.mFrom, f.mTo));
     return sortTableRows(r, sort, { onboarded: (row) => row.status === "Onboarded", created: { value: row => referralDateValue(row, "created"), type: "date" }, modified: { value: row => referralDateValue(row, "modified"), type: "date" } });
@@ -213,7 +212,7 @@ function Referrals({ authenticated = false, go }) {
     setF((current) => ({ ...current, [k]: value }));
   };
   function clearFilters() {
-    setF({ query: "", status: "", cFrom: "", cTo: "", mFrom: "", mTo: "" });
+    setF({ query: "", status: "", source: "", cFrom: "", cTo: "", mFrom: "", mTo: "" });
     // Also discard any unconfirmed calendar selections.
     setFilterReset((current) => current + 1);
   }
@@ -233,6 +232,8 @@ function Referrals({ authenticated = false, go }) {
           <SearchFilter id="referrals-search" value={f.query} onChange={set("query")} placeholder="Company, contact or email" />
           <div className="filter-field"><label htmlFor="rf-st" className={lab}>Status</label>
             <select id="rf-st" className={`${field} filter-control`} value={f.status} onChange={set("status")}><option value="">All statuses</option>{[...STATUSES].sort().map((s) => <option key={s}>{s}</option>)}</select></div>
+          <div className="filter-field"><label htmlFor="rf-source" className={lab}>Source</label>
+            <select id="rf-source" className={`${field} filter-control`} value={f.source} onChange={set("source")}><option value="">All sources</option><option value="Partner Portal">Partner Portal</option><option value="Referral Link">Referral Link</option></select></div>
           <DateRangeFilter id="rf-created-period" label="Created at" from={f.cFrom} to={f.cTo} onChange={range => setF(previous => ({ ...previous, cFrom: range.from, cTo: range.to }))} />
           <DateRangeFilter id="rf-modified-period" label="Last modified at" from={f.mFrom} to={f.mTo} onChange={range => setF(previous => ({ ...previous, mFrom: range.from, mTo: range.to }))} />
         </fieldset>
@@ -265,7 +266,7 @@ function Referrals({ authenticated = false, go }) {
                 <td className={`${td} font-medium text-gray-900`}>{r.company}</td>
                 <td className={td}>{r.contact || "—"}</td>
                 <td className={td}>{r.email || "—"}</td>
-                <td className={td}><ReferralSourceBadge source={r.source} /></td>
+                <td className={td}>{r.source || "—"}</td>
                 <td className={td}><Badge s={r.status} /></td>
                 <td className={td}>{r.status === "Onboarded" ? "Yes" : "No"}</td>
                 <td className={td}>{prettyDateTime(referralDateValue(r, "created"))}</td><td className={td}>{prettyDateTime(referralDateValue(r, "modified"))}</td>

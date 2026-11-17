@@ -1,4 +1,3 @@
-import ReferralSourceBadge from "./ReferralSourceBadge";
 import { useEffect, useMemo, useState } from "react";
 import { ChevronDown, Pencil, RefreshCw, Send, UserCheck, Files, Clock3, CheckCircle2, XCircle } from "lucide-react";
 import { loadAdminReferrals, updateReferralStatus } from "../lib/referrals";
@@ -54,6 +53,7 @@ export default function AdminReferrals() {
   const [attempt, setAttempt] = useState(0);
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState("");
+  const [source, setSource] = useState("");
   const [sort, setSort] = useState({ key: "modifiedAt", dir: "desc" });
   const [open, setOpen] = useState(null);
   const [notice, setNotice] = useState("");
@@ -71,10 +71,10 @@ export default function AdminReferrals() {
     setRemote({ records: [], loading: true, error: "" });
     setAttempt(value => value + 1);
   }
-  const rows = useMemo(() => sortTableRows(remote.records.filter(row => (!status || row.status === status) &&
+  const rows = useMemo(() => sortTableRows(remote.records.filter(row => (!status || row.status === status) && (!source || row.source === source) &&
     (!query.trim() || [row.company, row.contact, row.email, row.partnerName].some(value => (value || "").toLowerCase().includes(query.trim().toLowerCase())))), sort,
-  { createdAt: { value: row => row.createdAt, type: "date" }, modifiedAt: { value: row => row.modifiedAt, type: "date" } }), [remote.records, query, status, sort]);
-  const pager = usePagination(rows, JSON.stringify([query, status, sort]));
+  { createdAt: { value: row => row.createdAt, type: "date" }, modifiedAt: { value: row => row.modifiedAt, type: "date" } }), [remote.records, query, status, source, sort]);
+  const pager = usePagination(rows, JSON.stringify([query, status, source, sort]));
   const onSort = key => setSort(previous => ({ key, dir: previous.key === key && previous.dir === "asc" ? "desc" : "asc" }));
   const th = "px-3 py-3 text-left text-xs font-medium text-gray-400 whitespace-nowrap";
   const td = "px-3 py-3 text-sm text-gray-700";
@@ -91,14 +91,15 @@ export default function AdminReferrals() {
       <fieldset disabled={remote.loading || !!remote.error} className="flex flex-wrap items-end gap-3">
         <SearchFilter id="admin-referrals-search" value={query} onChange={event => setQuery(event.target.value)} placeholder="Company, contact, email or partner" />
         <div className="filter-field"><label htmlFor="admin-referrals-status" className="mb-1 block text-xs text-gray-500">Status</label><select id="admin-referrals-status" value={status} onChange={event => setStatus(event.target.value)} className={`${dialogInput} filter-control`}><option value="">All statuses</option>{REFERRAL_STATUSES.map(value => <option key={value}>{value}</option>)}</select></div>
+        <div className="filter-field"><label htmlFor="admin-referrals-source" className="mb-1 block text-xs text-gray-500">Source</label><select id="admin-referrals-source" value={source} onChange={event => setSource(event.target.value)} className={`${dialogInput} filter-control`}><option value="">All sources</option><option value="Partner Portal">Partner Portal</option><option value="Referral Link">Referral Link</option></select></div>
       </fieldset>
-      <div className="mt-3 flex items-center justify-between gap-3"><ClearFiltersButton onClick={() => { setQuery(""); setStatus(""); }} /></div>
+      <div className="mt-3 flex items-center justify-between gap-3"><ClearFiltersButton onClick={() => { setQuery(""); setStatus(""); setSource(""); }} /></div>
       {notice && <p role="status" className="mt-3 text-sm text-success">{notice}</p>}
     </div>
     <div className="overflow-x-auto"><table className="w-full" aria-busy={remote.loading}>
       <thead className="border-b border-gray-100"><tr>{[["company", "Company"], ["contact", "Contact"], ["email", "Email"], ["source", "Source"], ["status", "Status"], ["partnerName", "Referred by"], ["createdAt", "Created at"], ["modifiedAt", "Last modified at"]].map(([key, label]) => <SortableHeader key={key} column={key} label={label} sort={sort} onSort={onSort} className={th} />)}<th className={th} scope="col">Modified by</th><th className={th} scope="col">Actions</th></tr></thead>
       <tbody>
-        {pager.rows.map(row => <tr key={row.id} className="border-t border-gray-100"><td className={td}>{row.company}</td><td className={td}>{row.contact}</td><td className={td}>{row.email}</td><td className={td}><ReferralSourceBadge source={row.source} /></td><td className={`${td} whitespace-nowrap`}><span className={`inline-block text-xs font-medium px-2 py-0.5 rounded-full whitespace-nowrap ${REFERRAL_STATUS_STYLE[row.status] || REFERRAL_STATUS_STYLE.Invited}`}>{row.status}</span></td><td className={td}>{row.partnerName}</td><td className={`${td} whitespace-nowrap`}>{formatAirtableDateTime(row.createdAt)}</td><td className={`${td} whitespace-nowrap`}>{formatAirtableDateTime(row.modifiedAt)}</td><td className={td}>{row.modifiedByEmail || "—"}</td><td className={td}><ActionButton label={`Update status for ${row.company}`} tooltip="Update status" onClick={() => { setNotice(""); setOpen(row); }} className="rounded-md p-1.5 text-gray-500 hover:bg-gray-100 hover:text-accent"><Pencil className="h-4 w-4" /></ActionButton></td></tr>)}
+        {pager.rows.map(row => <tr key={row.id} className="border-t border-gray-100"><td className={td}>{row.company}</td><td className={td}>{row.contact}</td><td className={td}>{row.email}</td><td className={td}>{row.source || "—"}</td><td className={`${td} whitespace-nowrap`}><span className={`inline-block text-xs font-medium px-2 py-0.5 rounded-full whitespace-nowrap ${REFERRAL_STATUS_STYLE[row.status] || REFERRAL_STATUS_STYLE.Invited}`}>{row.status}</span></td><td className={td}>{row.partnerName}</td><td className={`${td} whitespace-nowrap`}>{formatAirtableDateTime(row.createdAt)}</td><td className={`${td} whitespace-nowrap`}>{formatAirtableDateTime(row.modifiedAt)}</td><td className={td}>{row.modifiedByEmail || "—"}</td><td className={td}><ActionButton label={`Update status for ${row.company}`} tooltip="Update status" onClick={() => { setNotice(""); setOpen(row); }} className="rounded-md p-1.5 text-gray-500 hover:bg-gray-100 hover:text-accent"><Pencil className="h-4 w-4" /></ActionButton></td></tr>)}
         {remote.loading && <tr><td colSpan={10} className="p-8 text-center text-sm text-gray-500"><span role="status">Loading referrals…</span></td></tr>}
         {remote.error && <tr><td colSpan={10} className="p-8 text-center text-sm"><p role="alert" className="text-danger">{remote.error}</p><button type="button" onClick={refresh} className="mt-3 text-accent underline">Try again</button></td></tr>}
         {!remote.loading && !remote.error && !rows.length && <tr><td colSpan={10} className="p-8 text-center text-sm text-gray-500">{remote.records.length ? "No referrals match those filters." : "No referrals yet."}</td></tr>}

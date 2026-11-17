@@ -9,7 +9,7 @@ import { formatAirtableDateTime } from "../lib/airtableDates.mjs";
 import ClearFiltersButton from "./ClearFiltersButton";
 import { useEffect, useRef, useState } from "react";
 import { Building2, Check, CheckCircle2, Clock3, Copy, Eye, KeyRound, Link2, LoaderCircle, Pencil, Play, Power, RefreshCw, ShieldCheck, Trash2, UserPlus, Users, X } from "lucide-react";
-import { changePartnerAccess, createPartner, deletePartnerUser, editPartnerProfile, generatePartnerInvite, generatePartnerRecovery, listPartners } from "../lib/partnerAdmin";
+import { changePartnerAccess, createPartner, deletePartnerUser, editPartnerProfile, generatePartnerInvite, generatePartnerRecovery, listPartners, loadPartnerReferralUrl } from "../lib/partnerAdmin";
 import { createAdmin, listAdmins, manageAdmin } from "../lib/pulsefxUserAdmin";
 import PartnerAccountConfirmation from "./PartnerAccountConfirmation";
 import ActionButton from "./ActionButton";
@@ -35,6 +35,19 @@ function PartnerDetails({ partner, onClose }) {
   const secondary = dialogSecondary;
   const [copied, setCopied] = useState("");
   const [copyError, setCopyError] = useState("");
+  const isPartner = partner.role !== "partner_admin";
+  const [referral, setReferral] = useState({ loading: true, url: "", error: "" });
+  const [referralAttempt, setReferralAttempt] = useState(0);
+  useEffect(() => {
+    if (!isPartner || !partner.airtableId) return;
+    const controller = new AbortController();
+    loadPartnerReferralUrl(partner.id, controller.signal).then(url => {
+      if (!controller.signal.aborted) setReferral({ loading: false, url, error: "" });
+    }).catch(error => {
+      if (!controller.signal.aborted) setReferral({ loading: false, url: "", error: error.message });
+    });
+    return () => controller.abort();
+  }, [isPartner, partner.id, partner.airtableId, referralAttempt]);
   async function copy(label, value) {
     setCopied("");
     setCopyError("");
@@ -47,7 +60,7 @@ function PartnerDetails({ partner, onClose }) {
     ...(partner.role === "partner_admin" ? [["Role", "Administrator"]] : [["Company", partner.company]]),
     ["Account status", partner.status],
     ["Supabase ID", partner.supabaseId, true],
-    ...(partner.role === "partner_admin" ? [] : [["Airtable ID", partner.airtableId, true]]),
+    ...(partner.role === "partner_admin" ? [] : [["Airtable ID", partner.airtableId, true], ["Referral URL", partner.airtableId ? referral.loading ? "Loading…" : referral.url : "—", !!referral.url && !referral.loading]]),
     ["Created at", formatCreatedAt(partner.createdAt)],
     ["Created by", partner.createdByEmail || "—"],
     ...(partner.status === "Deactivated" ? [
@@ -57,6 +70,7 @@ function PartnerDetails({ partner, onClose }) {
   ];
   return <PortalDialog title="User details" subtitle={partner.name} icon={<Eye className="h-5 w-5" />} maxWidth="max-w-xl" closeOnBackdrop collapseOnStatus={false} onClose={onClose}>
     <div className="p-6">
+    {isPartner && referral.error && <div className="mb-4"><p role="alert" className="text-sm text-danger">{referral.error}</p><button type="button" className={`${dialogSecondary} mt-2`} onClick={() => { setReferral({ loading: true, url: "", error: "" }); setReferralAttempt(value => value + 1); }}>Try again</button></div>}
     <dl className="divide-y divide-gray-100">
       {details.map(([label, value, copyable]) => <div key={label} className="py-3 first:pt-0">
         <dt className="text-xs text-gray-500">{label}</dt>
@@ -405,7 +419,7 @@ export default function PartnerAdmin() {
         </table></div>
         <TablePager pager={pager} noun={showingAdmins ? "administrators" : "contacts"} overall={users.length} className="px-5" />
       </section>
-      {viewing && <PartnerDetails partner={viewing} onClose={() => setViewing(null)} />}
+      {viewing && <PartnerDetails key={viewing.id} partner={viewing} onClose={() => setViewing(null)} />}
       {confirmation && <PartnerAccountConfirmation {...confirmation} onClose={() => setConfirmation(null)} onConfirm={changeAccount} />}
       {invitation && <InvitationLink result={invitation} onClose={() => setInvitation(null)} />}
       {editing && <PartnerEdit key={`${editing.id}:${editing.profileEditPending}`} partner={editing} onClose={() => setEditing(null)} onSave={saveEdit} />}

@@ -63,3 +63,18 @@ test('an uncertain save retains the same submission ID on retry and displays the
   assert.equal(sent.length, 2); assert.equal(sent[0].submissionId, sent[1].submissionId);
   assert.match(document.querySelector('[role="alert"]').textContent, /contact PulseFX/);
 });
+
+test('Submit stays disabled until mandatory names and a valid email are filled', async () => {
+  await mount();
+  const button = () => document.querySelector('button[type="submit"]');
+  assert.equal(button().disabled, true);
+  await fill('public-firstName', 'Ana');
+  await fill('public-lastName', 'Costa');
+  assert.equal(button().disabled, true);
+  await fill('public-email', 'invalid');
+  assert.equal(button().disabled, true);
+  await fill('public-email', 'ana@example.com');
+  assert.equal(button().disabled, false);
+  await fill('public-firstName', '   ');
+  assert.equal(button().disabled, true);
+});
