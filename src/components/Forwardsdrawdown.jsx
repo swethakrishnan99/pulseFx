@@ -1,8 +1,9 @@
+import useViewFocus from "../lib/useViewFocus";
 import SearchFilter from "./SearchFilter";
 import SortableHeader from "./SortableHeader";
 import useTableSort from "../lib/useTableSort";
 import ClearFiltersButton from "./ClearFiltersButton";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Check, Plus, Trash2, CalendarClock, Wallet, ArrowDownToLine, CheckCircle2, AlertTriangle, RefreshCw, FileText, FileSpreadsheet, Printer, SlidersHorizontal, ChevronDown, Info, Download, X } from "lucide-react";
 import { FLAGS } from "../lib/currencies";
 import { PURPOSES } from "../lib/reasons";
@@ -95,6 +96,7 @@ function DrawdownForm({ onNavigate, initialFwd = "", onBack }) {
   const [allocs, setAllocs] = useState([]); // [{id, benId, text}]
   const [funding, setFunding] = useState("send"); // "send" | "deposit"
   const [done, setDone] = useState(null);
+  useViewFocus(`${step}:${!!done}`);
 
   useEffect(() => { window.scrollTo?.(0, 0); }, [step, done]);
 
@@ -437,6 +439,12 @@ export default function Forwards({ onNavigate }) {
   const [startWith, setStartWith] = useState("");
   const [q, setQ] = useState("");
   const [showPanel, setShowPanel] = useState(false);
+  const panelTrigger = useRef(null);
+  const columnsPanel = useRef(null);
+  useEffect(() => {
+    if (showPanel) columnsPanel.current?.querySelector('button')?.focus();
+  }, [showPanel]);
+  const closePanel = () => { setShowPanel(false); panelTrigger.current?.focus(); };
   const [status, setStatus] = useState("All");
   const [cols, setColsState] = useState(savedCols);
   const [, force] = useState(0);
@@ -480,6 +488,7 @@ export default function Forwards({ onNavigate }) {
           <SearchFilter id="forwards-search" value={q} onChange={(event) => setQ(event.target.value)} placeholder="Deal number" />
           <button
             type="button"
+            ref={panelTrigger}
             aria-label="Choose columns and filters"
             aria-expanded={showPanel}
             onClick={() => setShowPanel((v) => !v)}
@@ -489,13 +498,13 @@ export default function Forwards({ onNavigate }) {
             Columns
           </button>
 
-          <ClearFiltersButton onClick={() => { setQ(""); setStatus("All"); }} />
-
           {showPanel && (
-            <div role="dialog" aria-label="Columns and filters" className="absolute left-4 top-full z-20 mt-1 w-72 bg-white border border-gray-200 rounded-xl shadow-lg p-4">
+            <div ref={columnsPanel} role="dialog" aria-label="Columns and filters"
+              onKeyDown={event => { if (event.key === "Escape") { event.preventDefault(); event.stopPropagation(); closePanel(); } }}
+              onBlur={event => { if (event.relatedTarget && !event.currentTarget.contains(event.relatedTarget) && event.relatedTarget !== panelTrigger.current) setShowPanel(false); }} className="absolute left-4 top-full z-20 mt-1 w-72 bg-white border border-gray-200 rounded-xl shadow-lg p-4">
               <div className="flex items-center justify-between mb-2">
                 <p className="text-sm font-medium text-gray-900">Show columns</p>
-                <button type="button" aria-label="Close" onClick={() => setShowPanel(false)} className="text-gray-400 hover:text-gray-700"><X className="w-4 h-4" /></button>
+                <button type="button" aria-label="Close columns and filters" onClick={closePanel} className="text-gray-400 hover:text-gray-700"><X className="w-4 h-4" /></button>
               </div>
               <ul className="flex flex-col gap-1.5">
                 {COLUMNS.map((c) => (
@@ -522,6 +531,7 @@ export default function Forwards({ onNavigate }) {
               <button type="button" onClick={() => { setCols(DEFAULT_COLS); setStatus("All"); }} className="text-xs font-medium text-accent hover:underline mt-3">Reset to default</button>
             </div>
           )}
+          <ClearFiltersButton onClick={() => { setQ(""); setStatus("All"); }} />
         </div>
 
         <div className="overflow-x-auto">

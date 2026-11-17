@@ -1,8 +1,9 @@
+import useViewFocus from "../lib/useViewFocus";
 import SearchFilter from "./SearchFilter";
 import SortableHeader from "./SortableHeader";
 import useTableSort from "../lib/useTableSort";
 import ClearFiltersButton from "./ClearFiltersButton";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useId, cloneElement, useEffect, useRef } from "react";
 import {
   Plus, Send, CheckCircle2, Clock, ChevronDown, ChevronUp, ChevronLeft, ChevronRight,
   Pencil, Trash2, RefreshCw, Download, Printer, SlidersHorizontal, ArrowLeft, Check,
@@ -60,14 +61,16 @@ const input = "w-full text-sm border border-gray-200 rounded-md px-2.5 py-2 bg-w
 const label = "block text-xs text-gray-500 mb-1";
 
 function Field({ text, required, hint, children }) {
+  const generatedId = useId();
+  const id = children.props.id || generatedId;
   return (
     <div>
-      <label className={label}>
+      <label htmlFor={id} className={label}>
         {text}
         {required && <span className="text-danger"> *</span>}
       </label>
-      {children}
-      {hint && <p className="text-xs text-gray-400 mt-1">{hint}</p>}
+      {cloneElement(children, { id, required, 'aria-describedby': hint ? `${id}-hint` : undefined })}
+      {hint && <p id={`${id}-hint`} className="text-xs text-gray-400 mt-1">{hint}</p>}
     </div>
   );
 }
@@ -91,13 +94,21 @@ export default function Beneficiaries({ onNavigate }) {
   const { sort, toggleSort, sortRows } = useTableSort();
   const [beneficiaries, setBeneficiaries] = useState(INITIAL);
   const [query, setQuery] = useState("");
-  const [view, setView] = useState("list"); // list | form
+  const [view, setView] = useState("list");
+  useViewFocus(view); // list | form
+  const formStart = useRef(null);
   const [editingId, setEditingId] = useState(null);
   const [form, setForm] = useState(EMPTY_FORM);
   const [expanded, setExpanded] = useState(null);
   const [confirmId, setConfirmId] = useState(null);
   const [cols, setCols] = useState({ country: false, account: true, routing: true });
   const [chooser, setChooser] = useState(false);
+  const chooserTrigger = useRef(null);
+  const chooserPanel = useRef(null);
+  useEffect(() => {
+    if (chooser) chooserPanel.current?.querySelector('input')?.focus();
+  }, [chooser]);
+  const closeChooser = () => { setChooser(false); chooserTrigger.current?.focus(); };
   const [pageSize, setPageSize] = useState(10);
   const [page, setPage] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
@@ -171,6 +182,7 @@ export default function Beneficiaries({ onNavigate }) {
     if (addAnother) {
       setEditingId(null);
       setForm(EMPTY_FORM);
+      formStart.current?.focus();
       window.scrollTo?.(0, 0);
     } else {
       setView("list");
@@ -235,6 +247,7 @@ export default function Beneficiaries({ onNavigate }) {
             <div className="flex flex-col gap-3.5">
               <Field text="Currency they receive" required>
                 <select
+                  ref={formStart}
                   value={form.currency}
                   onChange={(e) => setForm({ ...form, currency: e.target.value, values: {} })}
                   className={input}
@@ -409,7 +422,9 @@ export default function Beneficiaries({ onNavigate }) {
           <button
             type="button"
             onClick={() => setChooser((o) => !o)}
+            ref={chooserTrigger}
             aria-label="Choose columns"
+            aria-haspopup="dialog"
             aria-expanded={chooser}
             title="Choose columns"
             className={`${iconBtn} h-11 w-11 justify-center border-gray-200 bg-white`}
@@ -418,8 +433,11 @@ export default function Beneficiaries({ onNavigate }) {
           </button>
           {chooser && (
             <>
-              <button type="button" aria-label="Close column chooser" className="fixed inset-0 z-10 cursor-default" onClick={() => setChooser(false)} />
-              <div className="absolute left-0 top-full mt-1 z-20 bg-white border border-gray-200 rounded-lg shadow-lg p-2 w-48">
+              <div aria-hidden="true" className="fixed inset-0 z-10 cursor-default" onClick={() => setChooser(false)} />
+              <div ref={chooserPanel} role="dialog" aria-label="Choose columns"
+                onKeyDown={event => { if (event.key === "Escape") { event.preventDefault(); event.stopPropagation(); closeChooser(); } }}
+                onBlur={event => { if (!event.currentTarget.contains(event.relatedTarget) && event.relatedTarget !== chooserTrigger.current) setChooser(false); }}
+                className="absolute left-0 top-full mt-1 z-20 bg-white border border-gray-200 rounded-lg shadow-lg p-2 w-48">
                 <p className="text-xs text-gray-400 px-2 pb-1">Show columns</p>
                 {OPTIONAL_COLS.map((c) => (
                   <label key={c.key} className="flex items-center gap-2 text-sm text-gray-700 px-2 py-1.5 rounded hover:bg-gray-50 cursor-pointer">

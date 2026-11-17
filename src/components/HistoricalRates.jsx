@@ -1,3 +1,5 @@
+import { focusMenuItem, navigateMenu } from "../lib/menuNavigation";
+import { navigateTabs } from "../lib/tabNavigation";
 import { useEffect, useRef, useState } from "react";
 import { ChevronDown, ChevronUp, LineChart, MoreHorizontal, Trash2 } from "lucide-react";
 import Modal from "./Modal";
@@ -228,6 +230,7 @@ function AlertsModal({ alerts, onChange, onClose }) {
       role="tab"
       id={`ra-tab-${key}`}
       aria-selected={tab === key}
+            tabIndex={tab === key ? 0 : -1}
       aria-controls="ra-panel"
       onClick={() => { setTab(key); if (key === "set") setSaved(false); }}
       className={`text-xs font-semibold uppercase tracking-wide pb-2 -mb-px border-b-2 focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2 rounded-sm ${
@@ -241,7 +244,7 @@ function AlertsModal({ alerts, onChange, onClose }) {
   return (
     <Modal title="Rate alerts" onClose={onClose} maxWidth="max-w-lg">
       <div className="px-5 pt-3">
-        <div role="tablist" className="flex gap-6 border-b border-gray-100">
+        <div role="tablist" aria-label="Rate alerts" onKeyDown={navigateTabs} className="flex gap-6 border-b border-gray-100">
           {tabBtn("set", "Set rate alert")}
           {tabBtn("manage", `Manage rate alerts (${alerts.length})`)}
         </div>
@@ -338,6 +341,11 @@ export default function HistoricalRates({ compact = false }) {
   const [view, setView] = useState({ idx: 0, dir: 1 }); // compact mode shows one chart at a time
   const go = (delta) => setView((v) => ({ idx: (v.idx + delta + pairs.length) % pairs.length, dir: delta }));
   const menuRef = useRef(null);
+  const menuTrigger = useRef(null);
+  const openLast = useRef(false);
+  useEffect(() => {
+    if (menuOpen) focusMenuItem(menuRef.current, openLast.current);
+  }, [menuOpen]);
 
   useEffect(() => {
     if (!menuOpen) return;
@@ -381,10 +389,12 @@ export default function HistoricalRates({ compact = false }) {
             ))}
           </div>
 
-          <div className="relative" ref={menuRef}>
+          <div className="relative" ref={menuRef} onBlur={event => { if (!event.currentTarget.contains(event.relatedTarget)) setMenuOpen(false); }}>
             <button
               type="button"
-              onClick={() => setMenuOpen((o) => !o)}
+              ref={menuTrigger}
+              onClick={() => { openLast.current = false; setMenuOpen((o) => !o); }}
+              onKeyDown={event => { if (["ArrowDown", "ArrowUp"].includes(event.key)) { event.preventDefault(); openLast.current = event.key === "ArrowUp"; setMenuOpen(true); } }}
               aria-haspopup="menu"
               aria-expanded={menuOpen}
               aria-label="More options"
@@ -393,7 +403,7 @@ export default function HistoricalRates({ compact = false }) {
               <MoreHorizontal className="w-4 h-4" />
             </button>
             {menuOpen && (
-              <div role="menu" className="absolute right-0 top-full mt-1 z-20 w-44 bg-white rounded-lg border border-gray-200 shadow-lg py-1">
+              <div role="menu" aria-label="Historical rates options" onKeyDown={event => navigateMenu(event, menuTrigger.current, () => setMenuOpen(false))} className="absolute right-0 top-full mt-1 z-20 w-44 bg-white rounded-lg border border-gray-200 shadow-lg py-1">
                 {[
                   { key: "watchlist", label: "Update watchlist" },
                   { key: "alerts", label: "Set rate alerts" },
@@ -401,7 +411,7 @@ export default function HistoricalRates({ compact = false }) {
                   <button
                     key={item.key}
                     type="button"
-                    role="menuitem"
+                    role="menuitem" tabIndex={-1}
                     onClick={() => { setMenuOpen(false); setModal(item.key); }}
                     className="w-full text-left text-sm text-gray-700 px-3 py-2 hover:bg-gray-50"
                   >

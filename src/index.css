@@ -130,3 +130,11 @@ select.filter-control {
     flex: 0 0 15rem;
   }
 }
+
+/* Fallback focus styling; component utilities retain their own rings/outlines. */
+@layer base {
+  :where(button, a, input, select, textarea, [tabindex]:not([tabindex="-1"])):focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 3px;
+  }
+}

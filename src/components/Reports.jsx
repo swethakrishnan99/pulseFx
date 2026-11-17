@@ -1,3 +1,4 @@
+import { navigateTabs } from "../lib/tabNavigation";
 import { airtableDay, inAirtableDateRange } from "../lib/airtableDates.mjs";
 import DateRangeFilter from "./DateRangeFilter";
 import { addDateDays } from "../lib/dateRange.mjs";
@@ -151,7 +152,7 @@ export default function Reports() {
       </div>
 
       {/* Tabs */}
-      <div role="tablist" className="flex gap-1 border-b border-gray-200 mb-4">
+      <div role="tablist" aria-label="Payment reports" onKeyDown={navigateTabs} className="flex gap-1 border-b border-gray-200 mb-4">
         {[
           { key: "tracker", label: "Payment tracker" },
           { key: "history", label: "Payment history" },
@@ -159,7 +160,9 @@ export default function Reports() {
           <button
             key={t.key}
             role="tab"
+            id={`reports-tab-${t.key}`} aria-controls="reports-panel"
             aria-selected={tab === t.key}
+            tabIndex={tab === t.key ? 0 : -1}
             type="button"
             onClick={() => setTab(t.key)}
             className={`text-sm px-4 py-2 -mb-px border-b-2 transition-colors ${
@@ -171,6 +174,7 @@ export default function Reports() {
         ))}
       </div>
 
+      <div id="reports-panel" role="tabpanel" aria-labelledby={`reports-tab-${tab}`}>
       {/* TRACKER */}
       {tab === "tracker" && (
         <div className="flex flex-col gap-3.5 max-w-3xl">
@@ -291,6 +295,7 @@ export default function Reports() {
           )}
         </>
       )}
+      </div>
     </div>
   );
 }

@@ -1,3 +1,4 @@
+import { navigateTabs } from "../lib/tabNavigation";
 import { dialogInput, dialogPrimary, dialogSecondary } from "../lib/dialogStyles";
 import PortalDialog from "./PortalDialog";
 import SearchFilter from "./SearchFilter";
@@ -168,12 +169,15 @@ export default function TradeFinance() {
 
       <div className="bg-white rounded-xl border border-gray-200/70">
         <div className="flex flex-wrap items-center gap-2 px-4 pt-3 border-b border-gray-100">
+          <div role="tablist" aria-label="Financing requests" onKeyDown={navigateTabs} className="flex flex-wrap items-end gap-2">
           {[["requests", "Submitted requests"], ["repayments", "Repayments"]].map(([k, l]) => (
-            <button key={k} type="button" onClick={() => { setTab(k); setStatus("All"); }} className={`text-sm px-3 py-2 -mb-px border-b-2 ${tab === k ? "border-brand text-accent font-medium" : "border-transparent text-gray-500 hover:text-gray-800"}`}>{l}</button>
+            <button key={k} type="button" role="tab" id={`finance-tab-${k}`} aria-controls="finance-panel" aria-selected={tab === k} tabIndex={tab === k ? 0 : -1} onClick={() => { setTab(k); setStatus("All"); }} className={`text-sm px-3 py-2 -mb-px border-b-2 ${tab === k ? "border-brand text-accent font-medium" : "border-transparent text-gray-500 hover:text-gray-800"}`}>{l}</button>
           ))}
+          </div>
           <button type="button" onClick={exportCsv} aria-label="Download statement" title="Download statement (CSV)" className="ml-auto mb-1 p-2 text-gray-500 hover:text-accent"><FileDown className="w-4 h-4" /></button>
         </div>
 
+        <div id="finance-panel" role="tabpanel" aria-labelledby={`finance-tab-${tab}`}>
         <div className="flex flex-wrap items-end gap-2 px-4 py-3">
           <SearchFilter id="trade-search" value={q} onChange={(event) => setQ(event.target.value)} placeholder="Reference, supplier or invoice" />
           <div className="filter-field"><label htmlFor="trade-status" className="mb-1.5 block text-xs text-gray-500">Status</label><select id="trade-status" aria-label="Filter by status" value={status} onChange={(e) => setStatus(e.target.value)} className="filter-control w-full text-sm border border-gray-200 rounded-md px-2.5 py-1.5 bg-white">
@@ -213,6 +217,7 @@ export default function TradeFinance() {
               )}
             </tbody>
           </table>
+        </div>
         </div>
       </div>
       <p className="text-xs text-gray-400 mt-3">Demo only: figures are sample data.</p>

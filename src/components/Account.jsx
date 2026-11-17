@@ -1,3 +1,4 @@
+import { navigateTabs } from "../lib/tabNavigation";
 import { useEffect, useState } from "react";
 import ProfileTab from "./ProfileTab";
 import SecurityTab from "./SecurityTab";
@@ -39,7 +40,7 @@ export default function Account({ tab: initialTab = "profile" }) {
         </div>
       </div>
 
-      <div role="tablist" aria-label="Account sections" className="flex gap-1 border-b border-gray-200 mb-4 overflow-x-auto">
+      <div role="tablist" onKeyDown={navigateTabs} aria-label="Account sections" className="flex gap-1 border-b border-gray-200 mb-4 overflow-x-auto">
         {TABS.map((t) => (
           <button
             key={t.key}
@@ -47,7 +48,8 @@ export default function Account({ tab: initialTab = "profile" }) {
             role="tab"
             type="button"
             aria-selected={tab === t.key}
-            aria-controls={`acct-panel-${t.key}`}
+            tabIndex={tab === t.key ? 0 : -1}
+            aria-controls="acct-panel"
             onClick={() => setTab(t.key)}
             className={`text-sm px-4 py-2 -mb-px border-b-2 whitespace-nowrap transition-colors ${
               tab === t.key ? "border-brand text-accent font-medium" : "border-transparent text-gray-500 hover:text-gray-800"
@@ -58,7 +60,7 @@ export default function Account({ tab: initialTab = "profile" }) {
         ))}
       </div>
 
-      <div id={`acct-panel-${tab}`} role="tabpanel" aria-labelledby={`acct-tab-${tab}`} className={tab === "profile" ? "max-w-3xl" : "max-w-5xl"}>
+      <div id="acct-panel" role="tabpanel" aria-labelledby={`acct-tab-${tab}`} className={tab === "profile" ? "max-w-3xl" : "max-w-5xl"}>
         {tab === "profile" && <ProfileTab username={USER.username} email={USER.email} />}
         {tab === "security" && <SecurityTab />}
         {tab === "notifications" && <NotificationsTab />}

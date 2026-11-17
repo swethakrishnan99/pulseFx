@@ -115,31 +115,32 @@ function AddAdminDialog({ onClose, onCreated }) {
   return <PortalDialog title="Add admin" subtitle="Create an administrator and generate their password setup link." icon={<ShieldCheck className="h-5 w-5" />} maxWidth="max-w-xl" busy={busy} onClose={onClose}>
     <form onSubmit={submit} aria-busy={busy} className="space-y-4 p-6">
       <fieldset disabled={busy} className="space-y-4">
-        <div><label htmlFor="add-admin-name" className="mb-1.5 block text-xs font-medium">Name *</label><input id="add-admin-name" autoComplete="name" required maxLength={120} value={name} onChange={(event) => setName(event.target.value)} className={input} /></div>
+        <div><label htmlFor="add-admin-name" className="mb-1.5 block text-xs font-medium">Name *</label><input id="add-admin-name" autoFocus autoComplete="name" required maxLength={120} value={name} onChange={(event) => setName(event.target.value)} className={input} /></div>
         <div><label htmlFor="add-admin-email" className="mb-1.5 block text-xs font-medium">Email address *</label><input id="add-admin-email" type="email" autoComplete="email" required maxLength={254} value={email} onChange={(event) => setEmail(event.target.value)} className={input} /></div>
         <label className="flex items-start gap-2 text-sm text-gray-700"><input type="checkbox" required checked={confirmed} onChange={(event) => setConfirmed(event.target.checked)} className="mt-1 accent-accent" /><span>I confirm this person should have administrator access, including the ability to add other administrators.</span></label>
       </fieldset>
       {error && <p role="alert" className="text-sm text-danger">{error}</p>}
-      <div className="flex justify-end gap-2"><button type="button" disabled={busy} onClick={onClose} className={secondary}>Cancel</button><button type="submit" disabled={busy || !confirmed} className={primary}><ShieldCheck className="h-4 w-4" />{busy ? "Creating admin…" : "Create admin and generate link"}</button></div>
+      <div className="flex justify-end gap-2"><button type="button" disabled={busy} onClick={onClose} className={secondary}>Cancel</button><button type="submit" disabled={busy || !confirmed} className={primary}>{busy ? "Creating admin…" : "Create and generate link"}</button></div>
     </form>
   </PortalDialog>;
 }
 
-function InviteDialog({ partners, onClose, onInvite }) {
+export function InviteDialog({ partners, onClose, onInvite }) {
   const input = dialogInput, primary = dialogPrimary, secondary = dialogSecondary;
   const [company, setCompany] = useState("");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const normalizedEmail = email.trim().toLowerCase();
+  const selectedCompany = company.trim();
+  const valid = !!(selectedCompany && name.trim() && /^\S+@\S+\.\S+$/.test(normalizedEmail));
 
 
   async function submit(event) {
     event.preventDefault();
     if (busy) return;
-    const normalizedEmail = email.trim().toLowerCase();
-    const selectedCompany = company.trim();
-    if (!selectedCompany || !name.trim() || !/^\S+@\S+\.\S+$/.test(normalizedEmail)) {
+    if (!valid) {
       setError("Enter a partner, contact name and valid email address.");
       return;
     }
@@ -187,7 +188,7 @@ function InviteDialog({ partners, onClose, onInvite }) {
         {error && <p id="admin-invite-error" role="alert" className="text-sm text-danger">{error}</p>}
         <div className="flex justify-end gap-2">
           <button type="button" className={secondary} disabled={busy} onClick={onClose}>Cancel</button>
-          <button type="submit" disabled={busy} className={primary}><Link2 className="w-4 h-4" />{busy ? "Generating link…" : "Confirm and generate link"}</button>
+          <button type="submit" disabled={busy || !valid} className={primary}>{busy ? "Generating link…" : "Create and generate link"}</button>
         </div>
       </form>
     </PortalDialog>
@@ -195,7 +196,7 @@ function InviteDialog({ partners, onClose, onInvite }) {
 }
 
 export default function PartnerAdmin() {
-  const { sort, toggleSort, sortRows } = useTableSort();
+  const { sort, toggleSort, sortRows } = useTableSort({ key: "identity", dir: "asc" });
   const [partners, setPartners] = useState([]);
   const [admins, setAdmins] = useState([]);
   const [currentUserId, setCurrentUserId] = useState(null);

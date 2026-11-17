@@ -8,7 +8,7 @@ export function AddClientDialog({ onClose, children }) {
   return <PortalDialog title="Add a client" subtitle="A new connection starts here." icon={<Building2 className="h-5 w-5" />} onClose={onClose}>{children}</PortalDialog>;
 }
 
-export default function AddClientFormFields({ values: v, setValues: setV, duplicate, saving, saveError, onSubmit, onClose }) {
+export default function AddClientFormFields({ values: v, setValues: setV, duplicate, canSubmit = false, saving, saveError, onSubmit, onClose }) {
   const set = key => event => setV(previous => ({ ...previous, [key]: event.target.value }));
   const toggle = currency => setV(previous => ({ ...previous, cur: previous.cur.includes(currency) ? previous.cur.filter(item => item !== currency) : [...previous.cur, currency] }));
   return (
@@ -45,7 +45,7 @@ export default function AddClientFormFields({ values: v, setValues: setV, duplic
       </fieldset>
       <footer className="sticky bottom-0 border-t border-gray-200 bg-white px-6 py-4 sm:px-8">
         {saveError && <p role="alert" className="mb-3 text-sm text-danger">{saveError}</p>}
-        <div className="flex flex-wrap items-center justify-between gap-3"><p className="text-xs text-gray-500">Once added, you can follow your client’s progress in Referrals.</p><div className="flex items-center gap-3"><button type="button" disabled={saving} onClick={onClose} className="rounded-lg border border-gray-200 px-4 py-2.5 text-sm font-medium hover:bg-gray-50 disabled:opacity-50">Cancel</button><button type="submit" disabled={saving} className="inline-flex items-center gap-2 rounded-lg bg-brand px-5 py-2.5 text-sm font-semibold text-navy hover:bg-[#009a7d] disabled:opacity-50">{saving ? "Saving…" : "Add client"}</button></div></div>
+        <div className="flex flex-wrap items-center justify-between gap-3"><p className="text-xs text-gray-500">Once added, you can follow your client’s progress in Referrals.</p><div className="flex items-center gap-3"><button type="button" disabled={saving} onClick={onClose} className="rounded-lg border border-gray-200 px-4 py-2.5 text-sm font-medium hover:bg-gray-50 disabled:opacity-50">Cancel</button><button type="submit" disabled={saving || !canSubmit} className="inline-flex items-center gap-2 rounded-lg bg-brand px-5 py-2.5 text-sm font-semibold text-navy hover:bg-[#009a7d] disabled:opacity-50">{saving ? "Saving…" : "Add client"}</button></div></div>
       </footer>
     </form>
   );

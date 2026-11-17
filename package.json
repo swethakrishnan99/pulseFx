@@ -26,7 +26,8 @@
     "lint:documents": "eslint src/components/Documents.jsx src/components/DocumentPreview.jsx src/lib/documents.js src/lib/dialogStyles.js supabase/functions/pulsefx-documents/*.mjs",
     "test:documents": "node --test supabase/functions/pulsefx-documents/*.test.mjs supabase/functions/pulsefx-one-pagers/*.test.mjs supabase/functions/pulsefx-brand-assets/*.test.mjs",
     "lint:support": "eslint src/lib/support.js supabase/functions/partner-support/service.mjs",
-    "test:support": "node --test supabase/functions/partner-support/*.test.mjs"
+    "test:support": "node --test supabase/functions/partner-support/*.test.mjs",
+    "test:keyboard": "vite build --config tests/vite.config.mjs && node --test dist-ssr/keyboard/keyboard.test.js"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.119.0",
@@ -47,6 +48,7 @@
     "eslint-plugin-react-refresh": "^0.5.6",
     "gh-pages": "^6.3.0",
     "globals": "^17.12.0",
+    "linkedom": "^0.18.12",
     "vite": "^8.3.0"
   }
 }

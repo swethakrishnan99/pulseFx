@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import { keepDialogFocus } from "../lib/dialogFocus";
+import { useEffect, useRef, useState } from "react";
 import {
   Menu,
   X,
@@ -102,12 +103,24 @@ function SidebarContent({ active, onNavigate, items, account, helpKey, portalLab
 
 export default function Sidebar({ active, onNavigate, items = NAV_ITEMS, account, helpKey = "help", portalLabel = "Client portal" }) {
   const [open, setOpen] = useState(false);
+  const drawer = useRef(null);
 
   useEffect(() => {
     if (!open) return;
-    const onKey = (e) => e.key === "Escape" && setOpen(false);
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
+    const previous = document.activeElement;
+    const element = drawer.current;
+    element.showModal();
+    const overflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const media = window.matchMedia("(min-width: 768px)");
+    const resize = () => { if (media.matches) setOpen(false); };
+    media.addEventListener("change", resize);
+    return () => {
+      element.close();
+      document.body.style.overflow = overflow;
+      media.removeEventListener("change", resize);
+      previous?.focus();
+    };
   }, [open]);
 
   const go = (key) => {
@@ -141,12 +154,12 @@ export default function Sidebar({ active, onNavigate, items = NAV_ITEMS, account
       </header>
 
       {open && (
-        <div className="md:hidden fixed inset-0 z-40">
-          <div className="absolute inset-0 bg-black/50" onClick={() => setOpen(false)} aria-hidden="true" />
+        <dialog ref={drawer} tabIndex={-1} onKeyDown={keepDialogFocus} aria-label="Main menu" onCancel={event => { event.preventDefault(); setOpen(false); }}
+          onClick={event => { if (event.target === event.currentTarget) setOpen(false); }}
+          className="fixed inset-0 m-0 h-dvh max-h-none w-full max-w-none bg-transparent p-0 backdrop:bg-black/50">
           <aside
             className="pfx-drawer absolute inset-y-0 left-0 w-[260px] max-w-[85vw] bg-navy flex flex-col p-3.5"
-            role="dialog"
-            aria-label="Main menu"
+
           >
             <button
               type="button"
@@ -158,7 +171,7 @@ export default function Sidebar({ active, onNavigate, items = NAV_ITEMS, account
             </button>
             <SidebarContent active={active} onNavigate={go} items={items} account={account} helpKey={helpKey} portalLabel={portalLabel} />
           </aside>
-        </div>
+        </dialog>
       )}
     </>
   );

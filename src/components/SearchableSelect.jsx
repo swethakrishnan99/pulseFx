@@ -16,7 +16,7 @@ export default function SearchableSelect({ id, label, options, value, valueLabel
   function keyDown(event) {
     if (event.key === "ArrowDown" || event.key === "ArrowUp") {
       event.preventDefault();
-      if (!open) { setOpen(true); setQuery(""); setActive(0); }
+      if (!open) { setOpen(true); setQuery(""); setActive(event.key === "ArrowUp" ? options.length - 1 : 0); }
       else setActive((previous) => (previous + (event.key === "ArrowDown" ? 1 : -1) + filtered.length) % (filtered.length || 1));
     } else if (event.key === "Enter" && open) {
       event.preventDefault(); if (filtered[activeIndex]) choose(filtered[activeIndex]);
@@ -34,7 +34,7 @@ export default function SearchableSelect({ id, label, options, value, valueLabel
         onFocus={() => { setOpen(true); setQuery(""); setActive(0); }} onBlur={() => setOpen(false)}
         onChange={(event) => { setQuery(event.target.value); setActive(0); setOpen(true); }} onKeyDown={keyDown}
         className="w-full rounded-lg border border-gray-200 bg-white py-2.5 pl-3 pr-16 text-sm focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent-100 disabled:bg-gray-50 disabled:text-gray-500" />
-      {!disabled && (value || valueLabel) && !required && <button type="button" aria-label={`Clear ${label}`} onMouseDown={(event) => event.preventDefault()} onClick={() => { onChange(""); setQuery(""); setOpen(false); }} className="absolute right-8 top-2 rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-700"><X className="h-4 w-4" /></button>}
+      {!disabled && (value || valueLabel) && !required && <button type="button" aria-label={`Clear ${label}`} onMouseDown={(event) => event.preventDefault()} onClick={() => { onChange(""); input.current?.focus(); setQuery(""); setOpen(false); }} className="absolute right-8 top-2 rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-700"><X className="h-4 w-4" /></button>}
       <button type="button" aria-label={`Show ${label} options`} disabled={disabled} tabIndex={-1} onMouseDown={(event) => event.preventDefault()} onClick={() => { input.current.focus(); setOpen(!expanded); setQuery(""); setActive(0); }} className="absolute right-2 top-2 rounded p-1 text-gray-400 hover:bg-gray-100 disabled:pointer-events-none"><ChevronDown className="h-4 w-4" /></button>
     </div>
     {expanded && <ul id={listId} role="listbox" aria-label={label} className="absolute z-20 mt-1 max-h-48 w-full overflow-y-auto rounded-lg border border-gray-200 bg-white py-1 text-sm shadow-lg">

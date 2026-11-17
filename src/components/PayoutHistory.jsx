@@ -43,7 +43,7 @@ function PayoutDetails({ payout, onClose }) {
   </PortalDialog>;
 }
 export default function PayoutHistory({ authenticated = false, showDescription = true }) {
-  const { sort, toggleSort, sortRows } = useTableSort();
+  const { sort, toggleSort, sortRows } = useTableSort({ key: "createdAt", dir: "desc" });
   const [selected, setSelected] = useState(null);
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(authenticated);
