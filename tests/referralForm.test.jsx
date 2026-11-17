@@ -87,9 +87,9 @@ test('a previously rejected referral is submitted only after explicit confirmati
   await fill('public-firstName', 'Ana'); await fill('public-lastName', 'Costa'); await fill('public-email', 'ana@example.com');
   await submit();
   assert.match(document.querySelector('[role="alert"]').textContent, /Previously rejected/);
-  assert.equal(document.querySelector('button[type="submit"]').disabled, true);
-  const confirm = [...document.querySelectorAll('button')].find(button => button.textContent === 'Continue and submit');
-  await act(async () => confirm.click());
+  assert.equal(document.querySelector('button[type="submit"]').disabled, false);
+  assert.equal(document.querySelector('button[type="submit"]').textContent, 'Confirm and continue');
+  await submit();
   const sent = calls.filter(call => call.action === 'submit');
   assert.equal(sent.length, 2); assert.equal(sent[0].confirmedRejection, undefined);
   assert.equal(sent[1].confirmedRejection.id, 'recDDDDDDDDDDDDDD');
