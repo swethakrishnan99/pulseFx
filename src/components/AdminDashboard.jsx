@@ -331,7 +331,7 @@ export default function AdminDashboard({
     setAttempt(value => value + 1);
   }
   if (result.loading && !result.data) return <div role="status" className={`${panel} p-12 text-center text-sm text-gray-500`}>
-    
+
 Loading administration dashboard…
 
   </div>;
