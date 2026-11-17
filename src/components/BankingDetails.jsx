@@ -1,3 +1,4 @@
+import { DEMO_BANK_ACCOUNTS } from "../lib/partnerDemo";
 import { dialogSecondary } from "../lib/dialogStyles";
 import { formatAirtableDateTime } from "../lib/airtableDates.mjs";
 import { latestBankingDecision, latestPendingBanking } from "../lib/pendingBanking.mjs";
@@ -15,7 +16,7 @@ const label = "mb-1.5 block text-sm font-medium text-gray-700";
 const blank = () => ({ submissionId: crypto.randomUUID(), bank: "", holder: "", account: "", institutionCode: "", transitNumber: "", currency: "CAD", comments: "" });
 const date = formatAirtableDateTime;
 const styles = { Verified: "bg-success-100 text-success", "Pending verification": "bg-warning-100 text-amber-800", Rejected: "bg-danger-100 text-danger" };
-const demoAccount = { id: "demo", bank: "RBC Royal Bank", holder: "ABC Accounting Inc.", account: "12344821", last4: "4821", currency: "CAD", status: "Verified", current: true, submittedAt: "", reviewNotes: "", comments: "" };
+const demoAccount = DEMO_BANK_ACCOUNTS.find(account => account.current);
 
 function Status({ status }) {
   return <span className={`inline-block rounded-full px-2.5 py-1 text-xs ${styles[status] || "bg-gray-100 text-gray-700"}`}>{status}</span>;
@@ -40,7 +41,7 @@ function AccountHistoryDetails({ account, isCurrent, onClose }) {
 }
 
 export default function BankingDetails({ authenticated = false }) {
-  const [data, setData] = useState({ accounts: authenticated ? [] : [demoAccount], currentAccount: authenticated ? null : demoAccount, currentIssue: false });
+  const [data, setData] = useState({ accounts: authenticated ? [] : DEMO_BANK_ACCOUNTS, currentAccount: authenticated ? null : demoAccount, currentIssue: false });
   const [loading, setLoading] = useState(authenticated);
   const [error, setError] = useState("");
   const [attempt, setAttempt] = useState(0);

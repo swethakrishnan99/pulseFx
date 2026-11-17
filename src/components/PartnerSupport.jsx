@@ -8,7 +8,7 @@ const ghost = "inline-flex items-center gap-1.5 text-sm font-medium border borde
 const PHONE = { display: "416 848 1028", tel: "+14168481028" };
 const EMAIL = "partnerships@pulsefx.com";
 export default function PartnerSupport({ authenticated = false, login = false, onClose }) {
-  const [m, setM] = useState(() => ({ name: "", email: "", category: "", subject: "", body: "" }));
+  const [m, setM] = useState(() => !authenticated && !login ? { name: "Alex Morgan", email: "alex@abc-accounting.example", category: "Referral Status & Updates", subject: "Onboarding documents for Northwind Machining Ltd.", body: "Hello, could you confirm whether Northwind Machining Ltd. has submitted all required onboarding documents? Their team is preparing its first USD supplier payment and would appreciate an update on the next steps. Thank you, Alex." } : { name: "", email: "", category: "", subject: "", body: "" });
   const [sent, setSent] = useState(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
