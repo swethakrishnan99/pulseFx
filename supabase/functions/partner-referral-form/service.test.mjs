@@ -21,12 +21,16 @@ function setup(options = {}) {
     assert.equal(init.headers.Authorization, "Bearer private");
     if (url.pathname.endsWith(`/partner_api/${partnerId}`)) {
       if (init.method === "PATCH") { writes.push(JSON.parse(init.body)); return Response.json({ id: partnerId }); }
-      return Response.json({ id: partnerId, fields: { Name: "Partner One", "Referral URL": options.storedLink ?? link } });
+      return Response.json({ id: partnerId, fields: { Name: "Partner One", "Referral URL": options.storedLink ?? link, Referrals: options.existing ? ["recDDDDDDDDDDDDDD"] : [] } });
     }
     if (url.pathname === "/v0/appTest/referrals_form_api") {
       writes.push(JSON.parse(init.body));
       if (options.intakeFailure) throw new Error("private intake error");
       return Response.json({ records: [{ id: "recCCCCCCCCCCCCCC" }] });
+    }
+    if (url.pathname === "/v0/appTest/referrals_api" && !init.method) {
+      if (options.lookupFailure) throw new Error("Lookup unavailable");
+      return Response.json({ records: [{ id: "recDDDDDDDDDDDDDD", fields: { Partner: [options.foreign ? "recEEEEEEEEEEEEEE" : partnerId], Email: options.existing, Status: options.existingStatus || "Invited" } }] });
     }
     assert.equal(url.pathname, "/v0/appTest/referrals_api");
     writes.push(JSON.parse(init.body));
@@ -94,4 +98,36 @@ test("a failed intake never creates a referral; a failed referral retains its in
   assert.equal((await referral.handler(req(submission))).status, 502);
   assert.equal(referral.writes.length, 2);
   assert.ok(referral.writes[0].records[0].fields["Submission ID"]);
+});
+
+test("fresh submissions cannot duplicate an existing email for this partner", async () => {
+  for (const existingStatus of ["Invited", "Account created", "Documents submitted", "Under review", "Onboarded", "Rejected"]) {
+    const s = setup({ existing: " ANA@EXAMPLE.COM ", existingStatus });
+    assert.equal((await s.handler(req(submission))).status, 409);
+    assert.equal(s.writes.length, 0);
+  }
+});
+test("same company with a different email and emails linked only to another partner are allowed", async () => {
+  for (const options of [{ existing: "other@example.com" }, { existing: "ana@example.com", foreign: true }]) {
+    const s = setup(options); assert.equal((await s.handler(req(submission))).status, 201);
+  }
+});
+test("unavailable duplicate lookup cannot create intake or referral records", async () => {
+  const s = setup({ existing: "ana@example.com", lookupFailure: true });
+  assert.equal((await s.handler(req(submission))).status, 502);
+  assert.equal(s.writes.length, 0);
+});
+
+test("a rejected referral requires current confirmation; active duplicates cannot be overridden", async () => {
+  const s = setup({ existing: "ana@example.com", existingStatus: "Rejected" });
+  const first = await s.handler(req(submission)); const body = await first.json();
+  assert.equal(first.status, 409); assert.equal(body.code, "rejection_confirmation_required");
+  assert.equal(s.claims.length, 0); assert.equal(s.writes.length, 0);
+  const stale = await s.handler(req({ ...submission, confirmedRejection: { ...body.rejection, statusChangedAt: "stale" } }));
+  assert.equal(stale.status, 409);
+  const confirmed = await s.handler(req({ ...submission, confirmedRejection: body.rejection }));
+  assert.equal(confirmed.status, 201);
+  const active = setup({ existing: "ana@example.com", existingStatus: "Onboarded" });
+  assert.equal((await active.handler(req({ ...submission, confirmedRejection: body.rejection }))).status, 409);
+  assert.equal(active.writes.length, 0);
 });
