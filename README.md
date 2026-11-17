@@ -116,7 +116,7 @@ To test manually after deploying:
 5. Verify an empty partner shows **No referrals yet**, and a failed API request shows an error with **Try again**, without substituting demo data.
 6. Open `#partner-demo` and confirm the public sample list still works without authentication.
 
-Authenticated referrals are read-only. **Add a client**, dashboard counters and other portal screens remain demonstrations and do not write to Airtable.
+Partner **Home** loads all referrals for the signed-in partner through the existing partner-referrals API. Referred counts all referrals; Onboarded counts records with Status = Onboarded (displayed as Yes in Referrals); In progress excludes rejected and onboarded records; Rejected counts records with Status = Rejected. Cards appear in the order Referred, Onboarded, In progress, Rejected. The placeholder referral link is shown only in the public demo. Home includes shortcuts to all partner sections. The public demo uses sample data.
 
 ## Partner administration and manual invitation links
 

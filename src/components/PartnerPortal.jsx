@@ -25,7 +25,7 @@ import { sortTableRows } from "../lib/tableSort.mjs";
 import ClearFiltersButton from "./ClearFiltersButton";
 import { useEffect, useState, useMemo, useRef } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { AlertTriangle, Home, Users, DollarSign, Landmark, BookOpen, Headset, Copy, Check, Eye, Download, UserPlus, ChevronDown, CheckCircle2, Palette, ArrowRight, Upload, FileText, RefreshCw } from "lucide-react";
+import { AlertTriangle, Clock3, XCircle, Home, Users, DollarSign, Landmark, BookOpen, Headset, Copy, Check, Eye, Download, UserPlus, ChevronDown, CheckCircle2, Palette, ArrowRight, Upload, FileText, RefreshCw } from "lucide-react";
 import Sidebar from "./Sidebar";
 import PartnerAdmin from "./PartnerAdmin";
 import BankingDetails from "./BankingDetails";
@@ -37,12 +37,11 @@ import { createPartnerReferral, loadPartnerReferrals, loadPartnerProfile } from 
 // Partner portal demo for referral partners (for example an accounting firm that refers its clients to PulseFX).
 // The public demo is reached at #partner-demo. Authenticated referrals use Airtable.
 
-const PARTNER = { name: "ABC Accounting", onboardedOn: "2026-09-02", slug: "abc-accounting" };
+const PARTNER = { name: "ABC Accounting", slug: "abc-accounting" };
 const LINK = `https://partners.pulsefx.example/${PARTNER.slug}/signup`;
 
 const DAY = 86400000;
 const iso = (off) => { const d = new Date(Date.now() + off * DAY); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; };
-const pretty = (s) => s ? new Date(`${s}T12:00:00`).toLocaleDateString("en-CA", { year: "numeric", month: "short", day: "numeric" }) : "—";
 
 const prettyDateTime = formatAirtableDateTime;
 const referralDateValue = (record, field) => airtableFieldValue(record, field === "created" ? "createdAt" : "modifiedAt", field);
@@ -83,24 +82,30 @@ const PAGE_SUBTITLES = {
 
 
 /* ---------------------------------------------------------------- Home */
-function PartnerHome({ go }) {
+function PartnerHome({ go, authenticated }) {
   const [copied, setCopied] = useState(false);
-  const total = REFERRALS.length;
-  const onboarded = REFERRALS.filter((r) => r.status === "Onboarded").length;
-  const inProgress = REFERRALS.filter((r) => !["Onboarded", "Rejected"].includes(r.status)).length;
+  const [activity, setActivity] = useState({ loading: authenticated, referrals: authenticated ? [] : REFERRALS, error: "" });
+  const [reload, setReload] = useState(0);
+  useEffect(() => {
+    if (!authenticated) return;
+    let active = true;
+    const controller = new AbortController();
+    loadPartnerReferrals({ signal: controller.signal }).then((referrals) => {
+      if (active) setActivity({ loading: false, referrals, error: "" });
+    }).catch((error) => {
+      if (active) setActivity({ loading: false, referrals: [], error: error.message });
+    });
+    return () => { active = false; controller.abort(); };
+  }, [authenticated, reload]);
+  const total = activity.referrals.length;
+  const isOnboarded = (referral) => referral.status === "Onboarded";
+  const onboarded = activity.referrals.filter(isOnboarded).length;
+  const rejected = activity.referrals.filter((referral) => referral.status === "Rejected").length;
+  const inProgress = activity.referrals.filter((r) => r.status !== "Rejected" && !isOnboarded(r)).length;
   function copy() { navigator.clipboard?.writeText(LINK); setCopied(true); setTimeout(() => setCopied(false), 1500); }
   return (
     <div className="flex flex-col gap-4">
-      <div className={`${card} p-5`}>
-        <p className="text-xs text-gray-500">Your partner status</p>
-        <div className="flex flex-wrap items-center gap-2 mt-1">
-          <p className="text-lg font-semibold text-gray-900">{PARTNER.name}</p>
-          <span className="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full bg-success-100 text-success"><CheckCircle2 className="w-3.5 h-3.5" />Onboarded</span>
-        </div>
-        <p className="text-xs text-gray-500 mt-1">Your partner application was approved on {pretty(PARTNER.onboardedOn)}. You can refer clients and track them here.</p>
-      </div>
-
-      <div className={`${card} p-5`}>
+      {!authenticated && <div className={`${card} p-5`}>
         <p className="text-sm font-medium text-accent">Referral link</p>
         <p className="text-xs text-gray-500 mt-0.5">Share this link with your clients. Anyone who signs up with it appears under Referrals.</p>
         <div className="flex items-center gap-2 mt-3">
@@ -109,11 +114,21 @@ function PartnerHome({ go }) {
             {copied ? <Check className="w-4 h-4 text-accent" /> : <Copy className="w-4 h-4" />}{copied ? "Copied" : "Copy"}
           </button>
         </div>
-      </div>
+      </div>}
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        {[["Referred", total], ["In progress", inProgress], ["Onboarded", onboarded]].map(([k, v]) => (
-          <div key={k} className={`${card} p-5`}><p className="text-xs text-gray-500">{k}</p><p className="text-2xl font-semibold text-gray-900 mt-1">{v}</p></div>
+      {activity.error && <div role="alert" className={`${card} p-5 text-sm text-danger`}>{activity.error}<button type="button" className={`${ghost} ml-3`} onClick={() => { setActivity({ loading: true, referrals: [], error: "" }); setReload((value) => value + 1); }}>Try again</button></div>}
+      {activity.loading && <p role="status" className="text-sm text-gray-500">Loading referral activity…</p>}
+      <div role="group" aria-label="Referral summary" aria-busy={activity.loading} className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        {[
+          ["Referred", total, Users, "bg-blue-100 text-blue-600"],
+          ["Onboarded", onboarded, CheckCircle2, STATUS_STYLE.Onboarded],
+          ["In progress", inProgress, Clock3, STATUS_STYLE["Under review"]],
+          ["Rejected", rejected, XCircle, STATUS_STYLE.Rejected],
+        ].map(([label, value, Icon, style]) => (
+          <div key={label} className={`${card} flex min-w-0 items-center justify-between gap-3 p-5`}>
+            <div className="min-w-0"><p className="text-xs text-gray-500">{label}</p><p className="mt-2 text-2xl font-semibold text-gray-900">{activity.loading || activity.error ? "—" : value}</p></div>
+            <span aria-hidden="true" className={`shrink-0 rounded-xl p-3 ${style}`}><Icon className="h-5 w-5" /></span>
+          </div>
         ))}
       </div>
 
@@ -121,8 +136,11 @@ function PartnerHome({ go }) {
         {[
           ["Referrals", "Track every business you've referred and where they are in onboarding.", "Open referrals", "referrals"],
           ["Add a new client", "Register a client's details and track their progress under Referrals.", "Add a client", "add"],
-          ["Partner guide", "Answers to common questions about referring and onboarding clients.", "Read the guide", "guide"],
           ["Banking details", "Where we send partner payouts. Keep these up to date.", "View details", "banking"],
+          ["Payout history", "Track your partner payouts and review payment details.", "View payouts", "payouts"],
+          ["Brand kit", "Manage your referral branding and access PulseFX assets.", "Open brand kit", "brand"],
+          ["Partner guide", "Answers to common questions about referring and onboarding clients.", "Read the guide", "guide"],
+          ["Contact", "Get in touch with the PulseFX partnerships team.", "Contact us", "contact"],
         ].map(([t, d, b, k]) => (
           <div key={k} className={`${card} p-5 flex flex-col`}>
             <p className="text-sm font-medium text-accent">{t}</p>
@@ -607,7 +625,7 @@ const PARTNER_NAV_ITEMS = NAV
   .filter(([key]) => key !== "contact")
   .map(([key, label, icon]) => ({
     key,
-    label: key === "home" ? "Dashboard" : label,
+    label,
     icon,
   }));
 
@@ -627,7 +645,7 @@ export default function PartnerPortal({ onExit, user, isAdmin = false, signingOu
     // An unknown or not-permitted page goes back to the start page.
     if (page && !allowedTabs.includes(page)) navigate(basePath, { replace: true });
   }, [page, canAdmin]); // eslint-disable-line react-hooks/exhaustive-deps
-  const title = tab === "admin-referrals" ? "Referral follow-up" : tab === "documents" ? "Documents" : tab === "admin" ? "User management" : tab === "banking-approvals" ? "Banking approvals" : tab === "admin-payouts" ? "Payouts" : tab === "home" ? "Dashboard" : NAV.find((n) => n[0] === tab)?.[1];
+  const title = tab === "admin-referrals" ? "Referral follow-up" : tab === "documents" ? "Documents" : tab === "admin" ? "User management" : tab === "banking-approvals" ? "Banking approvals" : tab === "admin-payouts" ? "Payouts" : tab === "home" ? "Home" : NAV.find((n) => n[0] === tab)?.[1];
   useEffect(() => {
     document.title = `${title || "Partner portal"} · PulseFX`;
     window.scrollTo(0, 0);
@@ -674,7 +692,7 @@ export default function PartnerPortal({ onExit, user, isAdmin = false, signingOu
         {tab === "banking-approvals" && canAdmin && <BankingApprovals />}
         {tab === "admin-payouts" && canAdmin && <AdminPayouts />}
         {tab === "admin-referrals" && canAdmin && <AdminReferrals key={user?.id} />}
-        {tab === "home" && <PartnerHome go={setTab} />}
+        {tab === "home" && <PartnerHome key={user?.id || "demo"} go={setTab} authenticated={!!user} />}
         {tab === "referrals" && <Referrals key={user?.id || "demo"} authenticated={!!user} go={setTab} />}
         {tab === "add" && <AddClient go={setTab} authenticated={!!user} />}
         {tab === "banking" && <BankingDetails authenticated={!!user} />}
