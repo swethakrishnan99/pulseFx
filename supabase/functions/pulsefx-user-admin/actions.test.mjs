@@ -30,7 +30,7 @@ function setup(options={}) {
     listAdmins:async()=>[row,...(options.lastActive?[]:[{id:actorId,activated:true}])],
     partnerEmailExists:async(email)=>(options.partners||[]).some((row)=>row.email===email),
   };
-  const handler=createPulsefxUserAdminHandler({auth,store,env:{PORTAL_URL:"https://portal.example/"}});
+  const handler=createPulsefxUserAdminHandler({auth,store,audit:options.audit,env:{PORTAL_URL:"https://portal.example/"}});
   const request=(action,body={})=>handler(new Request("https://api.example/pulsefx-user-admin",{method:"POST",headers:{authorization:"Bearer token"},body:JSON.stringify({action,id:targetId,...body})}));
   return {request,events,user:()=>user};
 }
@@ -105,4 +105,15 @@ test("session verification requires a verified JWT session ID and the live sessi
  assert.equal(await adminSessionValid(admin,actorId,token),true);assert.equal(calls,1);
  assert.equal(await adminSessionValid({rpc:async()=>ok(false)},actorId,token),false);
  await assert.rejects(adminSessionValid({rpc:async()=>({error:{}})},actorId,token));
+});
+
+test("deactivation audit uses the verified caller and is included in the response",async()=>{
+ const calls=[];
+ const caller={id:actorId,email:"operator@example.test",app_metadata:{role:"partner_admin"}};
+ const audit={record:async(...args)=>calls.push(args),enrich:async(kind,rows)=>rows.map(row=>({...row,deactivatedByEmail:caller.email}))};
+ const f=setup({caller,audit});
+ const response=await f.request("disable",{actor_email:"spoof@example.test"});
+ assert.equal(response.status,200);
+ assert.equal((await response.json()).administrator.deactivatedByEmail,caller.email);
+ assert.deepEqual(calls,[["admin",targetId,"deactivated",caller]]);
 });

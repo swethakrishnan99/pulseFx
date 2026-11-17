@@ -27,7 +27,7 @@ async function listManagedUsers(signal) {
 }
 
 function formatCreatedAt(value) {
-  if (!value || Number.isNaN(new Date(value).getTime())) return "Not available";
+  if (!value || Number.isNaN(new Date(value).getTime())) return "—";
   return new Intl.DateTimeFormat("en-CA", { dateStyle: "medium", timeStyle: "long" }).format(new Date(value));
 }
 
@@ -49,6 +49,11 @@ function PartnerDetails({ partner, onClose }) {
     ["Supabase ID", partner.supabaseId, true],
     ...(partner.role === "partner_admin" ? [] : [["Airtable ID", partner.airtableId, true]]),
     ["Created at", formatCreatedAt(partner.createdAt)],
+    ["Created by", partner.createdByEmail || "—"],
+    ...(partner.status === "Deactivated" ? [
+      ["Deactivated at", formatCreatedAt(partner.deactivatedAt)],
+      ["Deactivated by", partner.deactivatedByEmail || "—"],
+    ] : []),
   ];
   return <PortalDialog title="User details" subtitle={partner.name} icon={<Eye className="h-5 w-5" />} maxWidth="max-w-xl" closeOnBackdrop collapseOnStatus={false} onClose={onClose}>
     <div className="p-6">
@@ -56,7 +61,7 @@ function PartnerDetails({ partner, onClose }) {
       {details.map(([label, value, copyable]) => <div key={label} className="py-3 first:pt-0">
         <dt className="text-xs text-gray-500">{label}</dt>
         <dd className="mt-1 flex items-start gap-2 text-sm">
-          <span className={`min-w-0 select-text break-all ${label.endsWith("ID") ? "font-mono" : ""}`}>{value || "Not available"}</span>
+          <span className={`min-w-0 select-text break-all ${label.endsWith("ID") ? "font-mono" : ""}`}>{value || "—"}</span>
           {copyable && value && <button type="button" onClick={() => copy(label, value)}
             aria-label={`Copy ${label}`} title={copied === label ? "Copied" : `Copy ${label}`}
             className={`${iconButton} -mt-1 text-accent`}>

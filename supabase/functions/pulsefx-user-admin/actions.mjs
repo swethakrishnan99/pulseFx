@@ -3,7 +3,7 @@ export function administratorAccount(row) {
     createdAt: row.created_at || null, status: row.disabled ? "Deactivated" : row.activated ? "Active" : "Awaiting activation" };
 }
 
-export async function manageAdministrator({ body, actor, auth, store, env, Failure, check }) {
+export async function manageAdministrator({ body, actor, auth, store, env, Failure, check, audit }) {
   const action = body.action;
   if (!["edit", "invite", "recovery", "enable", "disable", "delete"].includes(action)
     || typeof body.id !== "string" || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(body.id)) throw new Failure("Invalid administrator action.", 400);
@@ -64,7 +64,11 @@ export async function manageAdministrator({ body, actor, auth, store, env, Failu
       return { deleted: true, id: row.id };
     }
     check(await auth.admin.updateUserById(row.id, { ban_duration: action === "enable" ? "none" : "876000h" }), "Unable to change administrator access.");
-    if (action === "disable") await store.invalidateAdminCredentials(row.id, token);
+    if (action === "disable") {
+      await audit?.record("admin", row.id, "deactivated", actor);
+      await store.invalidateAdminCredentials(row.id, token);
+    }
+    if (action === "enable") await audit?.reactivate("admin", row.id);
     return { administrator: administratorAccount({ ...row, disabled: action !== "enable" }) };
   } finally { await store.releaseAdminAction(token).catch(() => {}); }
 }

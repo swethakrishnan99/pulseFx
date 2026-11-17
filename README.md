@@ -430,3 +430,9 @@ Administrators can open **Referral follow-up** (`/partner/admin-referrals`), sea
 The Airtable fields and Supabase follow-up lock schema have been configured in the connected project, and `partner-referrals` has been deployed. Local migration files have been removed; this repository does not currently provide a fresh-database bootstrap. Existing Airtable secrets/table IDs remain in use; the function now also needs the Supabase service-role key (server only). Status and `Last modified by user ID` / `Last modified by email` are patched together. Airtable maintains `Last modified` automatically; no write is made to this computed column. New audit columns may be empty on older records and initial partner submissions.
 
 Writes use a server-only per-record lease and check the expected status/timestamp after acquiring it. A stale screen receives a conflict and must refresh. Unchanged statuses do not update attribution or timestamps. These fields describe the most recent modifier, not a complete movement history. Airtable edits outside this endpoint are not covered by its lease.
+
+### Account audit details
+
+User details in both administration tabs show Created by, and, for deactivated accounts, Deactivated at / Deactivated by. Audit snapshots are written only by verified administration handlers, with actor ID/email taken from Auth. Existing accounts without recorded audit details display an em dash; no historical values are inferred. Reactivation clears the current deactivation snapshot; creation attribution is retained. This is a current-state snapshot, not a full event history.
+
+Before deploying the matching frontend, create the server-only audit table and deploy `partner-admin`, `partner-invitations` and `pulsefx-user-admin` using the English instructions in [the Omni prompt](docs/omni-account-audit-prompt.md). No local migrations directory is required.

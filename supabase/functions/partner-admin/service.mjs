@@ -1,3 +1,4 @@
+import { createAccountAudit } from "../_shared/account-audit.mjs";
 import { adminSessionValid } from "../_shared/admin-session.mjs";
 import { editPartner } from "./edit.mjs";
 
@@ -127,7 +128,7 @@ async function upsertAirtable(env, row, fetchImpl) {
   return partnerId;
 }
 
-export function createPartnerAdminHandler({ env, admin, auth = admin?.auth, store = admin ? createStore(admin) : null, fetchImpl = fetch, invitationDelivery = null, invitationsOnly = false }) {
+export function createPartnerAdminHandler({ env, admin, auth = admin?.auth, store = admin ? createStore(admin) : null, fetchImpl = fetch, invitationDelivery = null, invitationsOnly = false, audit = admin ? createAccountAudit(admin) : null }) {
   return async (request) => {
     if (request.method === "OPTIONS") return json(null, 200);
     if (!["GET", "POST"].includes(request.method)) return json({ error: "Method not allowed." }, 405);
@@ -140,9 +141,14 @@ export function createPartnerAdminHandler({ env, admin, auth = admin?.auth, stor
       if (verification.error || !verification.data?.user) throw new Failure("Please sign in again.", 401);
       if (verification.data.user.app_metadata?.role !== "partner_admin") throw new Failure("Administrator access is required.", 403);
       if (!await store.verifyAdminSession(verification.data.user.id, bearer)) throw new Failure("Please sign in again.", 401);
+      async function respond(payload) {
+        if (audit && payload.partner) payload.partner = (await audit.enrich("partner", [payload.partner]))[0];
+        return json(payload);
+      }
       if (invitationsOnly && request.method !== "POST") throw new Failure("Method not allowed.", 405);
       if (request.method === "GET") {
-        return json({ partners: (await store.list()).map(account) });
+        const partners = (await store.list()).map(account);
+        return json({ partners: audit ? await audit.enrich("partner", partners) : partners });
       }
 
       const body = await request.json().catch(() => null);
@@ -188,7 +194,7 @@ export function createPartnerAdminHandler({ env, admin, auth = admin?.auth, stor
       if (!lifecycle && !editing && !row.deleted_at && (row.disabled || current?.disabled)) throw new Failure("Reactivate this account before generating an access link.", 409);
 
       if (current?.profile_edit_pending && !editing) throw new Failure("Resume the pending profile update from Edit first.", 409);
-      if (editing) return json(await editPartner({ body, row, current, store, auth, actor: verification.data.user, Failure, check, account }));
+      if (editing) return await respond(await editPartner({ body, row, current, store, auth, actor: verification.data.user, Failure, check, account }));
 
       if (recovering) {
         if (row.deleted_at || !current?.activated || !row.ready || !row.user_id) throw new Failure("Only active accounts can receive a password reset link.", 409);
@@ -200,7 +206,7 @@ export function createPartnerAdminHandler({ env, admin, auth = admin?.auth, stor
         if (generated.user?.id !== row.user_id || !generated.properties?.hashed_token) throw new Failure("The password reset link could not be verified.");
         portal.searchParams.set("token_hash", generated.properties.hashed_token);
         portal.searchParams.set("type", "recovery");
-        return json({ partner: account({ ...current, ...row }), link: portal.toString(), kind: "recovery" });
+        return await respond({ partner: account({ ...current, ...row }), link: portal.toString(), kind: "recovery" });
       }
 
       if (lifecycle) {
@@ -221,14 +227,17 @@ export function createPartnerAdminHandler({ env, admin, auth = admin?.auth, stor
           if (user) check(await auth.admin.updateUserById(user.id, { ban_duration: "none" }), "Unable to reactivate this account. Please try again.");
           if (row.ready) await store.setAccess(row.id, token, true);
           else await store.save(row.id, token, { disabled: false });
-          return json({ partner: account({ ...current, ...row, disabled: false }) });
+          await audit?.reactivate("partner", row.id);
+          return await respond({ partner: account({ ...current, ...row, disabled: false }) });
         }
         // Revoke data access before banning/deleting. Failed Auth operations
         // remain closed to data access and may be safely retried.
         await store.setAccess(row.id, token, false);
         if (body.action === "disable") {
+          await audit?.record("partner", row.id, "deactivated", verification.data.user);
           if (user) check(await auth.admin.updateUserById(user.id, { ban_duration: "876000h" }), "Data access is blocked, but sign-in could not be disabled. Please retry deactivation.");
-          return json({ partner: account({ ...current, ...row, disabled: true }) });
+          const partner = account({ ...current, ...row, disabled: true });
+          return await respond({ partner });
         }
         if (user) check(await auth.admin.deleteUser(user.id), "Data access is blocked, but the account could not be deleted. Please try again.");
         await store.save(row.id, token, { user_id: null, ready: false, disabled: true, deleted_at: new Date().toISOString() });
@@ -252,6 +261,7 @@ export function createPartnerAdminHandler({ env, admin, auth = admin?.auth, stor
         }
         row = await store.save(row.id, token, { user_id: user.id });
       }
+      if (body.action === "create") await audit?.record("partner", row.id, "created", verification.data.user);
       if (!row.partner_id) row = await store.save(row.id, token, { partner_id: await upsertAirtable(env, row, fetchImpl) });
       await store.membership(row.user_id, row.partner_id);
       row = await store.save(row.id, token, { ready: true });
@@ -265,9 +275,9 @@ export function createPartnerAdminHandler({ env, admin, auth = admin?.auth, stor
       if (body.action === "create") {
         try { await invitationDelivery.enqueue(row, portal.toString()); }
         catch { throw new Failure("The partner was saved, but invitation delivery could not be confirmed. Check the invitation table before trying again."); }
-        return json({ partner, emailQueued: true });
+        return await respond({ partner, emailQueued: true });
       }
-      return json({ partner, link: portal.toString() });
+      return await respond({ partner, link: portal.toString() });
     } catch (error) {
       return json({ error: error instanceof Failure ? error.message : "Unable to complete this request. Refresh the partner list before trying again." }, error instanceof Failure ? error.status : 502);
     } finally {

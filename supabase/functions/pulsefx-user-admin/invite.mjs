@@ -1,5 +1,5 @@
 // Only called after verifying the caller's server-managed administrator role.
-export async function createAdministrator({ body, actor, auth, store, env, Failure, check }) {
+export async function createAdministrator({ body, actor, auth, store, env, Failure, check, audit }) {
   const name = typeof body.name === "string" ? body.name.trim() : "";
   const email = typeof body.email === "string" ? body.email.trim().toLowerCase() : "";
   if (!name || name.length > 120 || email.length > 254 || !/^\S+@\S+\.\S+$/.test(email) || body.confirmAdmin !== true) {
@@ -45,6 +45,7 @@ export async function createAdministrator({ body, actor, auth, store, env, Failu
   if (user.banned_until && new Date(user.banned_until).getTime() > Date.now()) {
     throw new Failure("This administrator is deactivated.", 409);
   }
+  await audit?.record("admin", user.id, "created", actor);
   const type = user.email_confirmed_at ? "recovery" : "invite";
   const generated = check(await auth.admin.generateLink({ type, email, options: { redirectTo: portal.toString() } }),
     "The administrator was created, but the link could not be generated. Retry Add admin with the same email.");
