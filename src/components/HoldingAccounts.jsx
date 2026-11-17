@@ -1,10 +1,11 @@
+import { navigateTabs } from "../lib/tabNavigation";
 import { dialogPrimary } from "../lib/dialogStyles";
 import PortalDialog from "./PortalDialog";
 import SearchFilter from "./SearchFilter";
 import SortableHeader from "./SortableHeader";
 import useTableSort from "../lib/useTableSort";
 import ClearFiltersButton from "./ClearFiltersButton";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useLayoutEffect, useRef } from "react";
 import { Landmark, Plus, Trash2, Eye, EyeOff, FileText, Copy, Check, Send, ArrowLeftRight, ArrowUpRight, ArrowDownRight, RefreshCw, Download, Printer } from "lucide-react";
 import Tooltip from "./Tooltip";
 import { setPendingPayFrom } from "../lib/quoteHandoff";
@@ -127,6 +128,12 @@ function LinkedAccounts() {
   const refresh = () => force((n) => n + 1);
   const list = sortRows(getBankAccounts(), { status: a => isVerified(a) ? "Verified" : "Pending" });
   const [adding, setAdding] = useState(false);
+  const linkTrigger = useRef(null);
+  const wasAdding = useRef(false);
+  useLayoutEffect(() => {
+    if (!adding && wasAdding.current) linkTrigger.current?.focus();
+    wasAdding.current = adding;
+  }, [adding]);
   const [f, setF] = useState({ currency: "CAD", bank: "", holder: "", account: "", routing: "" });
   const [confirmId, setConfirmId] = useState(null);
   const [notice, setNotice] = useState("");
@@ -166,6 +173,7 @@ function LinkedAccounts() {
       {!adding && (
         <button
           type="button"
+          ref={linkTrigger}
           onClick={() => { setNotice(""); setAdding(true); }}
           className="flex items-center gap-1.5 bg-brand text-navy text-sm font-medium px-4 py-2 rounded-md hover:bg-[#009a7d] transition-colors mb-4"
         >
@@ -179,23 +187,23 @@ function LinkedAccounts() {
           <h2 className="text-base font-semibold text-gray-900 border-b border-gray-100 pb-2 mb-4">Link a bank account</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
             <div>
-              <label className="block text-xs text-gray-500 mb-1">Currency of the account</label>
-              <select value={f.currency} onChange={(e) => setF({ ...f, currency: e.target.value })} className={field}>
+              <label htmlFor="linked-currency" className="block text-xs text-gray-500 mb-1">Currency of the account</label>
+              <select id="linked-currency" autoFocus value={f.currency} onChange={(e) => setF({ ...f, currency: e.target.value })} className={field}>
                 {CURRENCIES.map((c) => <option key={c} value={c}>{FLAGS[c]} {c}</option>)}
               </select>
             </div>
             <div>
-              <label className="block text-xs text-gray-500 mb-1">Bank name</label>
-              <input className={field} value={f.bank} onChange={(e) => setF({ ...f, bank: e.target.value })} placeholder="e.g. RBC Chequing" />
+              <label htmlFor="linked-bank" className="block text-xs text-gray-500 mb-1">Bank name</label>
+              <input id="linked-bank" className={field} value={f.bank} onChange={(e) => setF({ ...f, bank: e.target.value })} placeholder="e.g. RBC Chequing" />
             </div>
             <div className="sm:col-span-2">
-              <label className="block text-xs text-gray-500 mb-1">Account holder name</label>
-              <input className={field} value={f.holder} onChange={(e) => setF({ ...f, holder: e.target.value })} />
+              <label htmlFor="linked-holder" className="block text-xs text-gray-500 mb-1">Account holder name</label>
+              <input id="linked-holder" className={field} value={f.holder} onChange={(e) => setF({ ...f, holder: e.target.value })} />
               <p className="text-xs text-gray-400 mt-1">Must match the name on the bank account.</p>
             </div>
             <div>
-              <label className="block text-xs text-gray-500 mb-1">Account number</label>
-              <input
+              <label htmlFor="linked-number" className="block text-xs text-gray-500 mb-1">Account number</label>
+              <input id="linked-number"
                 className={`${field} font-mono`}
                 inputMode="numeric"
                 value={f.account}
@@ -205,8 +213,8 @@ function LinkedAccounts() {
               <p className="text-xs text-gray-400 mt-1">Once saved, only the last 4 digits are shown.</p>
             </div>
             <div>
-              <label className="block text-xs text-gray-500 mb-1">{routingLabel}</label>
-              <input className={`${field} font-mono`} value={f.routing} onChange={(e) => setF({ ...f, routing: e.target.value })} />
+              <label htmlFor="linked-routing" className="block text-xs text-gray-500 mb-1">{routingLabel}</label>
+              <input id="linked-routing" className={`${field} font-mono`} value={f.routing} onChange={(e) => setF({ ...f, routing: e.target.value })} />
             </div>
           </div>
           {duplicate && <p role="alert" className="text-xs text-danger mt-3">You have already linked this account.</p>}
@@ -330,13 +338,15 @@ export default function HoldingAccounts({ onNavigate }) {
         </div>
       </div>
 
-      <div role="tablist" aria-label="Account type" className="flex gap-1 border-b border-gray-200 mb-4">
+      <div role="tablist" onKeyDown={navigateTabs} aria-label="Account type" className="flex gap-1 border-b border-gray-200 mb-4">
         {[["holding", "Holding accounts"], ["linked", "Linked bank accounts"]].map(([k, t]) => (
           <button
             key={k}
             role="tab"
+            id={`accounts-tab-${k}`} aria-controls="accounts-panel"
             type="button"
             aria-selected={tab === k}
+            tabIndex={tab === k ? 0 : -1}
             onClick={() => setTab(k)}
             className={`text-sm px-3 py-2 -mb-px border-b-2 transition-colors ${
               tab === k ? "border-brand text-accent font-medium" : "border-transparent text-gray-500 hover:text-gray-800"
@@ -347,6 +357,7 @@ export default function HoldingAccounts({ onNavigate }) {
         ))}
       </div>
 
+      <div id="accounts-panel" role="tabpanel" aria-labelledby={`accounts-tab-${tab}`}>
       {tab === "linked" ? (
         <LinkedAccounts />
       ) : (
@@ -428,6 +439,7 @@ export default function HoldingAccounts({ onNavigate }) {
       {selected && <DetailsPanel account={selected} onClose={() => setSelected(null)} />}
       </>
       )}
+      </div>
     </div>
   );
 }

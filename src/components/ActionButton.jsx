@@ -37,7 +37,7 @@ export default function ActionButton({ label, tooltip = label, disabled = false,
     <span ref={anchor} className="inline-flex" onPointerEnter={show}
       onPointerLeave={() => { if (!anchor.current.contains(document.activeElement)) setPosition(null); }}
       onFocus={show} onBlur={() => setPosition(null)}
-      tabIndex={disabled ? 0 : undefined} aria-label={disabled ? label : undefined}
+      aria-label={disabled ? label : undefined}
       aria-disabled={disabled || undefined} aria-describedby={disabled && position ? tooltipId : undefined}>
       <button type="button" disabled={disabled} aria-label={label}
         aria-describedby={position ? tooltipId : undefined}

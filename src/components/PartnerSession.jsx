@@ -65,7 +65,7 @@ export default function PartnerSession({ onExit }) {
 
   if (!supabase || access.loading || !access.user) {
     return (
-      <main className="min-h-screen bg-gray-50 flex items-center justify-center p-6">
+      <main id="main-content" className="min-h-screen bg-gray-50 flex items-center justify-center p-6">
         <div className="bg-white rounded-xl border border-gray-200 p-6 max-w-md">
           <p role="status" className="text-sm text-gray-700">
             {!supabase ? "Partner sign-in is not configured." : access.loading ? "Verifying partner access…" : access.error}

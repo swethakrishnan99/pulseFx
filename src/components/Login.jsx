@@ -1,3 +1,4 @@
+import useViewFocus from "../lib/useViewFocus";
 import { useEffect, useState } from "react";
 import { Mail, Lock, Eye, EyeOff, ShieldCheck, Users, Wallet, ArrowLeft } from "lucide-react";
 import PulseMark from "./PulseMark";
@@ -47,6 +48,7 @@ export default function Login({ onSignIn, initialPortal = null, onBack }) {
   const [errors, setErrors] = useState({});
   const [busy, setBusy] = useState(false);
   const [portal, setPortal] = useState(initialPortal);
+  useViewFocus(portal, "#login-content");
   const partner = portal === "partner";
   const [tip, setTip] = useState(0);
   const [modal, setModal] = useState(null); // "reset" | "activate" | null
@@ -109,7 +111,7 @@ export default function Login({ onSignIn, initialPortal = null, onBack }) {
 
 
   return (
-    <div className="min-h-screen w-full bg-gray-50 flex flex-col items-center justify-center p-4 md:p-8">
+    <main id="main-content" className="min-h-screen w-full bg-gray-50 flex flex-col items-center justify-center p-4 md:p-8">
       <div className="w-full max-w-[960px] grid grid-cols-1 md:grid-cols-[1.05fr_1fr] bg-white rounded-xl border border-gray-200/70 overflow-hidden shadow-[0_8px_30px_rgba(0,18,41,0.08)]">
         {/* Brand panel (tablet and larger) */}
         <aside className="hidden md:flex flex-col justify-between bg-navy text-white p-8 min-h-[520px]" style={DOT_PATTERN}>
@@ -162,7 +164,7 @@ export default function Login({ onSignIn, initialPortal = null, onBack }) {
         </aside>
 
         {/* Sign-in form */}
-        <section className="relative flex flex-col">
+        <section id="login-content" className="relative flex flex-col">
           <div className="md:hidden flex items-center gap-2 bg-navy text-white px-5 py-4">
             <PulseMark className="w-8 h-8" />
             <span className="text-lg font-medium tracking-tight">PulseFX</span>
@@ -283,6 +285,6 @@ export default function Login({ onSignIn, initialPortal = null, onBack }) {
       </p>
 
       {modal && <AccessHelpModal mode={modal} onClose={() => setModal(null)} />}
-    </div>
+    </main>
   );
 }

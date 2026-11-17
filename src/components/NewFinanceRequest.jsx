@@ -1,6 +1,6 @@
 import PortalDialog from "./PortalDialog";
 import { dialogInput, dialogPrimary, dialogSecondary } from "../lib/dialogStyles";
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef } from "react";
 import { X, Paperclip } from "lucide-react";
 import { FORWARDS, canDrawdown } from "./Forwardsdrawdown";
 import { FALLBACK_RATES } from "../lib/fx";
@@ -55,11 +55,7 @@ export default function NewFinanceRequest({ onClose, onSubmit, available = Infin
   const [files, setFiles] = useState([]);
   const [agree, setAgree] = useState(false);
   const fileRef = useRef(null);
-  useEffect(() => {
-    const k = (e) => { if (e.key === "Escape") onClose(); };
-    window.addEventListener("keydown", k);
-    return () => window.removeEventListener("keydown", k);
-  }, [onClose]);
+
 
   const num = (t) => { const n = parseFloat(String(t).replace(/,/g, "")); return Number.isFinite(n) && n > 0 ? n : 0; };
   const amt = num(amount);

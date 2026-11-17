@@ -38,7 +38,7 @@ function PartnerSignIn() {
 
 function NotFound() {
   return (
-    <main className="min-h-screen bg-gray-50 flex items-center justify-center p-6">
+    <main id="main-content" className="min-h-screen bg-gray-50 flex items-center justify-center p-6">
       <div className="bg-white rounded-xl border border-gray-200/70 p-8 max-w-md text-center">
         <PulseMark className="w-10 h-10 mx-auto" />
         <h1 className="text-xl font-semibold text-gray-900 mt-4">Page not found</h1>

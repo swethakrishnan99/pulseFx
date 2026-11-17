@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useId } from "react";
 import { HelpCircle } from "lucide-react";
 
 /**
@@ -10,6 +10,7 @@ import { HelpCircle } from "lucide-react";
  *   <Tooltip text="See today's exchange rate before committing to anything." />
  */
 export default function Tooltip({ text, side = "top" }) {
+  const id = useId();
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
 
@@ -35,6 +36,10 @@ export default function Tooltip({ text, side = "top" }) {
         type="button"
         aria-label="More information"
         aria-expanded={open}
+        aria-describedby={open ? id : undefined}
+        onFocus={() => setOpen(true)}
+        onBlur={() => setOpen(false)}
+        onKeyDown={event => { if (event.key === "Escape") { event.stopPropagation(); setOpen(false); } }}
         onClick={() => setOpen((o) => !o)}
         onMouseEnter={() => setOpen(true)}
         onMouseLeave={() => setOpen(false)}
@@ -45,7 +50,7 @@ export default function Tooltip({ text, side = "top" }) {
 
       {open && (
         <span
-          role="tooltip"
+          id={id} role="tooltip"
           className={`absolute z-20 w-56 text-xs leading-snug text-white bg-gray-900 rounded-md px-3 py-2 shadow-lg pointer-events-none ${sideClasses[side]}`}
         >
           {text}

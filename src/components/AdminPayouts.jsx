@@ -37,7 +37,7 @@ function ClientCell({ value }) {
 }
 function Status({ value }) { return <span className={`inline-flex whitespace-nowrap rounded-full px-2.5 py-1 text-xs ${styles[value] || "bg-gray-100 text-gray-600"}`}>{value}</span>; }
 
-function PayoutDialog({ mode, payout, partners, onClose, onSave }) {
+export function PayoutDialog({ mode, payout, partners, onClose, onSave }) {
   const input = dialogInput, primary = dialogPrimary, secondary = dialogSecondary;
   const submitting = useRef(false), requestId = useRef(crypto.randomUUID());
   const [referrals, setReferrals] = useState({ partnerId: "", rows: [], error: "", loading: false });
@@ -50,6 +50,7 @@ function PayoutDialog({ mode, payout, partners, onClose, onSave }) {
     status: payout?.status || "Pending", date: localDate(payout?.date), notes: payout?.notes || "", showNotesToClient: payout?.showNotesToClient === true,
   }));
   const [busy, setBusy] = useState(false), [error, setError] = useState("");
+  const [amountFocused, setAmountFocused] = useState(false);
   const viewing = mode === "view", cancelling = mode === "cancel", editing = mode === "edit";
   const partner = partners.find((item) => item.id === form.partnerId);
   const partnerOptions = partners.map((item) => ({ value: item.id, label: `${item.name} | ${item.email}${item.disabled ? " (deactivated)" : ""}` }));
@@ -74,6 +75,18 @@ function PayoutDialog({ mode, payout, partners, onClose, onSave }) {
     if (submitting.current) return;
     requestId.current = crypto.randomUUID();
     setForm((previous) => ({ ...previous, [key]: value, ...(key === "partnerId" ? { clientId: "", client: "" } : {}), ...(key === "status" ? { date: value === "Paid" ? previous.date || localDate(new Date().toISOString()) : "" } : {}) }));
+  }
+  const amountDisplay = amountFocused || !form.amount || form.amount === "."
+    ? form.amount
+    : Number(form.amount).toLocaleString("en-CA", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  function changeAmount(event) {
+    const value = event.target.value.replace(/,/g, "");
+    if (/^\d{0,9}(\.\d{0,2})?$/.test(value)) change("amount", value);
+  }
+  function finishAmount() {
+    setAmountFocused(false);
+    if (form.amount === ".") change("amount", "");
+    else if (form.amount) change("amount", Number(form.amount).toFixed(2));
   }
   async function submit(event) {
     event.preventDefault();
@@ -114,19 +127,19 @@ function PayoutDialog({ mode, payout, partners, onClose, onSave }) {
           {clientError && <div role="alert" className="mt-2 text-xs text-danger">{clientError}<button type="button" className="ml-2 font-medium underline" disabled={busy} onClick={() => { setReferrals((previous) => ({ ...previous, error: "", loading: true })); setReferralAttempt((value) => value + 1); }}>Try again</button></div>}
           {editing && form.client && !selectedClientId && !clientsLoading && !clientError && <p className="mt-1 text-xs text-gray-500">The existing client is kept unless you select another client or clear this field.</p>}
         </div>
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2"><div><label htmlFor="payout-amount" className="mb-1.5 block text-xs font-medium">Amount (CAD) *</label><input id="payout-amount" inputMode="decimal" value={form.amount} onChange={(event) => change("amount", event.target.value)} required placeholder="0.00" pattern="[0-9]+(\.[0-9]{1,2})?" className={input} /></div><div><label htmlFor="payout-status" className="mb-1.5 block text-xs font-medium">Status *</label><select id="payout-status" value={form.status} onChange={(event) => change("status", event.target.value)} className={input}>{statuses.filter((value) => value !== "Cancelled").map((value) => <option key={value}>{value}</option>)}</select></div></div>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2"><div className="min-w-0"><label htmlFor="payout-amount" className="mb-1.5 block text-xs font-medium">Amount (CAD) *</label><input id="payout-amount" type="text" inputMode="decimal" value={amountDisplay} onFocus={() => setAmountFocused(true)} onChange={changeAmount} onBlur={finishAmount} required placeholder="0.00" pattern="([0-9]{1,3}(,[0-9]{3})*|[0-9]+)(\.[0-9]{1,2})?" className={`${input} filter-control`} /></div><div className="min-w-0"><label htmlFor="payout-status" className="mb-1.5 block text-xs font-medium">Status *</label><select id="payout-status" value={form.status} onChange={(event) => change("status", event.target.value)} className={`${input} filter-control`}>{statuses.filter((value) => value !== "Cancelled").map((value) => <option key={value}>{value}</option>)}</select></div></div>
         {form.status === "Paid" && <div><label htmlFor="payout-paid-at" className="mb-1.5 block text-xs font-medium">Paid at *</label><input id="payout-paid-at" type="datetime-local" value={form.date} onChange={(event) => change("date", event.target.value)} required className={input} /><p className="mt-1 text-xs text-gray-500">Your local time. Paid payouts become read-only after saving.</p></div>}
         <div><div className="mb-1.5 flex flex-wrap items-center justify-between gap-2"><label htmlFor="payout-notes" className="text-xs font-medium">Notes (optional)</label><label className="flex items-center gap-2 text-xs text-gray-600"><input type="checkbox" checked={form.showNotesToClient} onChange={event => change("showNotesToClient", event.target.checked)} className="accent-accent" />Show notes to partner</label></div><textarea id="payout-notes" rows={3} maxLength={2000} value={form.notes} onChange={(event) => change("notes", event.target.value)} className={input} /><p className="mt-1 text-xs text-gray-500">Additional information about this payout.</p></div>
       </fieldset>}
       {error && <p role="alert" className="text-sm text-danger">{error}</p>}
-      <div className="flex justify-end gap-2"><button type="button" className={secondary} disabled={busy} onClick={onClose}>{cancelling ? "Keep payout" : "Cancel"}</button><button type="submit" disabled={busy || (!cancelling && !valid)} className={cancelling ? dialogDanger : primary}>{busy ? "Saving…" : cancelling ? "Cancel payout" : "Save payout"}</button></div>
+      <div className="flex justify-end gap-2"><button type="button" className={secondary} disabled={busy} onClick={onClose}>{cancelling ? "Keep payout" : "Cancel"}</button><button type="submit" disabled={busy || (!cancelling && !valid)} className={cancelling ? dialogDanger : primary}>{busy ? "Saving…" : cancelling ? "Cancel payout" : editing ? "Save changes" : "Add payout"}</button></div>
     </form>}
     </div>
   </PortalDialog>;
 }
 
 export default function AdminPayouts() {
-  const { sort, toggleSort, sortRows } = useTableSort();
+  const { sort, toggleSort, sortRows } = useTableSort({ key: "createdAt", dir: "desc" });
   const [data, setData] = useState({ payouts: [], partners: [] });
   const [loading, setLoading] = useState(true), [error, setError] = useState("");
   const [attempt, setAttempt] = useState(0), [query, setQuery] = useState(""), [status, setStatus] = useState("All statuses");

@@ -1,3 +1,5 @@
+import useViewFocus from "./lib/useViewFocus";
+import { useNavigate } from "react-router-dom";
 import { useState } from "react";
 import Sidebar from "./components/Sidebar";
 import Dashboard from "./components/Dashboard";
@@ -12,11 +14,14 @@ import TradeFinance from "./components/Tradefinance";
 
 // The client portal demo. It still switches screens with state and lives under /client.
 export default function ClientApp() {
+  const navigate = useNavigate();
   const [screen, setScreen] = useState("dashboard");
+  useViewFocus(screen);
   return (
     <div className="h-screen w-full bg-white bg-center bg-no-repeat">
     <div className="flex min-h-screen">
-      <Sidebar active={screen} onNavigate={setScreen} />
+      <Sidebar active={screen} onNavigate={setScreen} account={{ onLogout: () => navigate("/") }} />
+      <main id="main-content" className="flex min-w-0 flex-1">
       {screen === "dashboard" && <Dashboard onNavigate={setScreen} />}
       {screen === "send-payment" && <SendPayment onNavigate={setScreen} />}
       {screen === "beneficiaries" && <Beneficiaries onNavigate={setScreen} />}
@@ -26,6 +31,7 @@ export default function ClientApp() {
       {screen === "forwards-drawdown" && <ForwardsDrawdown onNavigate={setScreen} />}
       {screen === "trade-finance" && <TradeFinance onNavigate={setScreen} />}
       {screen === "help" && <HelpSupport />}
+      </main>
     </div>
     </div>
   );

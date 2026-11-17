@@ -1,3 +1,4 @@
+import useViewFocus from "../lib/useViewFocus";
 import { dialogSecondary } from "../lib/dialogStyles";
 import DocumentPreview from "./DocumentPreview";
 import Documents from "./Documents";
@@ -149,7 +150,7 @@ function PartnerHome({ go }) {
 function exportReferrals(rows) {
   const cell = (v) => { const t = String(v); const safe = /^[=+\-@\t\r]/.test(t) ? `'${t}` : t; return `"${safe.replace(/"/g, '""')}"`; };
   const lines = [
-    ["Company", "Contact", "Email", "Country", "Expected monthly volume", "Currencies", "Other currency", "Notes", "Status", "Onboarded", "Created", "Last modified"],
+    ["Company", "Contact", "Email", "Country", "Expected monthly volume", "Currencies", "Other currency", "Notes", "Status", "Onboarded", "Created at", "Last modified at"],
     ...rows.map((r) => [r.company, r.contact, r.email, r.country, r.volume || "", (r.cur || []).join(", "), r.otherCur || "", r.notes || "", r.status, r.status === "Onboarded" ? "Yes" : "No", referralDateValue(r, "created"), referralDateValue(r, "modified")]),
   ].map((r) => r.map(cell).join(","));
   const url = URL.createObjectURL(new Blob(["\ufeff" + lines.join("\r\n")], { type: "text/csv;charset=utf-8;" }));
@@ -222,7 +223,7 @@ function Referrals({ authenticated = false, go }) {
           <div className="filter-field"><label htmlFor="rf-st" className={lab}>Status</label>
             <select id="rf-st" className={`${field} filter-control`} value={f.status} onChange={set("status")}><option value="">All statuses</option>{[...STATUSES].sort().map((s) => <option key={s}>{s}</option>)}</select></div>
           <DateRangeFilter id="rf-created-period" label="Created at" from={f.cFrom} to={f.cTo} onChange={range => setF(previous => ({ ...previous, cFrom: range.from, cTo: range.to }))} />
-          <DateRangeFilter id="rf-modified-period" label="Last modified" from={f.mFrom} to={f.mTo} onChange={range => setF(previous => ({ ...previous, mFrom: range.from, mTo: range.to }))} />
+          <DateRangeFilter id="rf-modified-period" label="Last modified at" from={f.mFrom} to={f.mTo} onChange={range => setF(previous => ({ ...previous, mFrom: range.from, mTo: range.to }))} />
         </fieldset>
         {(dateBad(f.cFrom, f.cTo) || dateBad(f.mFrom, f.mTo)) && <p role="alert" className="text-xs text-danger mt-2">The "from" date must be before the "to" date.</p>}
         <div className="flex items-center justify-between gap-3 mt-3">
@@ -242,8 +243,8 @@ function Referrals({ authenticated = false, go }) {
             <ReferralSortHeader column="email" sort={sort} onSort={sortBy}>Email</ReferralSortHeader>
             <ReferralSortHeader column="status" sort={sort} onSort={sortBy}>Status</ReferralSortHeader>
             <ReferralSortHeader column="onboarded" sort={sort} onSort={sortBy}>Onboarded</ReferralSortHeader>
-            <ReferralSortHeader column="created" sort={sort} onSort={sortBy}>Created</ReferralSortHeader>
-            <ReferralSortHeader column="modified" sort={sort} onSort={sortBy}>Last modified</ReferralSortHeader>
+            <ReferralSortHeader column="created" sort={sort} onSort={sortBy}>Created at</ReferralSortHeader>
+            <ReferralSortHeader column="modified" sort={sort} onSort={sortBy}>Last modified at</ReferralSortHeader>
             <th scope="col" className={referralHeader}>Actions</th>
           </tr></thead>
           <tbody>
@@ -276,7 +277,7 @@ function Detail({ r, onClose }) {
     <PortalDialog title={r.company} subtitle="Referral details and onboarding progress." icon={<Users className="h-5 w-5" />} maxWidth="max-w-xl" onClose={onClose}>
       <div className="p-6">
         <div className="mb-4"><Badge s={r.status} /></div>
-        {[["Contact", r.contact], ["Email", r.email], ["Country", r.country], ["Expected monthly volume", r.volume || "—"], ["Currencies", r.cur?.join(", ") || "—"], ["Other currency", r.otherCur || "—"], ["Notes", r.notes || "—"], ["Created", prettyDateTime(referralDateValue(r, "created"))], ["Last modified", prettyDateTime(referralDateValue(r, "modified"))], ["Onboarded", r.status === "Onboarded" ? "Yes" : "No"]].map(([k, v]) => (
+        {[["Contact", r.contact], ["Email", r.email], ["Country", r.country], ["Expected monthly volume", r.volume || "—"], ["Currencies", r.cur?.join(", ") || "—"], ["Other currency", r.otherCur || "—"], ["Notes", r.notes || "—"], ["Created at", prettyDateTime(referralDateValue(r, "created"))], ["Last modified at", prettyDateTime(referralDateValue(r, "modified"))], ["Onboarded", r.status === "Onboarded" ? "Yes" : "No"]].map(([k, v]) => (
           <div key={k} className="flex justify-between gap-4 py-2 border-b border-gray-100 text-sm"><span className="text-gray-500">{k}</span><span className="text-gray-900 text-right break-all">{v}</span></div>
         ))}
         <p className="text-sm font-medium text-accent mt-5 mb-2">Onboarding progress</p>
@@ -353,7 +354,7 @@ function AddClientForm({ go, authenticated = false, onClose }) {
       <div className="flex flex-wrap justify-end gap-2 mt-4"><button type="button" className="inline-flex items-center gap-2 rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-900 hover:border-gray-400 hover:bg-gray-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent" onClick={() => setDone(null)}><UserPlus className="w-4 h-4" />Add another</button><button type="button" className={primary} onClick={() => go("referrals")}>View referrals</button></div>
     </div>
   );
-  return <AddClientFormFields values={v} setValues={setV} duplicate={dup} saving={saving} saveError={saveError} onSubmit={submit} onClose={() => { if (!submitting.current) onClose(); }} />;
+  return <AddClientFormFields values={v} setValues={setV} duplicate={dup} canSubmit={!!ok} saving={saving} saveError={saveError} onSubmit={submit} onClose={() => { if (!submitting.current) onClose(); }} />;
 }
 
 /* --------------------------------------------------------------- Brand kit */
@@ -670,6 +671,7 @@ export default function PartnerPortal({ onExit, user, isAdmin = false, signingOu
   const defaultTab = canAdmin ? "admin" : "home";
   const allowedTabs = canAdmin ? [...ADMIN_NAV_ITEMS.map((item) => item.key), "contact"] : NAV.map((item) => item[0]);
   const tab = page && allowedTabs.includes(page) ? page : defaultTab;
+  useViewFocus(tab);
   const setTab = (key) => navigate(key === defaultTab ? basePath : `${basePath}/${key}`);
   useEffect(() => {
     // An unknown or not-permitted page goes back to the start page.
@@ -712,7 +714,7 @@ export default function PartnerPortal({ onExit, user, isAdmin = false, signingOu
           disabled: signingOut,
         }}
       />
-      <main className={`flex-1 min-w-0 p-4 pt-[72px] md:p-6 ${tab === "add" || tab === "contact" ? "bg-white" : "bg-gray-50"}`}>
+      <main id="main-content" className={`flex-1 min-w-0 p-4 pt-[72px] md:p-6 ${tab === "add" || tab === "contact" ? "bg-white" : "bg-gray-50"}`}>
         {tab !== "add" && tab !== "contact" && <div className="flex items-center justify-between mb-4">
           <div><h1 className="text-xl font-semibold text-gray-900">{title}</h1>{PAGE_SUBTITLES[tab] && <p className="mt-0.5 text-sm text-gray-500">{PAGE_SUBTITLES[tab]}</p>}</div>
         </div>}

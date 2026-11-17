@@ -1,3 +1,5 @@
+import useViewFocus from "../lib/useViewFocus";
+import { navigateTabs } from "../lib/tabNavigation";
 import { useState, useEffect } from "react";
 import {
   ArrowLeftRight,
@@ -124,6 +126,7 @@ export default function SendPayment({ onNavigate }) {
   });
   useEffect(() => () => { clearPendingQuote(); clearPendingBeneficiary(); clearPendingPayFrom(); }, []);
   const [step, setStep] = useState(1);
+  useViewFocus(step);
   const [payCur, setPayCur] = useState(bought?.payCur ?? payFromAcct?.currency ?? (fixedBen?.currency === "USD" ? "CAD" : "USD"));
   const [recvCur, setRecvCur] = useState(bought?.recvCur ?? fixedBen?.currency ?? (payFromAcct?.currency === "CAD" ? "USD" : "CAD"));
   // Whichever box the user typed in last is the "anchor"; the other box is calculated from it.
@@ -477,7 +480,7 @@ export default function SendPayment({ onNavigate }) {
       <StepHeader step={1} convert={convert} />
       <h1 className="text-xl font-semibold text-gray-900 mb-3">Move money</h1>
 
-      <div role="tablist" aria-label="What do you want to do?" className="inline-flex p-1 bg-gray-200/70 rounded-lg mb-4 max-w-full">
+      <div role="tablist" onKeyDown={navigateTabs} aria-label="What do you want to do?" className="inline-flex p-1 bg-gray-200/70 rounded-lg mb-4 max-w-full">
         {[
           { v: false, label: "Send to someone" },
           { v: true, label: "Convert my money" },
@@ -486,7 +489,9 @@ export default function SendPayment({ onNavigate }) {
             key={o.label}
             type="button"
             role="tab"
+            id={`money-tab-${o.v ? "convert" : "send"}`} aria-controls="money-panel"
             aria-selected={convert === o.v}
+            tabIndex={convert === o.v ? 0 : -1}
             onClick={() => chooseMode(o.v)}
             className={`text-sm font-medium px-4 py-1.5 rounded-md transition-colors ${
               convert === o.v ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-800"
@@ -496,6 +501,7 @@ export default function SendPayment({ onNavigate }) {
           </button>
         ))}
       </div>
+      <div id="money-panel" role="tabpanel" aria-labelledby={`money-tab-${convert ? "convert" : "send"}`}>
       {convert && (
         <p className="text-xs text-gray-500 -mt-2 mb-4 max-w-xl">
           Exchange money into another currency. It stays with you, in your own holding account.
@@ -914,6 +920,7 @@ export default function SendPayment({ onNavigate }) {
             Continue
           </button>
         </div>
+      </div>
       </div>
     </form>
   );

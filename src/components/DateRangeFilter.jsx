@@ -1,6 +1,5 @@
 import { airtableDay } from "../lib/airtableDates.mjs";
 import { useEffect, useId, useRef, useState } from "react";
-import { createPortal } from "react-dom";
 import { CalendarDays, ChevronLeft, ChevronRight } from "lucide-react";
 import { addDateDays, calendarDateKeys, formatDateRange, localDateKey, parseDateKey, presetDateRange, selectRangeDate } from "../lib/dateRange.mjs";
 
@@ -69,7 +68,7 @@ function RangePicker({ label, from, to, anchor, initialPosition, onChange, onClo
     const date = parseDateKey(next.from); setMonth(new Date(date.getFullYear(), date.getMonth(), 1, 12));
   }
   const complete = (!draft.from && !draft.to) || !!(draft.from && draft.to && draft.from <= draft.to);
-  return createPortal(<section ref={panel} id={id} role="dialog" aria-modal="false" aria-labelledby={`${id}-title`} style={position} className="z-[70] overflow-y-auto rounded-xl border border-gray-200 bg-white p-4 text-gray-900 shadow-xl">
+  return <section ref={panel} onBlur={event => { if (event.relatedTarget && !event.currentTarget.contains(event.relatedTarget) && event.relatedTarget !== anchor) onClose(false); }} id={id} role="dialog" aria-modal="false" aria-labelledby={`${id}-title`} style={position} className="z-[70] overflow-y-auto rounded-xl border border-gray-200 bg-white p-4 text-gray-900 shadow-xl">
     <h2 id={`${id}-title`} className="mb-3 text-sm font-semibold">{label} · Select period</h2>
     <div className="grid gap-4 sm:grid-cols-[120px_minmax(0,1fr)]">
       <div className="flex flex-wrap gap-1 sm:flex-col sm:border-r sm:border-gray-100 sm:pr-3" aria-label="Quick periods">{[["today", "Today"], ["week", "Last 7 days"], ["month30", "Last 30 days"], ["month", "This month"], ["lastMonth", "Last month"], ["year", "This year"], ["lastYear", "Last year"]].map(([value, text]) => <button key={value} type="button" onClick={() => preset(value)} className="rounded-md px-2 py-2 text-left text-sm hover:bg-gray-50 focus-visible:outline-2 focus-visible:outline-accent">{text}</button>)}</div>
@@ -87,7 +86,7 @@ function RangePicker({ label, from, to, anchor, initialPosition, onChange, onClo
       </div>
     </div>
     <div className="mt-3 flex flex-wrap items-center justify-end gap-2 border-t border-gray-100 pt-3"><button type="button" onClick={() => setDraft({ from: "", to: "" })} className="mr-auto rounded-md px-0 py-2 text-sm sm:px-2 font-medium text-accent hover:bg-accent-100">Clear period</button><button type="button" onClick={() => onClose(true)} className={action}>Cancel</button><button type="button" disabled={!complete} onClick={() => { onChange(draft); onClose(true); }} className="rounded-lg bg-brand px-2 py-2 text-sm sm:px-3 font-medium text-navy hover:bg-[#009a7d] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:cursor-not-allowed disabled:opacity-40">Apply period</button></div>
-  </section>, document.body);
+  </section>;
 }
 
 export default function DateRangeFilter({ id, label, from = "", to = "", onChange }) {
