@@ -1,4 +1,5 @@
 import { findPartnerMembership } from "../_shared/partner-membership.mjs";
+import { adminReferrals } from "./admin.mjs";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -25,7 +26,7 @@ function timestamp(value) {
   return new Date(value).toISOString();
 }
 
-function normalizeReferral(record) {
+export function normalizeReferral(record) {
   const fields = record.fields;
   const text = (name) => typeof fields[name] === "string" ? fields[name] : "";
   const created = dateOnly(fields.Created) || dateOnly(record.createdTime);
@@ -149,7 +150,7 @@ async function writeReferral({ env, partnerId, input, fetchImpl }) {
   return normalizeReferral(record);
 }
 
-export function createReferralsHandler({ env, fetchImpl = fetch }) {
+export function createReferralsHandler({ env, admin = null, fetchImpl = fetch }) {
   return async function handler(request) {
     if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: corsHeaders });
     if (!["GET", "POST"].includes(request.method)) return json({ error: "Method not allowed." }, 405);
@@ -177,6 +178,9 @@ export function createReferralsHandler({ env, fetchImpl = fetch }) {
       if (!authResponse.ok) throw new Error("Auth request failed");
       const user = await authResponse.json();
       if (!user.id) return json({ error: "Please sign in to view your referrals." }, 401);
+      const view = new URL(request.url).searchParams.get("view");
+      if (view === "admin") return await adminReferrals({ request, env, user, admin, fetchImpl, json, normalizeReferral });
+      if (view) return json({ error: "Invalid referral view." }, 400);
       stage = "membership";
       const partnerId = await findPartnerMembership({
         projectUrl: env.SUPABASE_URL, publishableKey, accessToken, userId: user.id,

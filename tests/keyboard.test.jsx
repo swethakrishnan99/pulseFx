@@ -423,3 +423,20 @@ test('Referrals: Created at descends by default and date labels use at consisten
   assert.ok([...document.querySelectorAll('th')].some(header => header.textContent.includes('Last modified at')));
   assert.ok(button('Last modified at date range'));
 });
+
+test('admin referral follow-up route displays its heading and recovers from a load failure', async () => {
+  await mount(<PartnerPortal basePath="/partner" user={{ id: 'admin-test', email: 'admin@example.com' }} isAdmin onExit={() => {}} />, { path: '/partner/admin-referrals', route: '/partner/:page?', withMain: false });
+  assert.equal(document.querySelector('main h1').textContent, 'Referral follow-up');
+  assert.ok(document.querySelector('main [role="alert"]'));
+  await walk(keyboardStops(document.querySelector('main')));
+  await click(button('Try again'));
+  assert.ok(document.querySelector('main [role="alert"]'));
+});
+
+test('Referrals Add a client opens the routed client form', async () => {
+  await mount(<PartnerPortal basePath="/demo" onExit={() => {}} />, { path: '/demo/referrals', route: '/demo/:page?', withMain: false });
+  const add = [...document.querySelectorAll('main button')].find(element => element.textContent.trim() === 'Add a client');
+  assert.ok(add);
+  await click(add);
+  assert.ok(document.querySelector('dialog input[type="email"]'));
+});

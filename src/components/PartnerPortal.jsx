@@ -1,6 +1,6 @@
+import { REFERRAL_STATUSES as STATUSES, REFERRAL_STATUS_STYLE as STATUS_STYLE } from "../lib/referralStatuses.mjs";
 import PartnerSupport from "./PartnerSupport";
 import useViewFocus from "../lib/useViewFocus";
-import { dialogSecondary } from "../lib/dialogStyles";
 import DocumentPreview from "./DocumentPreview";
 import Documents from "./Documents";
 import { loadOnePagers } from "../lib/onePagers";
@@ -10,6 +10,8 @@ import { brandKitRequest, encodeBrandFile } from "../lib/brandKit";
 import { airtableFieldValue, formatAirtableDateTime, inAirtableDateRange } from "../lib/airtableDates.mjs";
 import SearchFilter from "./SearchFilter";
 import PortalDialog from "./PortalDialog";
+import Detail from "./ReferralDetail";
+import AdminReferrals from "./AdminReferrals";
 import AddClientFormFields, { AddClientDialog } from "./AddClientModal";
 import ActionButton from "./ActionButton";
 import DateRangeFilter from "./DateRangeFilter";
@@ -20,7 +22,7 @@ import { sortTableRows } from "../lib/tableSort.mjs";
 import ClearFiltersButton from "./ClearFiltersButton";
 import { useEffect, useState, useMemo, useRef } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { Home, Users, DollarSign, Landmark, BookOpen, Headset, Copy, Check, X, Eye, Download, UserPlus, ChevronDown, CheckCircle2, Palette, ArrowRight, Upload, FileText, RefreshCw } from "lucide-react";
+import { Home, Users, DollarSign, Landmark, BookOpen, Headset, Copy, Check, Eye, Download, UserPlus, ChevronDown, CheckCircle2, Palette, ArrowRight, Upload, FileText, RefreshCw } from "lucide-react";
 import Sidebar from "./Sidebar";
 import PartnerAdmin from "./PartnerAdmin";
 import BankingDetails from "./BankingDetails";
@@ -42,13 +44,8 @@ const pretty = (s) => s ? new Date(`${s}T12:00:00`).toLocaleDateString("en-CA", 
 const prettyDateTime = formatAirtableDateTime;
 const referralDateValue = (record, field) => airtableFieldValue(record, field === "created" ? "createdAt" : "modifiedAt", field);
 
-const STEPS = ["Invite sent", "Account created", "Documents submitted", "Under review", "Onboarded"];
-const STATUSES = ["Invited", "Account created", "Documents submitted", "Under review", "Onboarded", "Rejected"];
-const STATUS_STYLE = {
-  Invited: "bg-gray-100 text-gray-700", "Account created": "bg-gray-100 text-gray-700", "Documents submitted": "bg-accent-100 text-accent",
-  "Under review": "bg-warning-100 text-amber-800", Onboarded: "bg-success-100 text-success", Rejected: "bg-danger-100 text-danger",
-};
-const stepIndex = (s) => (s === "Rejected" ? 3 : STATUSES.indexOf(s));
+
+
 
 // Module-level so a new client survives moving between tabs (resets on reload).
 const REFERRALS = [
@@ -79,6 +76,7 @@ const PAGE_SUBTITLES = {
   admin: "Manage portal access for partners and PulseFX administrators.",
   "banking-approvals": "Review banking updates and approve or reject partner submissions.",
   "admin-payouts": "Manage partner payouts and review payment history.",
+  "admin-referrals": "Follow up on referred clients and update their onboarding status.",
   home: "View your referral activity and onboarding progress.",
   referrals: "Track your referrals from invitation to onboarding.",
   add: "Refer a client and add their company and contact details.",
@@ -266,36 +264,6 @@ function Referrals({ authenticated = false, go }) {
       <TablePager pager={pager} noun="referrals" overall={referrals.length} />
       {open && <Detail r={open} onClose={() => setOpen(null)} />}
     </div>
-  );
-}
-
-function Detail({ r, onClose }) {
-  const idx = stepIndex(r.status);
-  return (
-    <PortalDialog title={r.company} subtitle="Referral details and onboarding progress." icon={<Users className="h-5 w-5" />} maxWidth="max-w-xl" onClose={onClose}>
-      <div className="p-6">
-        <div className="mb-4"><Badge s={r.status} /></div>
-        {[["Contact", r.contact], ["Email", r.email], ["Country", r.country], ["Expected monthly volume", r.volume || "—"], ["Currencies", r.cur?.join(", ") || "—"], ["Other currency", r.otherCur || "—"], ["Notes", r.notes || "—"], ["Created at", prettyDateTime(referralDateValue(r, "created"))], ["Last modified at", prettyDateTime(referralDateValue(r, "modified"))], ["Onboarded", r.status === "Onboarded" ? "Yes" : "No"]].map(([k, v]) => (
-          <div key={k} className="flex justify-between gap-4 py-2 border-b border-gray-100 text-sm"><span className="text-gray-500">{k}</span><span className="text-gray-900 text-right break-all">{v}</span></div>
-        ))}
-        <p className="text-sm font-medium text-accent mt-5 mb-2">Onboarding progress</p>
-        <ol className="flex flex-col gap-2">
-          {STEPS.map((s, i) => {
-            const rejectedHere = r.status === "Rejected" && i === 4;
-            const done = r.status !== "Rejected" ? i <= idx : i <= 2;
-            return (
-              <li key={s} className="flex items-center gap-2 text-sm">
-                <span className={`w-5 h-5 rounded-full flex items-center justify-center text-white ${rejectedHere ? "bg-danger" : done ? "bg-success" : "bg-gray-200"}`} aria-hidden="true">
-                  {rejectedHere ? <X className="w-3 h-3" /> : done ? <Check className="w-3 h-3" /> : null}
-                </span>
-                <span className={done || rejectedHere ? "text-gray-900" : "text-gray-400"}>{rejectedHere ? "Not approved" : s}</span>
-              </li>
-            );
-          })}
-        </ol>
-      <div className="mt-5 flex justify-end"><button type="button" onClick={onClose} className={dialogSecondary}>Close</button></div>
-      </div>
-    </PortalDialog>
   );
 }
 
@@ -610,7 +578,7 @@ const PARTNER_NAV_ITEMS = NAV
     icon,
   }));
 
-const ADMIN_NAV_ITEMS = [{ key: "admin", label: "User management", icon: Users }, { key: "banking-approvals", label: "Banking approvals", icon: Landmark }, { key: "admin-payouts", label: "Payouts", icon: DollarSign }, { key: "documents", label: "Documents", icon: FileText }];
+const ADMIN_NAV_ITEMS = [{ key: "admin", label: "User management", icon: Users }, { key: "banking-approvals", label: "Banking approvals", icon: Landmark }, { key: "admin-payouts", label: "Payouts", icon: DollarSign }, { key: "admin-referrals", label: "Referral follow-up", icon: Users }, { key: "documents", label: "Documents", icon: FileText }];
 
 export default function PartnerPortal({ onExit, user, isAdmin = false, signingOut = false, signOutError = "", basePath = "/demo" }) {
   const canAdmin = !!user && isAdmin;
@@ -626,7 +594,7 @@ export default function PartnerPortal({ onExit, user, isAdmin = false, signingOu
     // An unknown or not-permitted page goes back to the start page.
     if (page && !allowedTabs.includes(page)) navigate(basePath, { replace: true });
   }, [page, canAdmin]); // eslint-disable-line react-hooks/exhaustive-deps
-  const title = tab === "documents" ? "Documents" : tab === "admin" ? "User management" : tab === "banking-approvals" ? "Banking approvals" : tab === "admin-payouts" ? "Payouts" : tab === "home" ? "Dashboard" : NAV.find((n) => n[0] === tab)?.[1];
+  const title = tab === "admin-referrals" ? "Referral follow-up" : tab === "documents" ? "Documents" : tab === "admin" ? "User management" : tab === "banking-approvals" ? "Banking approvals" : tab === "admin-payouts" ? "Payouts" : tab === "home" ? "Dashboard" : NAV.find((n) => n[0] === tab)?.[1];
   useEffect(() => {
     document.title = `${title || "Partner portal"} · PulseFX`;
     window.scrollTo(0, 0);
@@ -672,8 +640,9 @@ export default function PartnerPortal({ onExit, user, isAdmin = false, signingOu
         {tab === "admin" && canAdmin && <PartnerAdmin />}
         {tab === "banking-approvals" && canAdmin && <BankingApprovals />}
         {tab === "admin-payouts" && canAdmin && <AdminPayouts />}
+        {tab === "admin-referrals" && canAdmin && <AdminReferrals key={user?.id} />}
         {tab === "home" && <PartnerHome go={setTab} />}
-        {tab === "referrals" && <Referrals key={user?.id || "demo"} authenticated={!!user} onClose={() => setTab("home")} />}
+        {tab === "referrals" && <Referrals key={user?.id || "demo"} authenticated={!!user} go={setTab} />}
         {tab === "add" && <AddClient go={setTab} authenticated={!!user} />}
         {tab === "banking" && <BankingDetails authenticated={!!user} />}
         {tab === "payouts" && <PayoutHistory authenticated={!!user} showDescription={false} />}
