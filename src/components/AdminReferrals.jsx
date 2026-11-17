@@ -53,6 +53,7 @@ export default function AdminReferrals() {
   const [attempt, setAttempt] = useState(0);
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState("");
+  const [source, setSource] = useState("");
   const [sort, setSort] = useState({ key: "modifiedAt", dir: "desc" });
   const [open, setOpen] = useState(null);
   const [notice, setNotice] = useState("");
@@ -70,10 +71,10 @@ export default function AdminReferrals() {
     setRemote({ records: [], loading: true, error: "" });
     setAttempt(value => value + 1);
   }
-  const rows = useMemo(() => sortTableRows(remote.records.filter(row => (!status || row.status === status) &&
+  const rows = useMemo(() => sortTableRows(remote.records.filter(row => (!status || row.status === status) && (!source || row.source === source) &&
     (!query.trim() || [row.company, row.contact, row.email, row.partnerName].some(value => (value || "").toLowerCase().includes(query.trim().toLowerCase())))), sort,
-  { createdAt: { value: row => row.createdAt, type: "date" }, modifiedAt: { value: row => row.modifiedAt, type: "date" } }), [remote.records, query, status, sort]);
-  const pager = usePagination(rows, JSON.stringify([query, status, sort]));
+  { createdAt: { value: row => row.createdAt, type: "date" }, modifiedAt: { value: row => row.modifiedAt, type: "date" } }), [remote.records, query, status, source, sort]);
+  const pager = usePagination(rows, JSON.stringify([query, status, source, sort]));
   const onSort = key => setSort(previous => ({ key, dir: previous.key === key && previous.dir === "asc" ? "desc" : "asc" }));
   const th = "px-3 py-3 text-left text-xs font-medium text-gray-400 whitespace-nowrap";
   const td = "px-3 py-3 text-sm text-gray-700";
@@ -90,8 +91,9 @@ export default function AdminReferrals() {
       <fieldset disabled={remote.loading || !!remote.error} className="flex flex-wrap items-end gap-3">
         <SearchFilter id="admin-referrals-search" value={query} onChange={event => setQuery(event.target.value)} placeholder="Company, contact, email or partner" />
         <div className="filter-field"><label htmlFor="admin-referrals-status" className="mb-1 block text-xs text-gray-500">Status</label><select id="admin-referrals-status" value={status} onChange={event => setStatus(event.target.value)} className={`${dialogInput} filter-control`}><option value="">All statuses</option>{REFERRAL_STATUSES.map(value => <option key={value}>{value}</option>)}</select></div>
+        <div className="filter-field"><label htmlFor="admin-referrals-source" className="mb-1 block text-xs text-gray-500">Source</label><select id="admin-referrals-source" value={source} onChange={event => setSource(event.target.value)} className={`${dialogInput} filter-control`}><option value="">All sources</option><option value="Partner Portal">Partner Portal</option><option value="Referral Link">Referral Link</option></select></div>
       </fieldset>
-      <div className="mt-3 flex items-center justify-between gap-3"><ClearFiltersButton onClick={() => { setQuery(""); setStatus(""); }} /></div>
+      <div className="mt-3 flex items-center justify-between gap-3"><ClearFiltersButton onClick={() => { setQuery(""); setStatus(""); setSource(""); }} /></div>
       {notice && <p role="status" className="mt-3 text-sm text-success">{notice}</p>}
     </div>
     <div className="overflow-x-auto"><table className="w-full" aria-busy={remote.loading}>

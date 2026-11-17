@@ -54,3 +54,9 @@ export async function editPartnerProfile(details) {
   if (!data?.partner?.id) throw new Error("Unable to confirm the update. Refresh the partner list before trying again.");
   return data;
 }
+
+export async function loadPartnerReferralUrl(id, signal) {
+  const data = await request("GET", undefined, signal, `partner-admin?referralUrlFor=${encodeURIComponent(id)}`);
+  if (typeof data?.referralUrl !== "string") throw new Error("Unable to load the referral URL.");
+  return data.referralUrl;
+}
