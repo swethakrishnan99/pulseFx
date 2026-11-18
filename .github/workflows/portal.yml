@@ -51,6 +51,8 @@ jobs:
           test -n "$VITE_SUPABASE_URL" || { echo "Set the VITE_SUPABASE_URL repository variable."; exit 1; }
           test -n "$VITE_SUPABASE_PUBLISHABLE_KEY" || { echo "Set the VITE_SUPABASE_PUBLISHABLE_KEY repository variable."; exit 1; }
       - run: npm run build
+        env:
+          VITE_BASE: ${{ vars.VITE_BASE }}
       - name: Upload site
         if: github.event_name != 'pull_request'
         uses: actions/upload-pages-artifact@v3

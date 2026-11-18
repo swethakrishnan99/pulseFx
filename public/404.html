@@ -13,7 +13,7 @@
       // SETTING: BASE must match `base` in vite.config.js.
       //   "/pulseFx/"  while the portal lives at https://<user>.github.io/pulseFx/
       //   "/"          once it moves to its own domain (e.g. partners.pulsefx.com)
-      var BASE = "/";
+      var BASE = "__BASE__";
 
       var l = location;
       // Safety stop: never redirect twice (prevents a redirect loop).
