@@ -1,450 +1,500 @@
-# PulseFX client and partner portals
+# PulseFX portals
 
-### Partner Guide one-pagers API
+PulseFX combines an authenticated partner portal, an internal administration portal, a public referral intake form, and client/partner demonstrations in one React application. Supabase provides authentication, access control, server-side operations and synchronization state. Airtable stores partner business records, referrals, banking submissions, payout records, documents and support requests.
 
-`pulsefx-one-pagers` is deployed in project `pvmndoytfgxogiaewlcb`.
-The secret `AIRTABLE_ONE_PAGERS_TABLE_ID=tblHM43sMf8k3nK9K` selects
-`One_pagers_api` in the existing Airtable base. It reuses `AIRTABLE_TOKEN` and
-`AIRTABLE_BASE_ID`. Expected fields: Name, Description (optional), File
-(attachment), Sort order (integer), and Published (checkbox).
+The partner and administration features have backend integrations. The client portal is a demonstration: it does not execute payments, trades, forward drawdowns or financing requests. Payout administration records payments arranged outside the application; it does not transfer money.
 
-POST requires a live Supabase user and active partner membership. The response is
-`{ onePagers: [{ id, name, description, file: { name, url } }] }`, containing only
-partner-visible, non-deleted records with HTTPS attachments, ordered by Sort order. Attachment URLs
-are fetched fresh and responses are not cached. The function is read-only.
-The Partner Guide frontend loads the published one-pagers through this function.
-Both Partner Guide and Brand Kit display Airtable Name verbatim; format labels
-are derived separately from attachment filenames.
+This guide describes the source in this repository as reviewed on November 17, 2026. It does not certify the configuration or deployment status of a hosted environment.
 
-Validate with `node --test supabase/functions/pulsefx-one-pagers/*.test.mjs`.
+## Contents
 
-React portals with Supabase email/password authentication for partner accounts and separate public client and partner demos.
-Partner access requires a row in `public.partner_memberships`. Authenticated referrals load from Airtable through a Supabase Edge Function. Other business screens and public demos use sample records.
+- [Architecture and technology](#architecture-and-technology)
+- [Repository map](#repository-map)
+- [Portals, roles and routes](#portals-roles-and-routes)
+- [Local development](#local-development)
+- [Configuration](#configuration)
+- [Authentication and account lifecycle](#authentication-and-account-lifecycle)
+- [Feature flows](#feature-flows)
+- [Edge Function inventory](#edge-function-inventory)
+- [Airtable data contracts](#airtable-data-contracts)
+- [Database dependencies](#database-dependencies)
+- [Validation](#validation)
+- [Deployment](#deployment)
+- [Operations and troubleshooting](#operations-and-troubleshooting)
+- [Scope and limitations](#scope-and-limitations)
 
-Built with React, Vite and Tailwind CSS v4.
+## Architecture and technology
 
-## Run it
-    npm install
-    npm run dev        # then open the address it prints (usually http://localhost:5173)
-
-Requires Node 24 LTS.
-
-## Screens
-- Dashboard: Quick Quote, USD/CAD rate trend, holding accounts (USD, EUR, GBP) with balances, payments and trades in progress, help tooltips
-- Move Money: one page with a toggle between sending a payment and converting between your own accounts; fund from a holding account or by direct debit from a verified linked bank account
-- Beneficiaries: masked account numbers, search, add and edit beneficiary form, CSV export
-- Accounts: holding accounts (flags and balances, details side panel, certificate download demo) and a Linked bank accounts tab (new accounts show as Pending until PulseFX verifies them)
-- Forwards: list of forward contracts with optional columns, and a two-step Drawdown form funded from a holding account
-- Trade Finance: supplier payment finance with credit line, submitted requests, repayments, early-repayment calculator and a New request form
-- Reports: payment tracker (progress by step) and payment history with CSV export (the CSV download works)
-- Help & support, Profile and Security settings
-
-## Things to know
-- Exchange rate: fetched from Frankfurter (European Central Bank reference rates). These update once a day, so this is
-  the latest official market rate, not a live price. If the service can't be reached the demo shows a labelled sample rate.
-  A real build would use the vendor's quote API. Only `src/lib/fx.js` needs to change.
-- Logo and colours are placeholders (a recreated pulse-line mark and a placeholder palette in `src/index.css`) until PulseFX's
-  official brand assets are applied.
-- Navigation uses simple in-page state, not a router.
-- Forwards, Trade Finance, deposit rules, holidays, fees (about 1.5%) and the minimum finance amount are invented sample values pending confirmation with PulseFX.
-- All state (new beneficiaries, linked accounts, drawdowns, finance requests) is kept in memory and resets when the page reloads.
-- Partner sign-in validates credentials with Supabase and verifies partner membership. Client sign-in remains a demo.
-
-## Partner login setup
-
-1. Create a local `.env.local` file with `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY`, filled with your Supabase project URL and publishable key.
-2. Run `supabase/migrations/20261106224500_create_partner_memberships.sql` in the project's SQL Editor once.
-3. In Supabase Authentication settings, disable public signups and anonymous sign-ins. Create authorized test accounts in Authentication > Users.
-4. Grant accounts membership in the SQL Editor. Use the actual Airtable partner record ID when available.
-5. Start the app and choose Partner portal > Login. Invalid credentials and accounts without membership are rejected.
-
-Example membership assignment for an existing account:
-
-```sql
-insert into public.partner_memberships (user_id, partner_id)
-select id, 'REPLACE_WITH_PARTNER_RECORD_ID'
-from auth.users
-where lower(email) = lower('REPLACE_WITH_AUTH_USER_EMAIL')
-on conflict (user_id)
-do update set partner_id = excluded.partner_id
-returning user_id, partner_id;
+```mermaid
+flowchart LR
+    Visitor[Public visitor] --> UI[React SPA]
+    Partner[Partner] --> UI
+    Admin[PulseFX administrator] --> UI
+    UI --> Auth[Supabase Auth]
+    UI --> RLS[Postgres RLS and scoped RPCs]
+    UI --> Edge[Supabase Edge Functions]
+    Edge --> Auth
+    Edge --> DB[Postgres registrations, leases and operation state]
+    Edge --> Airtable[Airtable business tables]
+    Edge --> Storage[Private document upload staging]
+    DB --> Queue[Durable partner sync queue]
+    Queue --> Worker[partner-sync]
+    Worker --> Airtable
+    UI --> Rates[Frankfurter reference rates for client demo]
 ```
 
-The membership table uses row-level security. Authenticated users can read only their own membership and cannot create or change assignments.
-The UI restores and revalidates the session on reload at `#partner`; logout clears this browser's partner session. The portal signs out after one hour without pointer, keyboard, scroll or touch interaction. Activity is shared across tabs and survives reloads for the same Auth session. Expiration blocks the portal with a blurred backdrop and a “Session expired” dialog asking the user to sign in again. This is a browser inactivity policy; hosted Supabase Auth session settings are managed separately.
-`#partner-demo` opens the public partner demo. Use the Explore a demo dropdown for either public demo.
+| Layer | Implementation | Responsibility |
+| --- | --- | --- |
+| Browser application | React 19, React Router 7, Vite 8 | Portal entry, routes, forms, tables, filters and downloads |
+| Styling and icons | Tailwind CSS 4, Lucide React, shared CSS/SVG assets | Layout, branding and interface components |
+| Authentication | `@supabase/supabase-js` 2 | Email/password login, sessions, invitation and recovery verification |
+| Access and coordination | Supabase Postgres, RLS, RPCs | Membership, account provisioning, session checks, leases, audit and retries |
+| Server API | Supabase Edge Functions; TypeScript entry points and JavaScript modules | Authorization, validation and upstream integration |
+| Business data | Airtable | Partners, referrals, banking, payouts, content and operational email queues |
+| File staging | Supabase Storage and Airtable attachments | Document ingestion and final attachments |
+| Automated checks | ESLint, Node test runner, Vite SSR builds, LinkeDOM, SQL scripts | Domain checks, UI behavior and database access rules |
+| Frontend delivery | GitHub Actions and GitHub Pages | Build and static-site deployment |
 
-## Partner referrals: Airtable setup and deployment
+Supabase is the authority for access. Changing a partner's Airtable account status does not grant or revoke portal permissions. The browser receives public Supabase configuration and user sessions; Airtable credentials and Supabase service-role credentials remain in server functions.
 
-The `partner-referrals` Edge Function validates the caller's access token with Supabase Auth, then reads their `partner_memberships` row with the same token and RLS. It never accepts a partner ID from the browser. No service-role key is needed.
+## Repository map
 
-In the Airtable base, keep these exact table/field names:
+```text
+.
+├── src/
+│   ├── main.jsx                  # React bootstrap
+│   ├── App.jsx                   # BrowserRouter and global keyboard navigation
+│   ├── AppRoutes.jsx             # Portal routes, legacy links and public entry
+│   ├── ClientApp.jsx             # Client demonstration; state-based screen switching
+│   ├── components/               # Partner, administration and client screens
+│   ├── lib/                      # API clients, access flows and shared utilities
+│   ├── assets/                   # Bundled logos and artwork
+│   ├── App.css
+│   └── index.css
+├── supabase/
+│   ├── config.toml               # Edge Function gateway configuration
+│   ├── functions/
+│   │   ├── _shared/              # Membership, admin session, audit and validation modules
+│   │   └── <function>/            # index.ts, service modules and domain tests
+│   ├── migrations/              # Referral submission gate migration only
+│   └── tests/                   # SQL checks for the existing database schema
+├── tests/                       # Keyboard and public referral form UI tests
+├── public/                      # Static assets, sample one-pagers and SPA 404 fallback
+├── .github/workflows/portal.yml  # CI and GitHub Pages publishing
+├── vite.config.js
+├── eslint.config.js
+├── package.json
+└── package-lock.json
+```
 
-- `Partners`: `Name` (primary text), `Partner ID` (formula `RECORD_ID()`), and `Referrals` (the reciprocal link to referrals).
-- `Referrals`: `Company` (primary text), `Partner` (single linked record to `Partners`), `Contact` (text), `Email` (email), `Country` (text), `Status` (single select), `Created` (created time), and `Last modified` (last modified time watching all editable fields).
-- Status options: `Invited`, `Account created`, `Documents submitted`, `Under review`, `Onboarded`, `Rejected`. The UI derives Onboarded from Status.
+The main partner shell is [`PartnerPortal.jsx`](src/components/PartnerPortal.jsx), protected by [`PartnerSession.jsx`](src/components/PartnerSession.jsx). Domain API clients live in `src/lib`, including `referrals.js`, `referralForm.js`, `partnerAdmin.js`, `pulsefxUserAdmin.js`, `banking.js`, `payouts.js`, `documents.js`, `brandKit.js`, `brandAssets.js`, `onePagers.js`, `support.js` and `passwordRecovery.js`.
 
-Create an Airtable personal access token with `data.records:read` and access only to the test base. In Supabase **Edge Functions > Secrets**, set:
+Cross-cutting utilities cover Toronto date handling, payout arithmetic, sorting, pagination, focus management, dialogs, keyboard navigation and session inactivity. Public partner sample records are defined in `src/lib/partnerDemo.js` and the partner shell.
 
-| Name | Value |
+## Portals, roles and routes
+
+Routes below are relative to the configured Vite base path.
+
+| Route | Audience | Behavior |
+| --- | --- | --- |
+| `/` | Public | Portal selection and sign-in entry |
+| `/?ref=<signed-token>` | Public | Partner-specific referral form |
+| `/?token_hash=...&type=...` | Invitation/recovery recipient | Access-link verification and password setup |
+| `/pulseFx` | Public | Additional entry route retained in the router |
+| `/partner/sign-in` | Public | Partner sign-in; can return to the requested partner route |
+| `/partner/:page?` | Authenticated | Partner or administration shell, according to verified access |
+| `/demo/:page?` | Public | Partner demonstration without backend submissions |
+| `/client` | Public | Client demonstration |
+| Unmatched route | Public | Page-not-found screen |
+
+Partner pages: `home`, `referrals`, `add`, `banking`, `payouts`, `brand`, `guide` and `contact`. Home shows referral totals and the personal referral URL. Other pages cover referral registration/tracking, bank submissions, payout history, partner branding, shared resources and support.
+
+Administration pages: `admin` (User management), `banking-approvals`, `admin-payouts`, `admin-referrals` and `documents`. Administrators use a separate navigation menu; their role alone does not grant a partner membership.
+
+Legacy hashes `#partner`, `#partner-admin` and `#partner-admin-demo` redirect to `/partner` and require authentication. `#partner-demo` redirects to `/demo`. There is no public administration demo.
+
+The client demonstration switches screens with React state inside `/client`: Dashboard, Move Money, Beneficiaries, Holding/Linked Accounts, Forwards, Trade Finance, Reports, Profile, Security and Help & support. Its screen names are not independent router paths.
+
+## Local development
+
+Use Node.js 24 to match CI and npm with the committed lockfile. Supabase CLI and access to the intended Supabase/Airtable environment are needed for backend deployment and live integration checks, but not for browsing public demos.
+
+```sh
+npm ci
+npm run dev
+```
+
+Open the address printed by Vite, usually `http://localhost:5173`.
+
+For authenticated features, create `.env.local` in the repository root:
+
+```dotenv
+VITE_SUPABASE_URL=https://YOUR_PROJECT_REF.supabase.co
+VITE_SUPABASE_PUBLISHABLE_KEY=YOUR_PUBLIC_PUBLISHABLE_KEY
+```
+
+Restart Vite after changing environment variables. These values are embedded in production builds; changing deployment variables requires rebuilding the frontend. Without both values, partner sign-in reports that it is not configured. Public demonstrations remain available.
+
+```sh
+npm run build
+npm run preview
+```
+
+`build` writes static output to `dist/`; `preview` serves that build locally. Generated `dist/`, `dist-ssr/`, `node_modules/` and local environment files are ignored by Git. There is no complete local Supabase/database bootstrap in this repository; see [Database dependencies](#database-dependencies) before attempting a fresh installation.
+
+## Configuration
+
+### Public frontend variables
+
+| Variable | Purpose |
 | --- | --- |
-| `AIRTABLE_TOKEN` | Airtable personal access token |
-| `AIRTABLE_BASE_ID` | Base ID starting with `app` |
-| `AIRTABLE_REFERRALS_TABLE_ID` | Referrals table ID starting with `tbl` |
+| `VITE_SUPABASE_URL` | Target Supabase project URL |
+| `VITE_SUPABASE_PUBLISHABLE_KEY` | Public key for browser Auth, RLS and function calls |
 
-The function uses `Partners` as the partner table name. Optionally set `AIRTABLE_PARTNERS_TABLE_ID` to its table ID if that table is renamed. Supabase supplies `SUPABASE_URL` and `SUPABASE_ANON_KEY` to deployed functions automatically.
+Never add `VITE_` prefixes to server credentials. Do not put an Airtable token, service-role key, sync secret or referral signing secret in browser configuration.
 
-Set the account's `partner_memberships.partner_id` to the actual Airtable Partner record ID (`rec...`) using the SQL above. Provisional values such as `pilot-a`, `pilot-b`, or user UUIDs do not grant Airtable access.
+### Edge Function environment
 
-From the repository root, deploy with the Supabase CLI:
+Configure these in the target Supabase project's Edge Function secrets as required by the functions being deployed.
+
+| Variable | Purpose / consumers |
+| --- | --- |
+| `SUPABASE_URL` | Supabase API URL; supplied by the hosted runtime |
+| `SUPABASE_ANON_KEY` / `SUPABASE_PUBLISHABLE_KEY` | Public API credential for Auth verification and caller-scoped membership lookups; readers prefer the publishable key where supported |
+| `SUPABASE_SERVICE_ROLE_KEY` | Server-only Auth administration, leases, operation state and Storage administration; supplied by the hosted runtime |
+| `AIRTABLE_TOKEN` | Personal access token with record permissions for the configured base/tables |
+| `AIRTABLE_BASE_ID` | Airtable base ID (`app...`) |
+| `AIRTABLE_PARTNERS_TABLE_ID` | Shared partner table; configure explicitly because fallback names differ between handlers; the sync worker requires a table ID |
+| `AIRTABLE_REFERRALS_TABLE_ID` | Referral table; required by the referral reader and public form, also used for payout client options |
+| `AIRTABLE_REFERRAL_FORM_TABLE_ID` | Full referral intake table; used by public submission and authenticated referral details |
+| `AIRTABLE_BANKING_TABLE_ID` | Banking table override; default `Banking_details_api` |
+| `AIRTABLE_PAYOUTS_TABLE_ID` | Payout table override; default `Payouts_api` |
+| `AIRTABLE_BRAND_KIT_TABLE_ID` | Partner-owned branding; default `Brand_kit_api` |
+| `AIRTABLE_BRAND_ASSETS_TABLE_ID` | Shared PulseFX brand assets; required by content readers/admin |
+| `AIRTABLE_ONE_PAGERS_TABLE_ID` | Partner guide resources; required by content readers/admin |
+| `AIRTABLE_SUPPORT_TABLE_ID` | Partner and public login support requests |
+| `AIRTABLE_RECOVERY_TABLE_ID` | Public password recovery email queue |
+| `AIRTABLE_PARTNER_INVITATIONS_TABLE_ID` | New-partner invitation email queue |
+| `PORTAL_URL` | Full canonical frontend URL, including any base path, used for access links and public referral URLs |
+| `PARTNER_SYNC_SECRET` | Dedicated server credential for the synchronization worker |
+| `PARTNER_REFERRAL_LINK_SECRET` | HMAC signing secret for public referral URLs; at least 32 characters |
+
+Use explicit table IDs for a shared environment instead of relying on legacy `Partners`/`Partners_api` or `Referrals_api` fallback names. IDs in this document are placeholders, not a record of live infrastructure.
+
+The Airtable PAT needs `data.records:read` and, for write features, `data.records:write` access to the intended tables. The application does not create Airtable schemas; configure fields and select options separately. Partner synchronization also expects Vault entries `partner_sync_secret` and `partner_sync_project_url`, plus the database dispatch/cron infrastructure.
+
+## Authentication and account lifecycle
+
+### Access checks
+
+Partner login uses Supabase email/password authentication. The application verifies the live Auth user and resolves enabled `public.partner_memberships` access through RLS. The membership's `partner_id` is an Airtable partner record ID (`rec...`), not an Auth UUID, registration UUID or arbitrary label.
+
+Only server-managed `app_metadata.role = partner_admin` grants administration. Email matching and user-editable metadata do not grant this role. Administrative handlers also validate the current Auth session; revoked sessions must not continue managing accounts or approving records.
+
+Disable public signup and anonymous sign-in in the target Auth project. Provision the first administrator through a trusted Auth Admin operation, preserving unrelated app metadata. Configure the portal URL in Auth redirect settings and choose the project's password policy and link expiration settings.
+
+Browser sessions use a project-specific storage key. The portal restores and revalidates sessions after reload. A one-hour inactivity policy tracks pointer, keyboard, scroll and touch activity across tabs for the same session; expiration blocks the interface and asks the user to sign in again. This browser policy is separate from Supabase Auth's hosted session settings.
+
+### Partner provisioning and administration
+
+**Add Partner** calls `partner-invitations`, which uses resumable provisioning to create the registration, Auth account, Airtable partner and membership, then queues a private invitation URL in Airtable. The browser receives the partner result and `emailQueued: true`, not the invitation credential. An Airtable automation must send the queued email; queuing does not confirm delivery.
+
+`partner-admin` lists partners and handles profile edits, manual invitation/recovery links and access lifecycle actions. It no longer accepts the Add Partner creation request. Provisioning uses a registration lease and stable `Portal ID` upserts to recover interrupted setups without duplicating the business record.
+
+- Manual invitation links are available for eligible unactivated/incomplete accounts.
+- Manual recovery links are available for eligible active accounts and must be shared securely with the registered contact.
+- Deactivation bans login and revokes membership access; reactivation restores eligible access.
+- Deletion removes the Auth login while retaining Airtable business history and registration state for re-registration.
+- Profile editing preserves registration, Auth, Airtable and membership identities. Email changes require same-contact confirmation and revoke old sessions/links; incomplete edits keep data access disabled until reconciled.
+
+Internal administrators are managed through `pulsefx-user-admin`, without partner registrations, memberships or Airtable partner records. The interface supports creation, lists, profile edits, invitation/recovery links, activation/deactivation and deletion. Self deactivation/deletion is blocked, and database protections prevent removing the last active administrator. Add Admin generates a password setup link for manual sharing; it does not use the new-partner invitation queue.
+
+### Password setup and recovery
+
+Access links open the root entry with `token_hash` and `type`. Verification uses a separate in-memory Auth client so opening an invitation in an administrator's browser does not replace the administrator's session. Invalid/expired links hide the password form. Verification is deduplicated per page instance; a successful password save cannot be repeated in that flow. Closing or reloading before completion may require a new link.
+
+Password completion depends on the server-owned `portal_password_setup` table and `track_portal_password_setup()` / `portal_password_is_set()` database functions. Merely opening an invitation must not mark a new account active. Older accounts may use the legacy activation rule where completion history is unavailable.
+
+**Forgot password?** submits to `partner-password-recovery`. Eligible requests queue a private recovery URL in Airtable; all account lookup outcomes return a generic acknowledgement to the browser. Requests for the same eligible account within five minutes are deduplicated. Unknown/inactive accounts are recorded without a recovery URL. The email automation must send only eligible `Pending` records.
+
+After a successful recovery password change, the access flow requests global sign-out and directs the user to sign in with the new password.
+
+## Feature flows
+
+### Referrals and public intake
+
+Authenticated referral reads validate membership, follow the partner's reciprocal referral links, fetch records in batches with pagination, and check actual ownership before returning data. Home derives Referred, Onboarded, In progress and Rejected indicators from those records. Lists support search, filters, sorting, details and Excel-compatible CSV export.
+
+**Add a client** validates the form server-side, assigns the verified partner, sets initial status `Invited` and source `Partner Portal`, and saves in Airtable. It does not create a client Auth account or send a client invitation email. Additional fields include country, expected monthly volume, currencies, other currency and notes. Duplicate checks are application checks, not a distributed uniqueness constraint.
+
+Each partner's public URL is generated by `partner-referral-form` and persisted in the partner's `Referral URL` field. The signed token identifies the partner; the public visitor does not need a portal session. The function verifies the signature, stored URL and current eligibility before accepting intake. First/last name and email are required; company, phone and supported business interests are captured as well. A honeypot and durable submission reservations protect writes. The current database gate allows up to 10 submissions per client hash in 10 minutes and 100 per partner in one hour; repeated submission UUIDs are rejected.
+
+Public submission first saves the full intake, then creates a linked referral with source `Referral Link`. If the second write fails, the intake remains available for reconciliation. Duplicate email checks can require explicit confirmation of an earlier rejected referral. Reservations prevent replay but do not make the two Airtable writes transactional or automatically recover a failed submission.
+
+Administrators use **Referral follow-up** to read all referrals and change the six onboarding statuses. Writes capture the verified modifier ID/email, acquire a per-record lease, and reject stale status/timestamp snapshots. Unchanged statuses do not rewrite attribution. This is the latest modifier snapshot, not a complete status movement history.
+
+### Banking
+
+Partners submit CAD bank details as a new `Pending verification` record. Existing submissions and approval history are retained. Account numbers are text (4–34 digits), institution codes are three digits and transit numbers are five digits, preserving leading zeros. Optional partner comments belong to each submission and remain separate from staff review notes.
+
+Administrators approve/reject through **Banking approvals**. Approval makes the selected record Verified/current and clears the previous current flag; rejection leaves the existing current account unchanged. Rejections require a reason. Server-only per-partner leases serialize portal reviews, stale snapshots are rejected, and completion is audited without copying account numbers into the review event table.
+
+Airtable writes are not transactional: clearing the old current flag can succeed before final approval fails. Refresh and reconcile unconfirmed results. Multiple current flags or an unverified current account require review rather than automatic account selection. Full account details are returned only within authorized ownership/review flows and are stored in the Airtable business table.
+
+Submission UUIDs support retries of the same banking form, but this is not a cross-request database uniqueness guarantee. Staff should avoid direct concurrent Airtable edits during portal reviews.
+
+### Payouts
+
+Partner **Payout history** reads only owned records, checks both text and linked partner IDs, and includes CAD indicators, date/status/search filters, details and CSV. Totals use integer cents; CAD indicators exclude other currencies. CSV exports displayed rows and omits banking details, notes and internal audit identities.
+
+Administrators create CAD records with a unique reference, partner, optional referred client, positive amount, status and optional notes. Client options are scoped to the selected partner and ownership is checked again on save. Pending/Failed records can be edited or cancelled; Paid/Cancelled records are read-only history. Partner and reference remain fixed after creation.
+
+Marking a payout Paid requires a paid timestamp and confirmation of the partner's unique current verified CAD bank account. The payout binds to that account's historical `Submission ID`; legacy submissions use `airtable:rec...` when needed. Subsequent bank changes do not rewrite history, and a missing historical binding is not replaced with today's account.
+
+Server leases, durable request IDs, expected snapshots and `payout_admin_operations` support recovery of interrupted writes. Audit captures creation, edit and cancellation actors/timestamps. Notes and cancellation reasons reach partners only when their independent visibility flags are enabled. Recording a payout does not initiate a bank transfer.
+
+### Branding, guide resources and documents
+
+Partners can maintain a logo, headshot and description (up to 500 characters). Images are limited to 5 MB; logos accept PNG/JPEG/static SVG and headshots PNG/JPEG. Validation rejects invalid images and unsafe SVG content. Uploads stage in Airtable before replacing the current asset.
+
+Shared PulseFX brand assets and guide one-pagers load through separate read-only functions. Partner-visible records require `Visible to partner` checked and `Deleted` unchecked; obsolete `Active`/`Published` flags are not the current visibility contract. Names are displayed as stored, while format labels derive from filenames. Attachment URLs are fetched fresh and should not be treated as permanent links.
+
+Administrators use **Documents** for creation, naming/filename edits, replacement, visibility and soft deletion in both shared content tables. Uploads support PDF, PNG/JPEG, static SVG, WebP/GIF, Office Open XML, TXT/CSV and ZIP, up to 5 MB. Images/PDF have previews; other files offer downloads.
+
+Document uploads use the private `document-upload-staging` Supabase Storage bucket, created by the service if needed, and one-hour signed URLs for Airtable ingestion. Confirmed ingestion removes staging objects; failed/uncertain writes may require private object cleanup. Soft deletion retains records and attachments. Mutations do not automatically retry, and uncertain results require refreshing before further changes. Airtable provides no transactional compare-and-set, so external simultaneous edits can still race.
+
+### Support and email queues
+
+`partner-support` accepts a category, subject (1–200 characters) and message (1–10,000 characters). It derives identity, partner, source and status from verified access. `partner-login-support` is public and additionally requires contact name/email; it does not require membership. Both create Airtable support records and return the generated Support ID. No Slack integration or support response delivery is implemented by these handlers.
+
+Categories come from [`support-categories.mjs`](supabase/functions/_shared/support-categories.mjs): Account & Login, Client Referrals, Referral Status & Updates, Payments & FX Services, Brand Kit & Marketing Materials, Technical Issues, General Questions and Other.
+
+Support requests have no durable cross-session idempotency guarantee. If a write result is uncertain, the form blocks resubmission to avoid accidental duplicates. Invitation/recovery delivery relies on separate Airtable automations, not frontend SMTP.
+
+### Partner synchronization
+
+`partner-sync` mirrors account/business summaries from Supabase to Airtable, including `Setup incomplete`, `Awaiting activation`, `Active`, `Deactivated` and `Deleted` states. It never writes reciprocal referral links or grants access from Airtable values.
+
+The existing database infrastructure enqueues revisions through registration/Auth triggers, dispatches after commit via `pg_net`, and retries due work through cron. The worker processes batches of at most ten, validates returned records and acknowledges only the claimed revision. Backoff handles transient failures and Airtable rate limits. An older in-flight update cannot acknowledge a newer revision. Pending synchronization does not delay or reverse access revocation.
+
+## Edge Function inventory
+
+All functions are configured with `verify_jwt = false` in [`supabase/config.toml`](supabase/config.toml). Authentication is implemented inside each handler: this setting does not make protected data public. Browser CORS support is not an authorization mechanism.
+
+| Function | Access | Responsibility |
+| --- | --- | --- |
+| `partner-referrals` | Active partner; live admin for follow-up | Referral reads/creation, intake details and admin status updates |
+| `partner-referral-form` | Active partner for link creation; signed link for public load/submit | Personal referral URL and public intake |
+| `partner-invitations` | Live administrator | Partner provisioning and invitation email queue |
+| `partner-admin` | Live administrator | Partner lists, profile edits, manual links and account lifecycle |
+| `pulsefx-user-admin` | Live administrator | Internal administrator accounts and lifecycle |
+| `partner-sync` | Dedicated server sync secret | Durable account summary synchronization |
+| `partner-banking` | Active partner; live admin for `?view=review` | Bank submissions/history and reviews |
+| `partner-payouts` | Active partner; live admin for `?view=admin` | Partner history and payout administration |
+| `partner-brand-kit` | Active partner | Partner-owned branding |
+| `pulsefx-brand-assets` | Active partner | Visible shared brand assets |
+| `pulsefx-one-pagers` | Active partner | Visible guide resources |
+| `pulsefx-documents` | Live administrator | Shared document management and upload staging |
+| `partner-support` | Active partner | Authenticated support intake |
+| `partner-login-support` | Public | Login-page support intake |
+| `partner-password-recovery` | Public, generic acknowledgement | Eligible recovery link queue |
+
+Entry points read runtime configuration and construct dependencies; `service.mjs` and adjacent modules contain handlers/business rules. `_shared/partner-membership.mjs` centralizes caller-scoped membership resolution and `_shared/admin-session.mjs` checks live administrator sessions. Some functions intentionally reuse provisioning, support or referral reader modules; deployment must include their imports.
+
+## Airtable data contracts
+
+Field names are API contracts and must match exactly. The sections below consolidate the fields used across the application; existing environments may retain additional legacy fields. Configure automatic dates with time where specified. Airtable-backed portal dates and calendar filters use `America/Toronto`; date-only values retain their calendar date and CSV preserves underlying values.
+
+### Partners and referrals
+
+| Table | Fields and constraints |
+| --- | --- |
+| Partners (`AIRTABLE_PARTNERS_TABLE_ID`) | `Name`, `Portal ID` (plain text stable registration UUID/upsert key), reciprocal `Referrals`, `Contact`, `Email`, `Supabase User ID`, `Account status`, `Registered at`, `Deleted at`, `Referral URL`, `Created by email`, `Deactivated at`, `Deactivated by email` |
+| Referrals (`AIRTABLE_REFERRALS_TABLE_ID`) | `Company`, `Partner` (single partner link), `Contact`, `Email`, `Country`, `Status`, `Created` (Created time), `Last modified` (Last modified time), `Last status change at` (Last modified time watching Status), `Expected monthly volume`, `Currencies`, `Other currency`, `Notes`, `Source`, `Referral submissions` (intake links), `Last modified by user ID`, `Last modified by email` |
+| Intake (`AIRTABLE_REFERRAL_FORM_TABLE_ID`; default `referrals_form_api` in public submission) | `Partner`, `Company`, `Email`, `First name`, `Last name`, `Phone`, `Business interests`, `Submission ID`; reciprocal referral link maintained by Airtable |
+
+Referral statuses: `Invited`, `Account created`, `Documents submitted`, `Under review`, `Onboarded`, `Rejected`.
+
+Expected monthly volume options: `Under CAD 50,000`, `CAD 50,000 to 250,000`, `CAD 250,000 to 1,000,000`, `Over CAD 1,000,000`. Currency options: CAD, USD, EUR, GBP, AUD, MXN, Other. Other currency is required when selected. Company/contact allow up to 200 characters, email 254, other currency 60 and notes 5,000.
+
+`Source` options include `Partner Portal` and `Referral Link`. Intake business-interest options are defined in [`referral-form-fields.mjs`](supabase/functions/_shared/referral-form-fields.mjs); keep Airtable choices aligned with that list. The authenticated referral detail path checks both the referral-to-intake link and the intake's reciprocal `Referral` and `Partner` links before exposing form data. Configure the same intake table across both functions; the fallback name is `referrals_form_api`.
+
+The sync worker writes account/business fields, but leaves `Referrals` and account audit snapshots untouched. Account audit fields are historical/current-state snapshots, not a complete event log. Reactivation clears the deactivation snapshot; missing historical actors/dates are not inferred.
+
+### Banking and payouts
+
+| Table | Core fields |
+| --- | --- |
+| `Banking_details_api` | `Submission ID` (primary text), `Partner` (single link), `Partner ID` (text), `Institution name`, `Account holder`, `Account number`, `Institution code`, `Transit number`, `Currency`, `Status`, `Current account`, `Partner Comments`, `Submitted at` (Created time), `Last modified` (all editable fields) |
+| `Payouts_api` | `Reference` (primary text), `Partner` (single link), `Partner ID` (text), `Client` (text), `Amount` (CAD currency), `Currency`, `Status`, `Paid at`, `Notes`, `Bank Submission ID`, `Created at` (Created time) |
+
+Banking statuses: `Pending verification`, `Verified`, `Rejected`. Banking review fields: `Approval reason`, `Show approval reason to partner`, `Rejection reason`, `Show rejection reason to partner`, `Approved at`, `Approved by user ID`, `Approved by email`, `Rejected at`, `Rejected by user ID`, `Rejected by email`. Visibility fields are checkboxes, unchecked by default. Approval/rejection reasons are independent; legacy rejected approval text is not exposed as approval notes. `Partner Comments` accepts up to 2,000 characters.
+
+Payout statuses: `Pending`, `Paid`, `Failed`, `Cancelled`. Additional payout fields: `Created by email`, `Created by user ID`, `Last edited at`, `Last edited by email`, `Last edited by user ID`, `Cancelled at`, `Cancelled by email`, `Cancelled by user ID`, `Cancellation reason`, `Show notes to partner`, `Show cancellation reason to partner`. Cancellation reason allows up to 2,000 characters; both visibility checkboxes default to unchecked.
+
+Use text for account/institution/transit numbers and user IDs; use Email fields for actor emails and Date with time for server-written audit dates. Set both `Partner` and `Partner ID` consistently to the same Airtable `rec...` identity. The legacy combined institution/transit field is not used by the current portal.
+
+### Partner branding and shared documents
+
+`Brand_kit_api` requires `Partner Airtable ID`, `Supabase user ID`, `Brand logo` (attachment), `Brand headshot` (attachment), `Brand description` and `Brand upload staging` (attachment). Configure these automatic timestamps:
+
+| Field | Airtable configuration |
+| --- | --- |
+| `Created at` | Created time |
+| `Updated at` | Last modified time watching only Brand logo, Brand headshot and Brand description |
+| `Logo uploaded at` | Last modified time watching only Brand logo |
+| `Headshot uploaded at` | Last modified time watching only Brand headshot |
+
+Staging updates must not change content timestamps. Missing computed dates return empty/null values, with record creation time available as a creation fallback.
+
+Both shared document tables require `Name`, `File` (attachment), `Visible to partner` and `Deleted` (checkboxes), `Created at` (Created time), `Created by user ID`, `Created by email`, `Last updated by user ID`, `Last updated by email`, and these event audit fields:
+
+- `Replaced at`, `Replaced by user ID`, `Replaced by email`.
+- `Deleted at`, `Deleted by user ID`, `Deleted by email`.
+- `Last updated at`: automatic Last modified time watching **only Name and File**.
+
+Guide resources can also use `Description` and `Sort order`. Migrate old `Active`/`Published` visibility values into `Visible to partner` before deploying the current readers. Name/file changes update content audit; visibility and deletion preserve the last content editor. Direct Airtable edits cannot supply a verified Supabase editor identity.
+
+### Support
+
+Required fields: `Partner Airtable ID`, `Supabase user ID`, `Client name`, `Email`, `Source`, `Category`, `Subject`, `Message`, `Status`, `Created at`, `Support number`, `Support ID`, `Airtable record ID`.
+
+Use `Source` options `Partner` and `Partner Login Page`; `Status` options `Received`, `Responded`, `Ignored`; and the categories listed in the support module. `Created at` is Created time, `Support number` is Autonumber, `Airtable record ID` is `RECORD_ID()`, and `Support ID` can use:
+
+```text
+"SUP-" & RIGHT("000000" & {Support number}, MAX(6, LEN({Support number} & "")))
+```
+
+Response fields such as `Responded by user ID`, `Responded by name`, `Responded by email`, `Response` and `Responded at` are reserved for operational handling; these intake handlers do not write them.
+
+### Invitation and recovery queues
+
+| Queue | Required fields |
+| --- | --- |
+| Partner invitations | `Portal ID` (plain text primary/upsert key), `Partner name`, `Contact name`, `Email`, `Invitation link` (URL), `Requested at`, `Supabase user ID`, `Partner Airtable ID`, `Status` |
+| Password recovery | `Email`, `Recovery link` (URL), `Requested at`, `Supabase user ID`, `Partner Airtable ID`, `Source`, `Status`; `Error` records ineligible outcomes |
+
+Invitation statuses: `Pending`, `Sent`, `Failed`. Recovery additionally needs `Account not found` and `Account inactive`; its Source includes `Partner Login Page`. Optional operational fields include `Sent at`, an error log and an autonumber request identifier.
+
+Use separate automations. Trigger delivery only for `Pending` records with email and the appropriate link populated, send to that record's email, then mark Sent/record Sent at after successful delivery. Private links are credentials: restrict queue access and avoid public views. Link expiration is governed by Supabase Auth.
+
+## Database dependencies
+
+**This repository cannot recreate the full database from scratch.** The only checked-in migration currently is [`20261117000100_partner_referral_submission_gate.sql`](supabase/migrations/20261117000100_partner_referral_submission_gate.sql). It creates the private public-submission reservation table and service-role-only claim RPC with rate limits. It does not create the pre-existing membership, administration, synchronization or banking/payout schema.
+
+The application also relies on the following existing objects and behavior. This is a dependency map, not replacement DDL:
+
+| Domain | Existing dependencies / examples |
+| --- | --- |
+| Membership and profile | `partner_memberships`, enabled membership RLS, live-session/current-email checks, `get_partner_display_profile`, `partner_portal_session_valid` |
+| Partner provisioning | `partner_registrations`, registration leases, account summary RPCs, `set_partner_account_access` |
+| Partner profile edits | Prepare/finish/cancel edit RPCs, audit/operation state, session and access-link revocation |
+| Admin accounts | `list_portal_administrators`, `portal_admin_session_valid`, account-action leases, credential invalidation and last-active-admin protection |
+| Password completion | `portal_password_setup`, `track_portal_password_setup()`, `portal_password_is_set()` and Auth sync triggers |
+| Partner mirror | `partner_airtable_sync`, claim/finish/snapshot/dispatch RPCs, Auth/registration triggers, Vault, `pg_net` and cron |
+| Banking review | Claim/renew/release/complete RPCs, per-partner leases and `banking_review_events` |
+| Payout administration | `payout_admin_operations`, claim/renew/release write RPCs and durable operation intent/results |
+| Referral follow-up | `claim_referral_followup`, `release_referral_followup` and server-only per-record leases |
+| Public intake | `partner_referral_submission_gate` and `claim_partner_referral_submission` from the checked-in migration |
+
+The SQL scripts in [`supabase/tests`](supabase/tests) document and check many of these contracts. They are tests, not installation migrations. Obtain a reviewed schema export or the missing migration history from the environment owner before provisioning a fresh project; applying the one migration alone will not enable the full portal. Do not follow historical references to migration files that are no longer present.
+
+## Validation
+
+There is no umbrella `npm test` script. The available npm scripts are grouped by domain:
+
+| Domain | Lint | Tests |
+| --- | --- | --- |
+| Authentication | `npm run lint:auth` | `npm run test:auth` |
+| Referrals | `npm run lint:referrals` | `npm run test:referrals` |
+| Public referral form | `npm run lint:referral-form` | `npm run test:referral-form`, `npm run test:referral-form:ui` |
+| Partner/admin accounts and sync | `npm run lint:admin` | `npm run test:admin` |
+| Banking | `npm run lint:banking` | `npm run test:banking` |
+| Payouts and dates | `npm run lint:payouts` | `npm run test:payouts` |
+| Table utilities | `npm run lint:tables` | `npm run test:tables` |
+| Documents and shared content | `npm run lint:documents` | `npm run test:documents` |
+| Support | `npm run lint:support` | `npm run test:support` |
+| Keyboard behavior | — | `npm run test:keyboard` |
+
+Additional suites not all included in the domain npm scripts can be run together with:
+
+```sh
+node --test src/lib/*.test.mjs supabase/functions/*/*.test.mjs
+```
+
+This includes password recovery, partner invitations, branding and shared utility tests. The UI scripts compile test bundles into `dist-ssr/` and run them with Node/LinkeDOM. `npm run lint` checks the whole repository and may report issues outside the focused CI lint groups; do not equate scoped lint success with a clean global lint.
+
+CI in [`.github/workflows/portal.yml`](.github/workflows/portal.yml) runs the listed domain lint/test groups for tables, auth lint, referrals, public referral form (including UI), banking, payouts, documents, support and administration, followed by the production build. It does not currently execute every additional test suite, the keyboard script, global lint or the SQL scripts.
+
+SQL checks cover activation, admin accounts, lists/actions, profile editing/display, password completion, sync, banking review and payouts. They require the matching configured database, use transactions/rollback for fixtures, and must be reviewed before execution against a shared environment.
+
+For live acceptance, verify partner isolation with two different memberships; valid/invalid login; reload/logout/inactivity; invitation and recovery; role denial for non-admin callers; referral creation/public intake/follow-up; banking review; payout bank binding/history; document visibility; and email automation delivery. Mocked upstream tests and a successful frontend build do not prove hosted Auth/RLS, secrets, Airtable schema or automations are configured correctly.
+
+## Deployment
+
+### Backend
+
+1. Confirm the target project and obtain/verify the pre-existing schema described above.
+2. Apply the checked-in submission-gate migration through the normal reviewed database process when enabling public intake.
+3. Configure Airtable tables/fields, Edge Function secrets, Auth redirects/policy and the sync Vault/cron dependencies.
+4. Provision the initial administrator through trusted Auth administration.
+5. Deploy the required Edge Functions, including shared imports, before publishing the matching frontend.
+
+For example, using the Supabase CLI:
 
 ```sh
 npx supabase login
 npx supabase functions deploy partner-referrals --remote=YOUR_PROJECT_REF --use-api
+npx supabase functions deploy partner-referral-form --remote=YOUR_PROJECT_REF --use-api
 ```
 
-`YOUR_PROJECT_REF` is the prefix of your Supabase project URL (`https://YOUR_PROJECT_REF.supabase.co`), also available in project settings. Deployment reads `supabase/config.toml`, where the legacy gateway JWT check is disabled because the function validates the user token itself through Auth. Missing or invalid tokens are still rejected before reading any partner data. The frontend workflow deploys only GitHub Pages; the Edge Function must be deployed separately.
+`YOUR_PROJECT_REF` is the project URL prefix. Repeat the deploy command for the other function names in the inventory, using a CLI version that supports the shown `--remote`/`--use-api` flags. The frontend workflow does not deploy functions, apply database changes, configure secrets, create accounts or install Airtable automations.
 
-The function reads the partner's reciprocal `Referrals` links, requests only those record IDs in batches, follows Airtable pagination, and verifies each referral has exactly the authorized `Partner` link before returning it. It returns only fields used in the list, details and CSV export. Dates are normalized to `YYYY-MM-DD` using the Airtable timestamp's UTC date. A missing last-modified timestamp falls back to the creation date.
+### Frontend and base path
 
-To test manually after deploying:
+The committed [`vite.config.js`](vite.config.js) uses `base: '/'`; [`public/404.html`](public/404.html) also uses `BASE = '/'`. This is root-hosting configuration. The legacy `homepage` value in `package.json` points at a GitHub project URL, but Vite's `base` controls the actual build asset paths.
 
-1. Run `npm run dev`, sign in through the real partner login, and open **Referrals**. For the configured ABC Accounting account, expect eight referrals and no Maple Test Co. or Cedar Test Ltd.
-2. Check company/status/date filters, sorting, company details and Download Excel (an Excel-compatible CSV of the filtered rows).
-3. Change a referral status in Airtable, then click **Refresh**. Native Created/Last modified fields use real timestamps, so sample records created together will have the same creation date.
-4. Sign in with an account assigned to Other Partner and expect only its two referrals. An account without a membership must be rejected; provisional partner IDs must show a configuration error.
-5. Verify an empty partner shows **No referrals yet**, and a failed API request shows an error with **Try again**, without substituting demo data.
-6. Open `#partner-demo` and confirm the public sample list still works without authentication.
+For hosting under `/pulseFx/`, update both base settings together, review root-absolute static references such as the favicon in `index.html`, and set `PORTAL_URL` and Auth redirects to the matching deployed address. Merely retaining the `/pulseFx` entry route does not configure subpath asset hosting. For a custom root domain, keep `/` and use the canonical domain in `PORTAL_URL`.
 
-Partner **Home** loads all referrals for the signed-in partner through the existing partner-referrals API. Referred counts all referrals; Onboarded counts records with Status = Onboarded (displayed as Yes in Referrals); In progress excludes rejected and onboarded records; Rejected counts records with Status = Rejected. Cards appear in the order Referred, Onboarded, In progress, Rejected. Authenticated Home loads the personal referral link; the placeholder link remains only in the public demo. Home includes shortcuts to all partner sections. The public demo uses sample data.
+React Router needs an SPA fallback for direct links and reloads. GitHub Pages uses `public/404.html` to preserve the original route/query, then the script in `index.html` restores it before React starts. Other static hosts should rewrite application routes to `index.html` while serving real assets normally. Test invitation/recovery query strings and public referral URLs through the deployed fallback.
 
-## Partner administration and manual invitation links
-
-The profile menu exposes **Administration** only to accounts with server-managed `app_metadata.role = partner_admin`. Admin accounts can enter without a partner membership. `#partner-admin` opens the authenticated portal. The former `#partner-admin-demo` address now also requires sign-in; administration has no sample records or generated demo links.
-
-For live operation on the intended Supabase project:
-
-1. Apply all migrations in `supabase/migrations`, in filename order. `partner_registrations` stores provisioning progress and has no browser access. The service-only summary function checks whether the Auth account has a confirmed email and a password; neither passwords nor their hashes are returned.
-2. Create the initial administrator account and assign `app_metadata.role = partner_admin` through the trusted Auth Admin API (preserve other app metadata). Assign this to the verified PulseFX administrator, initially `partnerships@pulsefx.com`. Email matching and user-editable metadata do not grant this role. Do not grant partners this role.
-3. In Airtable `Partners`, add **Portal ID** as a single-line text field alongside **Name** and **Referrals**. Portal ID is the stable registration UUID used for upsert retries; do not make it a formula. Give the function's Airtable token `data.records:read` and `data.records:write` access to the intended base.
-4. Set Edge Function secrets `AIRTABLE_TOKEN`, `AIRTABLE_BASE_ID`, and **PORTAL_URL** (the full deployed portal address including its base path, for example the address ending `/pulseFx/`). Optionally set `AIRTABLE_PARTNERS_TABLE_ID`. Supabase supplies `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` to hosted functions. These credentials must never have a `VITE_` prefix or appear in frontend configuration.
-5. Allow the portal URL in Auth redirect settings. Keep public signup and anonymous sign-in disabled. Choose the Email OTP Expiration and password policy in Auth settings.
-6. Deploy `partner-admin` separately with CLI v3: `npx supabase functions deploy partner-admin --remote=YOUR_PROJECT_REF --use-api`. Deploy the frontend with the matching project's public configuration. Local source changes do not deploy or migrate any remote project automatically.
-
-**Add partner → Confirm and generate link** registers the contact, creates a passwordless Auth account and Airtable partner, assigns membership, then generates a private invitation link. The administrator copies it and shares it directly with the contact. No SMTP or automatic email is used. The portal verifies the link when the recipient opens the page. A valid link is consumed at that point, and the password form uses the resulting in-memory session. Used, expired or invalid links show an explanation before any password fields appear. Activation uses a separate in-memory Auth client so an existing admin session in the same browser is preserved.
-
-**Actions** contains icon buttons with hover descriptions for copying a fresh invitation link, deactivating/reactivating a login, and deleting a login. Deactivation revokes membership access through RLS as well as banning Auth sign-in; reactivation restores access. Delete permanently removes the Auth user while retaining the Airtable partner/referral history and a hidden registration so the same partner can be registered again without duplicating Airtable records. Both deactivation and deletion require confirmation. Administrator accounts cannot be changed through these actions.
-
-**Generate invitation link** is available for accounts awaiting activation and incomplete setups. Provisioning resumes from saved progress with a short lease to prevent concurrent duplicates. Airtable upserts use Portal ID so retries after interrupted responses reuse the same record. Existing unrelated Auth accounts are rejected instead of silently linked. Active accounts cannot receive activation links. No invitation tokens/links are persisted in the database or browser storage.
-
-Before enabling this feature, test on the clean target environment: sign in as admin, register a contact, copy/open the link in another browser, set a password, sign in as that partner, verify referral isolation, and refresh the admin list to see **Active**. Also test expired links, link regeneration, a normal partner calling the admin API (must fail), and retrying an interrupted setup. This first version lists partners registered through the portal; it does not import legacy manual memberships. Password recovery for active partner accounts is handled by an administrator using the key action in Actions; no automatic email is sent.
-
-`npm run lint:admin` checks the new frontend and `npm run test:admin` tests authorization, activation guards, resumable provisioning and safe failures using mocked upstream services. Live Auth, database and Airtable deployment checks remain necessary.
-
-## GitHub Pages deployment
-
-The Portal checks and deployment workflow checks pull requests, then builds and publishes `main` through GitHub Pages after merge.
-In Settings > Secrets and variables > Actions > Variables, configure:
+The workflow checks pull requests targeting `main`, builds on pushes to `main` or manual dispatch, and publishes eligible `main` runs using the official Pages actions. Configure repository Actions **Variables**:
 
 - `VITE_SUPABASE_URL`
 - `VITE_SUPABASE_PUBLISHABLE_KEY`
 
-These values are public frontend configuration. Passwords, Supabase secret/service-role keys and Airtable tokens must stay on the server.
-Before merging, a repository administrator must change Settings > Pages > Build and deployment > Source to **GitHub Actions**. The current site uses the legacy `gh-pages` branch. The workflow uses the official Pages deployment action because pushes made with `GITHUB_TOKEN` do not trigger legacy Pages builds. The site keeps its existing `/pulseFx/` base path.
-Deployment fails before publishing if the Supabase variables are missing. Database migrations and account creation remain administrator steps.
-If the administrator keeps legacy branch publishing instead, configure `.env.local` on the publishing machine and use the existing `npm run deploy` command. Do not use both publishing methods at the same time.
-
-## Validation and first-version scope
-
-- `npm run lint:auth` checks the authentication entry points and shared navigation.
-- `npm run lint:referrals` checks the partner portal and referrals client.
-- `npm run test:auth` checks authenticated membership lookups, missing memberships and lookup failures.
-- `npm run test:referrals` also checks the Edge Function's authorization, partner isolation, batching, pagination, malformed data, and upstream failures using mocked services.
-- `npm run build` checks the production build. The full `npm run lint` currently reports existing issues in the demo components.
-- Manually check valid partner sign-in, invalid credentials, an account without membership, reload at `#partner`, logout and both public demos.
-
-Client authentication and partner business screens other than Referrals and Add a client remain demonstrations. Partner administration and manual password recovery are implemented.
-No Airtable credentials or production referral data are included. Deploy `supabase/functions/partner-referrals` separately to enable authenticated referrals.
-
-## Partners_api mirror
-
-`partner-sync` mirrors the business/account summary from Supabase to the configured `Partners_api` table. Fields are **Name**, **Portal ID**, **Contact**, **Email**, **Supabase User ID**, **Account status**, **Registered at** and **Deleted at**. Keep **Referrals** as the existing reciprocal link; the worker never writes that field. Contact, Portal ID and Supabase User ID are single-line text; Email is an email field; Registered at and Deleted at are dates with time. Account status is single select with `Setup incomplete`, `Awaiting activation`, `Active`, `Deactivated`, `Deleted`.
-
-Apply `20261114001500_partner_airtable_sync.sql` after the other migrations. It installs a server-only durable queue, registration/Auth triggers and a once-per-minute retry schedule. Updates to registration business fields, password/email confirmation and Auth bans enqueue a fresh revision. The worker writes in batches of at most ten and verifies all returned values before marking a revision synchronized. Existing registrations are backfilled, including deleted logins. An older in-flight update cannot acknowledge a newer queued revision.
-
-Deletion of the Auth user preserves the business record and sets `Deleted` in Airtable; the removed user's Supabase ID is cleared. Re-registering the same partner reuses Portal ID and clears Deleted at. Supabase remains the authority for permissions; editing the Airtable status does not grant or revoke access. Passwords, password hashes, invitation links, Auth metadata and session tokens are never sent to Airtable.
-
-Deployment also needs a randomly generated `PARTNER_SYNC_SECRET` in Edge Function secrets and the same value in Supabase Vault under `partner_sync_secret`. Store the project URL in Vault as `partner_sync_project_url`. These server-only values authenticate the queue worker; never put them in frontend environment variables. Deploy with `npx supabase functions deploy partner-sync --remote=YOUR_PROJECT_REF --use-api`. The function has gateway JWT verification disabled because it validates its own dedicated credential. User JWTs cannot invoke it. The Airtable PAT still only needs record read/write access to the configured base; no schema permissions are required.
-
-Registration/Auth triggers dispatch after the transaction commits through pg_net. Cron retries due jobs every minute; failures use bounded exponential backoff and honor Airtable rate limits. The admin list reports pending updates; Refresh reloads their state. Sync never delays or reverses access revocation. To inspect pending work, query `partner_airtable_sync` using an administrative connection. `select public.dispatch_partner_airtable_sync()` requests a retry of due work without exposing credentials.
-
-`npm run test:admin` includes worker authorization, field whitelisting, all lifecycle states, batching, idempotent upserts, response verification and retry tests. `supabase/tests/partner_airtable_sync.sql` verifies database triggers, activation/deactivation/deletion and concurrent revisions inside a fully rolled-back transaction; its fixture records and queued HTTP calls are never committed or sent to Airtable.
-
-
-## Manual partner password recovery
-
-The blue key in **Actions** generates and copies a password reset link for an active partner account. If clipboard access is unavailable, a dialog displays the link for manual copying. The administrator verifies the request and sends the private link directly to the registered email address. Disabled accounts must be explicitly reactivated first; deleted, incomplete and unactivated accounts cannot receive recovery links. Administrators cannot generate recovery links for themselves or other administrator accounts through this partner endpoint.
-
-The `partner-admin` recovery action revalidates the caller's admin role, acquires the account lease and verifies the current Auth user, registration ownership and active state. It calls `generateLink(type: recovery)` without creating accounts, altering memberships, reactivating users or sending emails. The existing password is changed only when the recipient verifies the link and submits a new password in the portal. This action requires PORTAL_URL and Auth configuration, independently of Airtable availability.
-
-**Forgot password?** now explains how to contact partnerships@pulsefx.com, with a mailto link that the user chooses to open. It does not submit a public account lookup or claim that an email was sent. The access-link screen distinguishes recovery from first activation, handles invalid/expired links, and uses its separate in-memory Auth client so an administrator's browser session is preserved. After reset it requests global sign-out for the recovered user and directs them to sign in with the new password.
-
-
-Access-link verification is deduplicated per page instance, including React Strict Mode effect replay. The password form is hidden until verification succeeds. A saved password cannot be submitted a second time through the same page flow; password-policy corrections may reuse the verified in-memory session before success. Network failures show a retry option rather than incorrectly reporting expiry. Closing or reloading the page before completing password setup may require a new link because the verification session is intentionally not persisted. This is covered by `src/lib/partnerAccess.test.mjs`.
-
-
-## Add a client
-
-Authenticated partners can save a client through `POST /functions/v1/partner-referrals`. The function validates the Auth session and resolves an enabled partner membership through RLS; partner IDs and status supplied by the browser are rejected. The Airtable token stays in Edge Function secrets. Public preview submissions remain in memory and never call this endpoint.
-
-In `Referrals_api`, retain Company, Partner (single link to Partners_api), Contact, Email, Country, Status, Created and Last modified. Add **Expected monthly volume** (single select: `Under CAD 50,000`, `CAD 50,000 to 250,000`, `CAD 250,000 to 1,000,000`, `Over CAD 1,000,000`), **Currencies** (multiple select: CAD, USD, EUR, GBP, AUD, MXN, Other), **Other currency** (single-line text), and **Notes** (plain long text). Existing records may leave these fields empty. The API writes only these form fields, the verified Partner link and initial status `Invited`; Airtable maintains timestamps. Saving does not send an invitation email or create a client Auth account.
-
-Company/contact are limited to 200 characters, email to 254, Other currency to 60, and notes to 5,000. Other currency is required when Other is selected and discarded when hidden. Server-side validation enforces the supported country/volume/currency choices. The client disables submissions during a save, preserves form values on errors, and shows success only after Airtable confirms creation. Details and Excel export include all saved fields.
-
-Before writing, the endpoint checks the partner's linked referrals for a matching company name (trimmed and case-insensitive). This blocks ordinary repeat submissions; it is not an atomic cross-request uniqueness constraint. If a write times out, check Referrals before retrying because Airtable may have accepted it. Concurrent submissions from separate tabs should not be used to submit the same client.
-
-Deploy the updated `partner-referrals` function after adding the fields. Existing Airtable record read/write permissions are sufficient; schema permissions are not required. `npm run test:referrals` covers POST validation, ownership, duplicate checks and upstream errors as well as read isolation.
-
-## Banking details and payout history
-
-`partner-banking` verifies Auth and the caller's enabled partner membership through RLS. It manages bank account submissions and approvals, using the existing server-only AIRTABLE_TOKEN and AIRTABLE_BASE_ID. The account table defaults to `Banking_details_api`; AIRTABLE_BANKING_TABLE_ID can override it with a table ID. Payout records use the separate `partner-payouts` function and `Payouts_api` table (overridable with AIRTABLE_PAYOUTS_TABLE_ID).
-
-`Banking_details_api` fields: Submission ID (primary text), Partner (single link to Partners_api), Partner ID (text), Institution name (text), Account holder (text), Account number (text), Institution code (text), Transit number (text), Currency (single select: CAD), Status (single select: Pending verification, Verified, Rejected), Current account (checkbox), Approval reason (plain long text), Submitted at (created time with time), Last modified (all editable fields, with time).
-
-The portal appends each change as a new Pending verification submission with Current account unchecked. It never overwrites older submissions or changes approvals. Staff review the details in the portal under Banking approvals. Approval marks the selected submission Verified/current and clears the previous current flag. Manual Airtable review is still possible by applying those same status and flag changes, but should not run concurrently with portal reviews. Keep only one verified account current per partner. The portal reports multiple flags or a flag on an unverified submission as requiring PulseFX review; it does not pick an account automatically. Rejected submissions can include Approval reason visible to the partner. Changing a verified account without marking it current does not replace the existing current account.
-
-Account and institution/transit numbers are text so leading zeros survive. The current form supports CAD, a 4–34 digit account number and separate Institution code (3 digits) and Transit number (5 digits) inputs. The API reads and writes Institution name, Institution code and Transit number directly. The legacy Institution and transit number field is retained in Airtable for history but is no longer read or written by the portal. The form order is account holder, institution code, institution name, transit number, account number. Account numbers are returned in full only after verifying the authenticated partner membership and ownership of each record. Account cards/history display the full number and the update form prefills it, preserving leading zeros. Responses use Cache-Control: no-store. Full numbers are stored in the Pulse Airtable base for authorized review and are not logged or included in errors. Keep base access restricted to the appropriate Pulse team.
-
-The browser keeps a random submission ID for an unchanged retry; an existing submission returns its original result without resetting approval. This is an application-level retry check, not a database uniqueness constraint across concurrent requests. Refresh after an uncertain timeout before starting a separate submission. The server rejects caller-supplied partner IDs, status, current flags and review notes.
-
-`Payouts_api` fields: Reference (primary text), Partner (single link), Partner ID (text), Client (text), Amount (CAD currency), Currency (single select: CAD), Status (single select: Pending, Paid, Failed, Cancelled), Paid at (date with time), Notes (plain long text), Created at (Created time with date/time), Created by email (Email), Created by user ID (single-line text). Administrators maintain payout records through the portal Payouts screen; payments are arranged outside the portal. For staff-created payout rows, set both Partner and Partner ID to the same linked partner used by Banking_details_api (Partner ID is the Airtable `rec...` ID, not the Supabase Portal ID). Reads filter by Partner ID and also check the actual linked record. Inconsistent rows are excluded. The Payout history sidebar page (dollar icon) loads only when opened and exports the displayed records as CSV. Total paid includes only Paid rows in CAD.
-
-`Bank Submission ID` (single-line text) on `Payouts_api` stores the exact `Submission ID` from `Banking_details_api` when an administrator marks a payout Paid. For legacy bank submissions with a blank Submission ID, the backend uses `airtable:rec...` as a stable reference to that banking record without changing its metadata. The server verifies the account shown in the form is still the partner's unique current verified CAD account, then records the binding in the retry ledger and payout. Later account changes do not rewrite payout history. Partner payout details resolve the historical submission with both partner ownership checks; missing historical bindings are shown as unavailable, never replaced with the current account. Customer details include creation, last update and cancellation timestamps, Notes and the optional cancellation reason, but omit staff emails and Auth user IDs. CSV continues to omit Notes and banking details. Create the field before deploying.
-
-
-Public preview banking stays in local component memory. Authenticated users see real empty states rather than demo accounts/payouts. Run `npm run lint:banking` and `npm run test:banking`; CI includes both.
-
-### Admin banking approvals
-
-Administrators now have a separate sidebar with User management and Banking approvals. The review list is available only to a caller whose Auth-verified `app_metadata.role` is `partner_admin`; email matching and user-editable metadata do not grant access. Ordinary partners retain their own banking screen and cannot read the review list or mutate approvals.
-
-`GET partner-banking?view=review` lists submissions, partner contact information, current flags, review notes and full bank details. The initial filter is Pending verification. `POST` on this view accepts only a bank record ID, approve/reject action, notes and the expected Last modified timestamp. Rejections require a reason. Reviews of stale/inconsistent or invalid account details are rejected. Existing records keep their bank data and submission IDs.
-
-Approval clears previous current flags for that partner, marks the selected pending submission Verified/current, and checks the resulting state before confirming. Rejection leaves the current account unchanged and marks only the pending submission Rejected. Repeated confirmed decisions do not rewrite bank data. Staff should use the portal for reviews; direct concurrent Airtable edits do not participate in the portal lock.
-
-Apply `20261114130000_banking_review.sql` before deploying the updated partner-banking function. It creates server-only review leases and an audit table. A per-partner lease prevents simultaneous portal reviews, renews before writes and expires after five minutes if interrupted. Successful decisions record the administrator's Auth ID, target record ID, partner ID, action and time in banking_review_events, without copying account numbers. Neither anonymous users nor authenticated partner clients can call the lease/audit functions or read the tables. The function uses the existing Supabase service-role secret on the server.
-
-Airtable updates are not a transaction: if clearing the previous current flag succeeds but final approval fails, the request remains pending and may temporarily have no current account. The UI reports an unconfirmed review and asks for a refresh/retry; it never announces success before the resulting state is confirmed. A retry of a completed final write can finish the audit without rewriting the bank data. Bank history is never deleted.
-
-`npm run test:banking` covers review authorization, approval/rejection, ownership, stale state, lock conflict/expiry, response confirmation and audit errors. `supabase/tests/banking_review.sql` checks lease ownership, concurrent claims, audit completion and execution privileges inside a fully rolled-back transaction.
-
-
-The partner profile menu displays the linked registration's company name rather than the Auth contact's full_name. Apply `20261114143000_partner_display_profile.sql`: get_partner_display_profile is available only to authenticated callers and resolves auth.uid() against an enabled, matching registration/membership. It returns only the partner ID and company name; it cannot accept a different user's ID or expose another partner's profile. The profile label is fetched independently from login, with a neutral fallback if unavailable. `supabase/tests/partner_display_profile.sql` checks ownership and execution privileges inside a rolled-back transaction.
-
-## Editing partner details
-
-The pencil in User management edits an existing, provisioned partner registration. Partner name, contact name and login email keep the same registration ID, Auth user ID, Airtable partner record ID and membership. The existing mirror updates Partners_api Name, Contact and Email. Referrals_api Email is the referred client's address and is never changed by this operation. Bank submissions, account holders and payout history are preserved.
-
-Apply `20261114160000_partner_profile_edit.sql` before deploying the updated partner-admin function. A server-only audit/operation table records old/new values, creator, completion actor, timestamps and pending/completed/cancelled states. The existing registration lease serializes edits with invitation and account lifecycle actions. The server rejects edits to administrators/self, unprovisioned/deleted records, stale originals and duplicate partner names or emails, including Auth accounts outside the portal registry.
-
-The email confirmation screen requires the admin to attest that the address belongs to the same contact; it is not a contact-transfer flow and sends no email. Auth email updates use the Admin API and retain existing confirmation state and password. Unactivated accounts need a newly generated invitation after their email is changed. Deactivated accounts remain deactivated. Name-only changes update full_name without replacing unrelated metadata or revoking existing sessions.
-
-Preparation reserves the new canonical values under the existing database uniqueness constraints and temporarily disables membership access. Email changes clear pending confirmation/recovery/email-change/reauthentication tokens and remove existing refresh tokens/sessions through a server-only function scoped to the registration lease, both before and after updating Auth. The portal additionally validates session existence and the current email in membership RLS and display-profile queries. The access-link password flow checks this validation before saving a password. This closes the access-token window described in the [Supabase session documentation](https://supabase.com/docs/guides/auth/sessions); Auth updates use [updateUserById](https://supabase.com/docs/reference/javascript/auth-admin-updateuserbyid).
-
-The Auth update is not a distributed transaction with Postgres/Airtable. The operation stays pending with data access disabled if alignment cannot be confirmed. Edit reopens the saved target values for resuming; invitation/recovery/lifecycle actions remain blocked until completion. A known rejected Auth email change can restore the original canonical values when Auth still owns the old address. Timeouts are reconciled against Auth before deciding to resume/restore. Network calls are bounded to remain within the registration lease. Completion revalidates Auth/profile alignment, restores only the previous membership state and enqueues another mirror revision. The worker retries Airtable independently, and the list shows pending mirror updates.
-
-Run `npm run test:admin` for editing, ownership, duplicate/confirmation checks, failure reconciliation and revoked access-link sessions. `supabase/tests/partner_profile_edit.sql` verifies the database flow with rolled-back Auth/session fixtures: stable IDs, live session validation, token/session revocation, resumability, audit and queued synchronization. No fixture credentials or account updates are committed or sent to Airtable.
-
-## Adding administrators
-
-User management includes **Add admin**. Enter name and email, confirm administrator access and share the generated password setup link. Only an Auth-verified `app_metadata.role = partner_admin` caller can invoke the `create` action on `pulsefx-user-admin`. The backend creates Auth with the role already assigned and records the inviting administrator ID in server-managed metadata. No partner registration, membership or Airtable record is created. Existing unrelated Auth accounts and partner emails cannot be promoted through this button.
-
-If link generation fails, retry Add admin with the same email using the original inviting administrator. This reuses the Auth user; confirmed accounts receive a recovery link. Banned accounts and the caller's own account cannot receive links through this flow. No email is sent automatically.
-
-Apply `20261114170000_admin_activation.sql` before deploying `pulsefx-user-admin` and the frontend. It lets the existing password setup session check accept administrators without a partner registration, while checking the live Auth role, session, current email and ban state. `supabase/tests/admin_activation.sql` validates this in a rolled-back transaction.
-
-User management has separate **Partners** and **Admins** lists, with independent account summaries, search and status filters. Admins includes all live Auth users whose server-managed role is `partner_admin`, including manually provisioned accounts. Admin details show name, email, role, Supabase ID and Auth creation date/time; partner details also retain company and Airtable ID. Timestamps use the viewer's local timezone, displayed with the time. Admin rows provide details, profile edit, invitation, password recovery, activation/deactivation and deletion. Administrator operations use Auth only; partner lifecycle actions remain scoped to partners. Apply `20261114180000_admin_user_lists.sql` before deploying the matching API/frontend. Both listing RPCs are restricted to `service_role`.
-
-
-Apply `20261114190000_admin_account_actions.sql` before deploying the matching `pulsefx-user-admin`, `partner-admin` and `partner-banking` functions. Administrator actions use a server-only lease, verify the target role, and preserve Auth IDs and unrelated metadata. Email edits require same-person confirmation and revoke sessions and links. Self deactivation/deletion is blocked; self name edits are allowed and login email changes require another administrator. A database trigger serializes checks that prevent deleting, banning or demoting the last active administrator. All administration APIs check the live Auth session so revoked sessions cannot continue managing users or approvals. Failed administrator deletion remains deactivated for safe retry. `supabase/tests/admin_account_actions.sql` validates the trigger on isolated temporary rows and the session/lease logic in a rolled-back transaction.
-
-
-## Admin payout records
-
-The administration sidebar has **Payouts** with totals (CAD), creation-date/paid-date/status filters, partner/reference/client search, CSV Download and Add payout. Administrators select a provisioned partner, enter a unique reference, optional client, positive CAD amount (up to two decimals), status and optional notes. Paid status requires a payment date/time. The admin form shows the current verified account's holder, institution name/code, transit number, full account number and currency; no transfer is initiated. Newly saved records use both Partner and Partner ID so they appear in the partner's existing Payout history.
-
-`partner-payouts?view=admin` requires an Auth-verified administrator and a live session. Pending/Failed records can be edited or cancelled; Paid and Cancelled records are read-only history. Partner and Reference stay fixed after creation. Currency is CAD; inconsistent ownership/currency is blocked. Edits compare a complete expected snapshot to reject stale writes. A server-only lease serializes portal writes; durable request IDs, actor IDs, inputs and confirmed results in `payout_admin_operations` allow identical retries to recover interrupted Airtable writes without creating another payment record. Airtable records are re-read before confirmation. Do not edit the same payouts manually in Airtable while portal writes are in progress: the portal lease cannot lock external Airtable edits.
-
-Apply `20261114200000_admin_payouts.sql`, then deploy `partner-payouts` and the matching frontend. No additional Airtable fields are required. `supabase/tests/admin_payouts.sql` validates lease, idempotency storage and permissions in a rolled-back transaction; the payout tests cover authorization, precision, ownership, state transitions, duplicate references and interrupted writes.
-
-
-The payout Partner and Client controls combine search and selection in one field. Partner options show company and email; Client options show the referred company and email. Client options load from the selected partner's reciprocal Referrals links, with actual referral ownership rechecked on reads and saves. Changing partner clears the client. Selected referral IDs are recorded in the operation intent; Airtable Client stores the company/email label without requiring a new field. Existing historical free-text clients remain unchanged unless explicitly replaced or cleared. The payout function uses the existing `AIRTABLE_REFERRALS_TABLE_ID` secret (default `Referrals_api`).
-
-
-## Edge Function boundaries
-
-- `partner-referrals`: partner referral reads and registration (GET/POST).
-- `partner-admin`: partner user registration, list, profile edit, invitations, recovery and access lifecycle.
-- `pulsefx-user-admin`: internal PulseFX administrator list, creation, profile edit, invitations, recovery and access lifecycle. Accounts remain in Auth without partner/Airtable records.
-- `partner-banking`: bank account submissions (default route), and administrator account reviews (`?view=review`). Old payout views are rejected; there are no compatibility redirects.
-- `partner-payouts`: read-only partner payment history (default route or `?view=history`), and administrator payment management (`?view=admin`). The admin view also serves scoped referral options with `partnerId`. Its verified-account summary is read-only context for registering a payment; bank submissions and approvals stay in partner-banking.
-
-Frontend requests are separated into `src/lib/referrals.js`, `src/lib/banking.js` and `src/lib/payouts.js`. Partner membership validation lives in `supabase/functions/_shared/partner-membership.mjs`; no function depends on another domain's entry point. CI runs separate `lint:payouts` / `test:payouts` and banking checks.
-
-Deploy the new `partner-payouts` and renamed `partner-referrals` functions before releasing the matching frontend, then deploy the banking function with payment logic removed. Remove the previous hosted `referrals` function; clients use `partner-referrals` directly. No database or Airtable data is renamed by this function split.
-
-
-Internal account management is served exclusively by `pulsefx-user-admin` with actions `create`, `edit`, `invite`, `recovery`, `enable`, `disable` and `delete`. Its GET response contains `admins` and `currentUserId`; `partner-admin` GET returns only `partners` and rejects the former internal-user actions. The User management screen loads its two tabs through separate clients (`pulsefxUserAdmin.js` and `partnerAdmin.js`). Existing Auth users, IDs, administrator roles and database protections are preserved. The existing permission value `partner_admin` still means access to administration; it does not create a partner relationship. Deploy `pulsefx-user-admin` first and then the reduced `partner-admin`; no compatibility routes are used and no additional migration is required for this function split.
-
-
-Payout details include the record creation date/time (with timezone), the creating administrator's verified Auth email and Supabase user UUID. `Created at` is maintained by Airtable; `Created by email` and `Created by user ID` are supplied only by the server on creation. The operation intent captures the original creator so a retry after an Auth email change retains the initial attribution. Edits/cancellations never rewrite attribution. Historical rows without an author show empty attribution; no current user is substituted. The partner-facing history does not expose these internal email/UUID fields. Create these Airtable fields before publishing the matching `partner-payouts` function.
-
-Payout cancellation accepts an optional plain-text reason (up to 2,000 characters), stored separately from Notes in `Cancellation reason`. Admin details show `Last edited at` / `Last edited by user ID` and, for cancellations, `Cancelled at` / `Cancelled by user ID` / `Cancellation reason`. These timestamps are server-generated Date fields with time, not Airtable automatic Last modified fields. Cancellation preserves the previous edit and creation attribution. Audit snapshots are persisted with the request intent so retries preserve the first timestamp and actor. Optimistic edit checks include the prior edit metadata to reject stale/no-op snapshots. Create these Airtable fields before deployment; no Supabase migration is needed.
-
-
-`Last edited by email` (Email) records the authenticated editor's email alongside the edit timestamp and UUID. Creation/editor emails are historical snapshots: changing an Auth login email does not rewrite earlier payout rows. The UUID remains the stable identity, and request retries reuse the captured email. Create this additional Airtable field before deployment.
-
-
-`Cancelled by email` (Email) records the authenticated cancelling user's email at the time of cancellation. It is displayed with the cancellation timestamp, reason and UUID in admin details, stored in Payouts_api, and preserved on retries even when the user's login email changes. It is not returned in partner-facing history. Create this Airtable field before publishing the matching backend.
-
-
-Partner Payout history has CAD indicator cards for total paid, pending and paid this month, using the entire account history like the admin screen. Table filters cover reference/client search, status, creation dates and paid dates; Clear filters also resets partially entered native date controls. The table and CSV include Created at independently of Paid at. Download exports only displayed rows and omits Notes and internal audit metadata. Creation time comes from the Airtable Created at field, with the original record createdTime as a fallback; historical dates are not estimated. Amounts are summed in cents, and CAD cards exclude non-CAD records.
-
-Payout text visibility is controlled by `Show notes to partner` and `Show cancellation reason to partner` (Airtable checkboxes). Both default to unchecked. Administrators retain the full text; the partner API omits each text property unless its flag is explicitly true. Cancellation preserves the independent Notes setting.
-
-Banking reviews use `Show approval reason to partner` (Checkbox, unchecked by default) and separate `Approved at`, `Approved by user ID`, `Approved by email`, `Rejected at`, `Rejected by user ID`, and `Rejected by email` fields. The backend derives audit values from Auth and server time; only admins receive reviewer identities. Partner responses omit hidden review notes.
-
-Banking submissions support optional `Partner Comments` (plain long text, up to 2,000 characters). Each comment belongs to its submission and is shown in partner history and admin review. It remains separate from staff Approval reason and is included in retry consistency checks.
-
-Bank rejection reasons use separate `Rejection reason` and `Show rejection reason to partner` fields. Approval writes only Approval reason and its visibility; rejection writes only Rejection reason and its visibility. Partner responses never expose legacy rejected Approval reason as approval notes.
-
-Airtable-backed date filtering and timestamp displays use `America/Toronto` consistently across admin and partner views, including EST/EDT daylight saving transitions. Filters use the original event timestamp to derive its Toronto calendar day and include whole days. Calendar Today and monthly payout indicators follow Toronto time regardless of browser timezone. Date-only fields keep their supplied calendar date. Underlying timestamps and CSV values remain unchanged. The Airtable UI timezone was not read from metadata; the English setup instructions specify America/Toronto so field displays can match the portal.
-
-### Partner Help & support
-
-`partner-support` accepts authenticated POST requests containing only `subject` (1–200 characters) and `message` (1–10,000 characters). It verifies the live Auth user and active partner membership through RLS, reads the partner's Contact (or Name) from Airtable, and fills requester IDs, current Auth email, Source=`Partner`, and Status=`Received` on the server. Administrators do not have this menu or an active partner membership by virtue of their admin role.
-
-Configure `AIRTABLE_SUPPORT_TABLE_ID` (currently `tblDf8Yt2cSMHPoSl`) in the same base as the existing `AIRTABLE_BASE_ID`; the function reuses `AIRTABLE_TOKEN` and optional `AIRTABLE_PARTNERS_TABLE_ID`. The Airtable token needs record read/write access to the support table. Required fields are `Partner Airtable ID` (text), `Supabase user ID` (text), `Client name` (text), `Email` (email), `Source` (single select with Partner), `Subject` (text), `Message` (plain long text), and `Status` (single select with Received, Responded, Ignored). Airtable supplies `Created at` (created time), `Support number` (autonumber), `Support ID` (primary formula), and `Airtable record ID` (`RECORD_ID()`). Use `"SUP-" & RIGHT("000000" & {Support number}, MAX(6, LEN({Support number} & "")))` for the Support ID formula. Display dates in America/Toronto.
-
-Future response fields are `Responded by user ID`, `Responded by name`, `Responded by email`, `Response`, and `Responded at`. This function leaves them untouched and does not integrate Slack. It returns only the generated Support ID and status after a successful Airtable write. Demo submissions never call the API. Network failures after a write attempt produce an uncertain result and disable resubmission in that form to avoid accidental duplicates; no automatic retries are made. There is no durable cross-session idempotency guarantee.
-
-Deploy separately with `supabase functions deploy partner-support --remote=YOUR_PROJECT_REF --use-api`. The frontend must also be deployed to enable the live form. Run `npm run lint:support` and `npm run test:support` for the backend checks, alongside `lint:referrals` for the partner portal.
-
-
-### Admin Documents
-
-The Documents administration screen manages Brand assets and Partner guide through
-`pulsefx-documents`. The function verifies the live Auth user, `partner_admin` role,
-and active administrator session before reading or writing either Airtable table.
-It reuses AIRTABLE_BASE_ID, AIRTABLE_TOKEN, AIRTABLE_BRAND_ASSETS_TABLE_ID and
-AIRTABLE_ONE_PAGERS_TABLE_ID. The Airtable token needs read/write access to both tables.
-
-Both tables require Name (text), File (attachment), Visible to partner and Deleted
-(checkboxes), Created at (created time), Created by user ID (text), Created by email
-(email), and Replaced/Deleted at (date with time), Replaced/Deleted by user ID (text),
-and Replaced/Deleted by email (email). Audit identities and event timestamps come
-from the server, never from browser input. Historical audit values remain empty.
-Created at is supplied by Airtable. Replacements preserve names, visibility and
-creation audit. Soft deletion only patches Deleted and deletion audit; records and
-attachments are retained. The admin table has an archive toggle for deleted rows.
-
-Visible to partner is now the canonical visibility field for both partner APIs.
-Active and Published are no longer used. Migrate their original values to Visible
-to partner before deploying the partner reader functions. A document is shown to
-partners only when Visible to partner is checked and Deleted is unchecked.
-
-Uploads support PDF, PNG/JPG, static SVG, WebP/GIF, Office Open XML, TXT/CSV and ZIP,
-up to 5 MB. Previews support images and PDF; other types offer download. Uploads
-are staged in the private Supabase Storage bucket `document-upload-staging`, created
-by the service on first upload, without public access policies. A one-hour signed
-URL lets Airtable ingest the file. The final Airtable write replaces the attachment
-and its audit together; confirmed ingestions remove the temporary object. Failed
-or uncertain ingestions may retain private staging objects for operator cleanup;
-signed URLs expire after an hour. Storage bucket administration requires the
-existing service role secret; neither that secret nor Airtable credentials reach
-the browser.
-
-Mutation requests are not automatically retried. An uncertain response disables
-further changes in that section until a successful refresh. Stale file/visibility
-snapshots are rejected, but Airtable does not provide transactional compare-and-set;
-simultaneous writes from other sessions or Airtable can still race. There is no
-cross-session idempotency guarantee for creating documents. Verify the list before
-retrying a timed-out creation. No file write is attempted if staging fails.
-
-Run `npm run lint:documents` and `npm run test:documents`, plus the frontend build.
-Deploy pulsefx-documents, pulsefx-brand-assets and pulsefx-one-pagers separately,
-then publish the frontend through the existing workflow.
-
-
-The Documents Edit action updates the Airtable Name and/or the attachment filename.
-It preserves the file extension and uses the attachment URL freshly read by the
-server when re-ingesting a renamed attachment. A title-only change leaves File
-untouched. Renames preserve visibility, record ID and creation/replacement/deletion
-audit history. Snapshots include both display name and attachment filename to
-reject stale edits. No additional Airtable fields are required.
-
-
-Documents includes Last updated and Deleted at columns for both active and archived
-rows. Configure `Last updated at` in both Airtable document tables as Last modified
-time, with date/time, watching only Name and File (not all fields). Airtable updates
-it on creation, title/filename edits and file replacement, including direct Airtable
-changes. Visibility and soft deletion do not rewrite this content timestamp. The
-function reads the automatic value without writing it or estimating missing history.
-Deleted at continues to use the existing server-supplied deletion audit field.
-Show both fields in America/Toronto. Before the new field exists, Last updated shows
-an em dash and other document operations keep working.
-
-
-Last updated audit also requires `Last updated by user ID` (single line text) and
-`Last updated by email` (Email) in both document tables. Create these before deploying
-the updated pulsefx-documents function. The backend writes the authenticated actor
-on document creation, title/attachment-name edits and file replacement; visibility
-and deletion preserve that identity. The automatic Last updated at field remains
-read-only. Historical actor fields stay empty. Direct edits in Airtable cannot
-capture a Supabase identity and should not be attributed to the current portal reader.
-
-### Partner login password recovery via Airtable
-
-`Forgot password?` opens `PasswordRecoveryModal` and pre-fills the login email. The public `partner-password-recovery` function verifies the partner registration, Auth identity and enabled membership, generates the same private recovery URL used by administration, and queues it in Airtable. The browser receives only a generic acknowledgement. Requests for the same account within five minutes are deduplicated using `Requested at`; the registration lock serializes link generation with account administration. Failed/ambiguous writes are not automatically retried.
-
-Configure `AIRTABLE_RECOVERY_TABLE_ID` with the new table ID. The function also uses the existing `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `AIRTABLE_TOKEN`, `AIRTABLE_BASE_ID` and `PORTAL_URL` secrets. The Airtable token must have record access to this table. Deploy `partner-password-recovery` separately after configuring the table and secrets.
-
-Required Airtable fields (exact names): `Email` (email), `Recovery link` (URL), `Requested at` (date/time), `Supabase user ID` (single-line text), `Partner Airtable ID` (single-line text), `Source` (single select: `Partner Login Page`), `Status` (single select: `Pending`, `Sent`, `Failed`). Optional operational fields: `Request ID` (autonumber primary), `Sent at` (date/time), `Error` (long text). The automation should trigger only when Status is Pending and both Email and Recovery link are populated, send the link to that record's Email, and set Status to Sent and Sent at after success. Recovery links are credentials: restrict table access to the operational team and avoid public views. Supabase controls link expiry. Requests for unknown partner emails are recorded with Status `Account not found`; inactive or ineligible accounts use `Account inactive`. Both include an explanatory `Error`, leave `Recovery link` empty, and return the same generic acknowledgement as eligible requests. The recovery Status field must include these two options.
-
-Validation: `node --test supabase/functions/partner-password-recovery/*.test.mjs`.
-
-### Add Partner invitation emails
-
-The Add Partner action queues the private invitation URL in a separate Airtable table and returns `{ partner, emailQueued: true }`, without returning the credential to the browser. Set `AIRTABLE_PARTNER_INVITATIONS_TABLE_ID` to `Partner_invitations_api` before deploying `partner-invitations`. Add Partner calls this dedicated endpoint; `partner-admin` retains account administration and no longer accepts creation requests. The two handlers reuse account provisioning, session validation and locking code. The existing Airtable token needs read/write access to that table. Missing configuration fails before partner creation.
-
-Required fields: `Portal ID` (single-line text, primary/upsert key), `Partner name` (single-line text), `Contact name` (single-line text), `Email` (email), `Invitation link` (URL), `Requested at` (date/time), `Supabase user ID` (single-line text), `Partner Airtable ID` (single-line text), `Status` (single select: Pending, Sent, Failed). Optional: `Sent at` (date/time), `Error` (long text). Trigger the invitation automation when Status is Pending and Email and Invitation link are populated. Send only to the record's Email and mark Sent only after successful delivery. Do not use the password recovery automation for invitation records. Existing manual invitation/recovery actions remain available in the administrator Actions menu.
-
-### Brand Kit timestamps
-
-`partner-brand-kit` exposes `kit.createdAt`, `kit.updatedAt` and `uploadedAt` on each existing asset. In `Brand_kit_api`, add `Created at` (Created time), `Updated at` (Last modified time watching only Brand logo, Brand headshot and Brand description), `Logo uploaded at` (Last modified time watching only Brand logo) and `Headshot uploaded at` (Last modified time watching only Brand headshot). Enable time and use the same timezone for all collaborators. These are computed fields; the API never writes them. Upload dates describe the current attachment, including replacements. Staging changes must not update the content timestamps. Missing date fields return null; record createdTime is used as a fallback for createdAt.
-
-### Admin referral follow-up
-
-Administrators can open **Referral follow-up** (`/partner/admin-referrals`), search/filter referrals by partner and status, review the same details/progress shown to partners, and save any of the six existing onboarding statuses. Partner accounts retain read/create-only access. The server verifies the Auth user, `partner_admin` role and active admin session before reading all referrals or modifying a status; actor ID/email always come from verified Auth, never request data.
-
-The Airtable fields and Supabase follow-up lock schema have been configured in the connected project, and `partner-referrals` has been deployed. Local migration files have been removed; this repository does not currently provide a fresh-database bootstrap. Existing Airtable secrets/table IDs remain in use; the function now also needs the Supabase service-role key (server only). Status and `Last modified by user ID` / `Last modified by email` are patched together. Airtable maintains `Last modified` automatically; no write is made to this computed column. New audit columns may be empty on older records and initial partner submissions.
-
-Writes use a server-only per-record lease and check the expected status/timestamp after acquiring it. A stale screen receives a conflict and must refresh. Unchanged statuses do not update attribution or timestamps. These fields describe the most recent modifier, not a complete movement history. Airtable edits outside this endpoint are not covered by its lease.
-
-### Account audit details
-
-User details in both administration tabs show Created by, and, for deactivated accounts, Deactivated at / Deactivated by. Partners read/write the existing Airtable Partners fields `Created by email` (Email), `Deactivated at` (Date with time), and `Deactivated by email` (Email). Only verified administration handlers write these values, using the verified caller's email and a server-generated timestamp. The sync worker leaves these three fields untouched. Internal admins have no Airtable partner record; their snapshots use server-managed Auth app metadata.
-
-Missing historical information displays an em dash; no dates or actors are inferred. Reactivation clears the current deactivation snapshot while creation attribution is retained. These are current-state snapshots, not a full event history. Incomplete partner registrations without an Airtable record cannot record deactivation details there.
-
-Create the three Airtable fields, then deploy `partner-admin`, `partner-invitations` and `pulsefx-user-admin` with their shared account-audit module before deploying the matching frontend. No new Supabase table or database migration is required.
-
-## Password setup completion
-
-The existing Supabase database tracks password setup through the server-owned `portal_password_setup` table and the `track_portal_password_setup()` and `portal_password_is_set()` functions. New Auth accounts remain awaiting activation when an invitation is opened, even if Auth already contains a generated password hash. Saving a password after confirmation completes setup in the same database transaction. The partner list, administrator list and Airtable snapshots use that completion record. Password reset continues to work without a second frontend activation request, and existing Auth sync triggers enqueue status updates.
-
-Accounts created before this change retain their previous activation rule because their password completion history is unavailable. Reported false activations require individual review; Walmart was explicitly marked awaiting activation and its Airtable sync completed. No password hashes or completion records are exposed to browser roles. `supabase/tests/password_setup.sql` checks invitation opening with a generated hash, metadata spoofing, password completion and recovery in a rolled-back transaction against the configured database. Database changes are applied directly; this repository does not keep a local migrations directory or a fresh-database bootstrap.
-
-## Public partner referral form
-
-Home shows each partner’s unique public referral URL, persisted in the partners table. Public submissions use the existing modal, save intake details in referrals_form_api, and create linked referrals_api records with Source = Referral Link. Source is shown as plain text in both referral lists and the detail modal; extra form fields appear only in the detail modal. Add a client assigns Source = Partner Portal. Configure AIRTABLE_REFERRAL_FORM_TABLE_ID on both functions, PARTNER_REFERRAL_LINK_SECRET and PORTAL_URL, and apply the submission-gate migration before deployment.
+Set repository Pages publishing to **GitHub Actions**. Non-PR builds reject missing public configuration before artifact publication. The `deploy` job uses the `github-pages` environment and publishes `dist/`.
+
+`npm run deploy` remains a legacy alternative that runs the build and publishes `dist/` through `gh-pages`; use it only when intentionally using branch-based Pages publishing. Choose one delivery method and align the base path with its URL. Neither method deploys the backend.
+
+## Operations and troubleshooting
+
+| Symptom | Checks / next step |
+| --- | --- |
+| Partner sign-in is not configured | Set both frontend variables, restart Vite or rebuild the deployed site |
+| Credentials work but access is denied | Verify enabled membership, correct Airtable `rec...` ID, live session/current email and account ban state |
+| Administration menu is missing | Verify the trusted Auth app role; changing user metadata/email is insufficient |
+| Function reports missing configuration | Check the target project's server secrets and matching Airtable table IDs |
+| API fails after an Airtable schema change | Check exact names, field types, select choices, links and PAT table permissions |
+| Public referral URL is invalid | Check stored `Referral URL`, canonical `PORTAL_URL`, enabled membership and signing secret; changing the secret invalidates old signatures |
+| Referral submission result is uncertain | Inspect intake and referral tables before retrying; a form may exist without its referral |
+| Partner status mirror is pending | Inspect `partner_airtable_sync`, worker secrets, Vault/project URL, cron/dispatch and Airtable permissions |
+| Account edit remains pending | Resume/reconcile through Edit; access stays disabled until identity alignment is confirmed |
+| Banking/payout write is unconfirmed | Refresh and inspect saved state; preserve the same operation intent where retry recovery is supported |
+| Documents are missing for partners | Check `Visible to partner`, `Deleted`, table configuration and fresh attachment URLs |
+| Invitation/reset acknowledgement arrives but no email | Inspect the appropriate queue and automation status/error; acknowledgement does not prove delivery |
+| Deep-link reload or assets fail | Align Vite base, 404 base, static paths, host fallback and canonical URL |
+
+An authorized database operator can inspect pending synchronization state and invoke `select public.dispatch_partner_airtable_sync()` to dispatch due work. Keep sync credentials, Auth links and full bank details out of logs and screenshots. Clean up retained private document staging objects after investigating failed ingestions.
+
+For writes without durable idempotency, inspect persisted state after a timeout before submitting again. Per-record/per-partner portal leases do not lock direct Airtable edits. Missing historical audit values display as unavailable rather than being attributed to the current user.
+
+## Scope and limitations
+
+- The client portal and public partner demo use sample business data and in-memory edits that reset on reload. CSV exports work, but simulated actions do not execute financial operations.
+- The client exchange-rate hook in [`src/lib/fx.js`](src/lib/fx.js) reads daily Frankfurter reference rates, refreshes periodically and labels unavailable/stale/sample data. It is not an executable trading quote.
+- Client fees, finance thresholds, holidays, deposit rules, forward contracts and financing calculations are demonstration assumptions pending business confirmation.
+- Authenticated partner features use real APIs and show real empty/error states rather than silently substituting sample records.
+- There is no distributed transaction spanning Supabase and Airtable. Recovery guarantees differ by feature; support and document creation do not have durable cross-session idempotency.
+- Invitation/recovery email delivery and responses to support requests require operational processes outside these intake handlers.
+- Complete database bootstrap/migration history is absent. Local source inspection cannot establish the state of deployed functions, database policies, host settings or Airtable automations.
